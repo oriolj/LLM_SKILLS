@@ -13,6 +13,43 @@ curl -s https://example.com/some-page \
 Confirms `<title>`, `<meta description>`, canonical, OpenGraph tags,
 and at least one JSON-LD block are present.
 
+## Identical descriptions across pages
+
+Most-skipped audit. Walk a representative URL list, print each page's
+`<meta description>` next to its path, eyeball for near-duplicates:
+
+```bash
+for url in \
+  https://example.com/ \
+  https://example.com/products/ \
+  https://example.com/blog/ \
+  https://example.com/about/ \
+  https://example.com/contact/ ; do
+    printf '%-50s ' "$url"
+    curl -s "$url" \
+      | grep -oP '(?<=<meta name="description" content=")[^"]+' \
+      | head -1
+done
+```
+
+If two or more rows resolve to the same string (a site-wide
+tagline, "Welcome to {Site}" boilerplate, etc.), Google is
+overriding them with scraped page content on the dupes — usually
+the footer or contact block. Fix the description generator before
+debugging the snippet. See SKILL.md "Composition / CMS pages" for
+the derive-from-blocks pattern when pages have no description
+field in the data model.
+
+Bonus check: count the description tags on a single page —
+`<meta name="description">` should appear exactly once. If a base
+layout AND an OG component both emit one, you'll see two:
+
+```bash
+curl -s https://example.com/some-page \
+  | grep -c '<meta name="description"'
+# Expect: 1
+```
+
 ## robots.txt + sitemap
 
 ```bash

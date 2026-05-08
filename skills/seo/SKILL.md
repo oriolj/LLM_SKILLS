@@ -55,8 +55,16 @@ Reference files in `references/` — load on demand:
 In priority order:
 
 1. **Unique `<title>` per page** — pattern `"<specific> - <site name>"`.
-2. **`<meta name="description">`** per page, ≤160 chars. Page-specific
-   on detail pages; site-wide fallback on listings is fine.
+2. **`<meta name="description">`** per page, ≤160 chars, **distinct
+   per page**. The single most-skipped piece of SEO. When N pages
+   share a near-identical description — usually because a base
+   layout supplies one site-wide fallback that uncustomized pages
+   inherit — Google ignores the meta and *synthesizes* the snippet
+   from page text, typically the first long run of words below the
+   title. On most sites that's the footer or contact block, so
+   every page snippets as the contact line. See **Case study: when
+   Google ignores your meta description** below the list, and
+   **Composition / CMS pages** for the derive-from-blocks fix.
 3. **`<link rel="canonical">`** per page, absolute URL. Same string
    appears in `og:url`, sitemap `<loc>`, RSS `<link>`, JSON-LD
    `url`/`mainEntityOfPage`. One source of truth.
@@ -73,6 +81,111 @@ In priority order:
     one of the three Core Web Vitals). For responsive images, set the
     *intrinsic* ratio, not viewport units. Details + 2026 LCP/INP/CLS
     thresholds in `references/core-web-vitals.md`.
+
+### Case study: when Google ignores your meta description
+
+Real Google SERP for a multitenant radio site where five pages all
+inherited the same site-wide fallback `<meta description>`:
+
+> **Ràdio Desvern: Inici** — `https://www.radiodesvern.com`
+> emissora@radiodesvern.com. Tel 933723661. Instagram. Ràdio
+> Desvern. emissora@radiodesvern.com +34610777015 Can Ginestar,
+> Sant Just Desvern, 08960 Barcelona ...
+>
+> - **Podcasts** — "Descobreix tots els podcasts i programes de
+>   ràdio disponibles ..."  ✅ unique meta, used as snippet
+> - **Entrevistes en Video** — "emissora@radiodesvern.com
+>   +34610777015 Can Ginestar ..."  ❌ footer scraped
+> - **Notícies** — "emissora@radiodesvern.com +34610777015 Can
+>   Ginestar ..."  ❌ footer scraped
+> - **La Rambla** — "emissora@radiodesvern.com +34610777015 Can
+>   Ginestar ..."  ❌ footer scraped
+> - **Història** — "emissora@radiodesvern.com +34610777015 Can
+>   Ginestar ..."  ❌ footer scraped
+
+Only `/podcasts/` had a hand-written description. Every other page
+fell back to `${siteName} — ${tagline}` (the same string verbatim)
+and Google replaced it with the first long block of visible text
+on each page — the site footer's contact line. The fix isn't to
+nuke the fallback, it's to **derive a page-specific description
+for every page**, including CMS-composed pages with no per-page
+description in the data model. See **Composition / CMS pages**
+below.
+
+## Composition / CMS pages
+
+Pages composed from a CMS or page-builder (modular pages, hub
+pages, dashboards) often have no per-page description in the data
+model — the user only sets a name and drops in content blocks.
+Don't fall back to a site-wide tagline (see case study above):
+**derive a description from the blocks actually rendered on this
+page**.
+
+Pattern: enumerate the page's blocks, map each block type to a
+short localized noun, dedupe, join with a localized connector,
+prefix with `<page name> on <site name>:`.
+
+```ts
+const BLOCK_LABEL: Record<BlockType, TranslationKey> = {
+  PodcastBlock: 'moduleLabel.podcasts',
+  NewsBlock:    'moduleLabel.news',
+  GalleryBlock: 'moduleLabel.gallery',
+  AgendaBlock:  'moduleLabel.agenda',
+  WeatherBlock: 'moduleLabel.weather',
+  // ...
+};
+
+const CONNECTOR: Record<Lang, string> = {
+  en: 'and', es: 'y', fr: 'et', ca: 'i', de: 'und', pt: 'e', it: 'e',
+};
+
+function joinLocalized(items: string[], lang: Lang): string {
+  if (items.length <= 1) return items[0] ?? '';
+  const conn = CONNECTOR[lang] ?? CONNECTOR.en;
+  if (items.length === 2) return `${items[0]} ${conn} ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')} ${conn} ${items.at(-1)}`;
+}
+
+export function buildPageDescription(
+  page: { name: string },
+  site: { name: string },
+  blocks: { type: BlockType; visible: boolean }[],
+  lang: Lang,
+): string {
+  const labels = [...new Set(
+    blocks
+      .filter(b => b.visible)              // honour the renderer's visibility
+      .map(b => BLOCK_LABEL[b.type])
+      .filter(Boolean)
+      .map(k => t(k, lang)),
+  )];
+  if (!labels.length) {
+    return t('og.discoverPage', lang, { page: page.name, site: site.name });
+  }
+  return t('og.modularPageWithContents', lang, {
+    page: page.name,
+    site: site.name,
+    contents: joinLocalized(labels, lang),
+  });
+}
+```
+
+Output examples (real, from the case-study site after the fix):
+
+- `"Inici a Ràdio Desvern: notícies, podcasts, vídeos, el temps i galeria."`
+- `"Història on Ràdio Desvern: gallery and podcasts."`
+
+Distinct per page, factual, surfaces what the page actually
+contains. Honour the same `show_on_desktop / show_on_mobile`
+visibility flags the renderer uses, so blocks hidden from viewers
+don't appear in the description. When no blocks have a mapped
+label, fall through to a per-page-name fallback (`og.discoverPage`)
+— don't emit nothing.
+
+The same helper works for the homepage when the homepage is itself
+a composed page. While you're there, also wire `og:image` from the
+page's cover field — without it, social previews fall back to the
+site logo.
 
 ## Canonical host strategy (multitenant / preview domains)
 
@@ -214,6 +327,16 @@ Emit on every share-worthy page.
   LinkedIn fall back to tiny thumbnails otherwise.
 - **Articles also emit** `article:published_time`, `article:modified_time`,
   `article:author`, `article:tag`.
+- **Don't emit `<meta name="description">` from both your base
+  layout and your OG component.** Two identical tags per page is a
+  symptom of split ownership: layout author thought they owned the
+  basic description, OG author added a "fallback" copy of the same
+  thing. Pick one — `<meta name="description">` belongs in the
+  layout (or whichever component owns `<head>` baseline); the OG
+  component should only emit `og:*` and `twitter:*`. Easy to miss
+  because both tags resolve to the same string in the common case;
+  only diverges when one path passes `description` but not
+  `ogDescription` or vice versa, leaving inconsistent dupes.
 
 ## JSON-LD structured data
 
