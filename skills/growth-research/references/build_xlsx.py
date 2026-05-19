@@ -82,6 +82,53 @@ TOPICS = {
             ("partner_program_or_contact", "Partner program / contact"),
         ],
     },
+    "influencers": {
+        "fields": [
+            ("category", "Category"),
+            ("name", "Name"),
+            ("handle", "Handle"),
+            ("url", "URL"),
+            ("audience_size", "Audience size"),
+            ("audience_description", "Audience"),
+            ("fit", "Fit"),
+            ("geography", "Geography"),
+            ("engagement_angle", "Engagement angle"),
+            ("contact_path", "Contact path"),
+        ],
+    },
+    "competitor_intel": {
+        "fields": [
+            ("category", "Category"),
+            ("name", "Name"),
+            ("url", "URL"),
+            ("founded_year", "Founded"),
+            ("hq_country", "HQ country"),
+            ("employees_approx", "Employees"),
+            ("revenue_or_funding", "Revenue / funding"),
+            ("pricing_snapshot", "Pricing snapshot"),
+            ("key_features", "Key features"),
+            ("notable_customers", "Notable customers"),
+            ("strengths", "Strengths"),
+            ("weaknesses_to_exploit", "Weaknesses to exploit"),
+            ("threat_level", "Threat level"),
+        ],
+    },
+    "regulatory": {
+        "fields": [
+            ("category", "Category"),
+            ("jurisdiction", "Jurisdiction"),
+            ("regulation_name", "Regulation"),
+            ("effective_date", "Effective date"),
+            ("status", "Status"),
+            ("url", "URL"),
+            ("summary", "Summary"),
+            ("relevance_to_product", "Relevance"),
+            ("compliance_burden_on", "Burden on"),
+            ("sales_angle", "Sales angle"),
+            ("risk_to_us", "Risk to us"),
+            ("notes", "Notes"),
+        ],
+    },
 }
 
 
