@@ -60,6 +60,8 @@ End with:
 
 The JSON must include **every outlet from the markdown**, with matching values. Don't skip any.
 
+**JSON formatting**: Use literal `&`, `<`, `>` characters inside JSON string values. Do NOT use HTML entities like `&amp;`, `&lt;`, `&gt;` — JSON has no HTML escapes, so those would appear verbatim in downstream spreadsheets. The JSON block must be valid `json.loads()`-parsable, with the intended characters appearing as-is.
+
 **Do not write files.** Return both artefacts in your final message — the caller will persist them.
 
 Be specific. ~1500–2500 words of markdown is fine.

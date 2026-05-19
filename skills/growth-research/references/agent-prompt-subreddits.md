@@ -58,6 +58,8 @@ End with a "Cross-cutting notes" section (e.g. Reddit Ads targeting tips, postin
 
 The JSON must include **every row from the markdown tables**, with matching values. Don't skip any.
 
+**JSON formatting**: Use literal `&`, `<`, `>` characters inside JSON string values. Do NOT use HTML entities like `&amp;`, `&lt;`, `&gt;` — JSON has no HTML escapes, so those would appear verbatim in downstream spreadsheets. The JSON block must be valid `json.loads()`-parsable, with the intended characters appearing as-is.
+
 **Do not write files.** Return both artefacts in your final message — the caller will persist them.
 
 Be specific. No filler. Roughly 1500–2500 words of markdown is fine; the JSON should be as long as it needs to be to cover every entry.

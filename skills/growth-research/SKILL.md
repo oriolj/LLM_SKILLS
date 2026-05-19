@@ -49,14 +49,17 @@ If unsure between three close options (e.g. is this regulated enough to warrant 
 
 ### Step 3 — Scaffold the repo
 
-Working directory should be empty or near-empty. Create:
+If the workdir **already exists** with prior slices from an earlier run, switch to the incremental procedure in `references/running-incrementally.md` instead of scaffolding fresh.
+
+For a greenfield workdir, create:
 
 ```
 <workdir>/
-├── README.md            ← product overview + repo layout
-├── CLAUDE.md            ← session instructions for future Claude sessions
+├── README.md                    ← product overview + repo layout
+├── CLAUDE.md                    ← session instructions for future Claude sessions
 ├── scripts/
-│   └── build_xlsx.py    ← copy from this skill's references/
+│   ├── build_xlsx.py            ← copy from references/
+│   └── persist_agent_output.py  ← copy from references/
 └── research/
     ├── subreddits/
     ├── magazines/
@@ -102,12 +105,19 @@ The agent's final message must contain both, clearly separated by fenced code bl
 
 ### Step 5 — Persist each agent's output
 
-When an agent completes (you'll be notified via task-notification), extract:
+When an agent completes (you'll be notified via task-notification), persist its output to the workdir.
 
-- The markdown → write to `research/<topic>/<topic>.md`.
-- The JSON → write to `research/<topic>/<topic>.json`.
+**Use the helper** (copy `references/persist_agent_output.py` into `<workdir>/scripts/persist_agent_output.py` once during scaffolding). It splits the agent's transcript into markdown + JSON, cleans HTML entities the agent emits by mistake (`&amp;`, `&lt;`, `&gt;` — these break spreadsheet cells if left as-is), validates the JSON parses, and writes both files:
+
+```bash
+python3 scripts/persist_agent_output.py <topic> --from /tmp/agent_output.txt
+# or pipe stdin:
+python3 scripts/persist_agent_output.py <topic> < /tmp/agent_output.txt
+```
 
 Do this for each topic as it arrives. Don't wait for all of them; persist as they come in.
+
+Manual fallback if the helper isn't usable: extract the markdown → `research/<topic>/<topic>.md` and the JSON array → `research/<topic>/<topic>.json` yourself, and run the regex `s/&amp;/&/g`, `s/&lt;/</g`, `s/&gt;/>/g` over both files before saving.
 
 ### Step 6 — Build the xlsx files
 
@@ -177,5 +187,7 @@ Load on demand:
 - `references/readme-template.md` — workdir `README.md` template.
 - `references/claude-md-template.md` — workdir `CLAUDE.md` template.
 - `references/growth-research-template.md` — top-level summary template with the top-12 frame.
-- `references/build_xlsx.py` — copy this into `<workdir>/scripts/build_xlsx.py`. Knows about all 7 topics.
+- `references/build_xlsx.py` — copy into `<workdir>/scripts/build_xlsx.py`. Knows about all 7 topics; skips topics without a JSON file.
+- `references/persist_agent_output.py` — copy into `<workdir>/scripts/persist_agent_output.py`. Splits agent transcripts into md + json, cleans HTML entities, validates JSON.
 - `references/json-schemas.md` — the JSON row schema each agent must return.
+- `references/running-incrementally.md` — procedure for adding slices to an existing workdir or refreshing a stale slice; load when the workdir already has prior research in it.
