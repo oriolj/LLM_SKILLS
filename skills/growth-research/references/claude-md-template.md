@@ -29,11 +29,11 @@ When asked to "find places to advertise" or "find partners," **always ask which 
 1. Open the relevant `research/<topic>/<topic>.md` file.
 2. Append the new entry to the appropriate section, with URL + tags + a one-line "why this matters".
 3. Mirror the entry into `research/<topic>/<topic>.json`.
-4. Re-run `python3 scripts/build_xlsx.py` from the repo root to regenerate the xlsx.
+4. Re-run `python3 scripts/build_xlsx.py` and `python3 scripts/build_html.py` from the repo root to regenerate the xlsx and the HTML explorer.
 5. Update `GROWTH_RESEARCH.md` summary if the finding changes recommended priorities.
 6. Commit with a descriptive message (`research: add 12 EU community radio federations`).
 
-The markdown is the source of truth; the JSON is the structured mirror; the xlsx is regenerated from JSON.
+The markdown is the source of truth; the JSON is the structured mirror; the xlsx and html/ are regenerated from JSON.
 
 ## Verifying facts
 
