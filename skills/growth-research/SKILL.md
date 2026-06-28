@@ -172,7 +172,7 @@ python3 -m venv /tmp/pdfvenv && /tmp/pdfvenv/bin/pip install weasyprint markdown
 /tmp/pdfvenv/bin/python scripts/build_pdf.py
 ```
 
-To translate the deck (e.g. a Spanish edition), translate the `research/<topic>/<topic>.md` files + `GROWTH_RESEARCH.md` into a copy of the repo and re-run `build_pdf.py` there — the script is language-agnostic.
+**Optional language editions.** To ship the deck in another language (the user asks "make a Spanish copy", "traduce esto", "German edition", …), mirror the repo into `<workdir>-<lang>/`, translate the markdown there, drop a `pdf.config.json` to localize the PDF chrome (chapter titles, cover, "Contents"/"Chapter", footer, month names), and re-run `build_pdf.py` — **no script edits**, it merges the config over the English defaults. Full workflow, the translation-agent prompt template, and the gotchas (entity over-escaping, nested code fences, what NOT to translate) are in `references/translating-the-deck.md`.
 
 ### Step 7 — Write `GROWTH_RESEARCH.md`
 
@@ -233,7 +233,8 @@ Load on demand:
 - `references/growth-research-template.md` — top-level summary template with the top-12 frame.
 - `references/build_xlsx.py` — copy into `<workdir>/scripts/build_xlsx.py`. Knows about all 8 topics; skips topics without a JSON file.
 - `references/build_html.py` — copy into `<workdir>/scripts/build_html.py`. Generates `html/index.html` + `html/<topic>.html` from the JSONs — interactive explorer with filters, sortable tables, and Chart.js graphs. Self-contained, no build step, opens via double-click.
-- `references/build_pdf.py` — copy into `<workdir>/scripts/build_pdf.py`. Assembles `GROWTH_RESEARCH.md` + every slice's markdown into one polished, indexed PDF (cover, page-numbered TOC, per-chapter pages, portrait/landscape, styled tables). Run last (after Step 7). Needs `weasyprint` + `markdown`; language-agnostic (translate the markdown + re-run for other-language editions).
+- `references/build_pdf.py` — copy into `<workdir>/scripts/build_pdf.py`. Assembles `GROWTH_RESEARCH.md` + every slice's markdown into one polished, indexed PDF (cover, page-numbered TOC, per-chapter pages, portrait/landscape, styled tables). Run last (after Step 7). Needs `weasyprint` + `markdown`. Reads an optional `pdf.config.json` for language/i18n overrides (chapter titles, cover/footer strings, months) — no code edits per language.
+- `references/translating-the-deck.md` — workflow for an other-language edition: mirror the repo, fan out one translation agent per markdown file, persist (extract fenced block + clean HTML entities), drop a `pdf.config.json`, re-run `build_pdf.py`. Includes the translation-agent prompt template and lessons learned. Load when the user asks for the deck/PDF in another language.
 - `references/persist_agent_output.py` — copy into `<workdir>/scripts/persist_agent_output.py`. Splits agent transcripts into md + json, cleans HTML entities, validates JSON.
 - `references/json-schemas.md` — the JSON row schema each agent must return.
 - `references/running-incrementally.md` — procedure for adding slices to an existing workdir or refreshing a stale slice; load when the workdir already has prior research in it.
