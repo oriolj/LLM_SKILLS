@@ -151,6 +151,29 @@ Columns in xlsx: `Category, Name, URL, Founded, HQ country, Employees, Revenue /
 
 Columns in xlsx: `Category, Jurisdiction, Regulation, Effective date, Status, URL, Summary, Relevance, Burden on, Sales angle, Risk to us, Notes`.
 
+## pricing.json (extended slice 8)
+
+```json
+[
+  {
+    "category": "A. Recommended tiers",
+    "item": "Starter",
+    "surface": "Pro",
+    "price_point": "€29/mo (annual €290)",
+    "billing_model": "Per-location",
+    "value_metric": "per location",
+    "target_segment": "Solo / single-location shops",
+    "positioning": "Entry wedge vs free spreadsheets",
+    "benchmark_anchor": "Bikedesk €79/mo — undercut on entry",
+    "rationale": "Land cheap; expansion revenue flows through add-ons and seat growth",
+    "risk_or_note": "Watch for cannibalising the Growth tier",
+    "confidence": "High"
+  }
+]
+```
+
+Columns in xlsx: `Category, Item, Surface, Price point, Billing model, Value metric, Target segment, Positioning, Benchmark anchor, Rationale, Risk / note, Confidence`.
+
 ## Conventions
 
 - **`fit` / `surface`** values must match the product surfaces from Step 1 (e.g. `Radio SaaS`, `Insights`, `Both`). For single-surface products use that surface name everywhere.
@@ -158,6 +181,8 @@ Columns in xlsx: `Category, Jurisdiction, Regulation, Effective date, Status, UR
 - **`threat_level`** in competitor_intel is one of: `High`, `Medium`, `Low`.
 - **`status`** in regulatory is one of: `In force`, `Phased rollout`, `Pending entry into force`, `Proposal / draft`, `Repealed`.
 - **`compliance_burden_on`** in regulatory is one of: `Buyer`, `Us as SaaS`, `Both`, `Ecosystem partner`.
+- **`billing_model`** in pricing is one of: `Per-seat`, `Per-location`, `Flat`, `Usage`, `Tiered`, `Freemium`, `—`.
+- **`confidence`** in pricing is one of: `High`, `Medium`, `Low`.
 - **`geography`** uses ISO-style codes when possible (`US`, `UK`, `EU`, `ES`, `FR`, `DE`, `LATAM`, `Global`). Multi-region OK (`EU/UK`).
 - **`category`** groups related rows together for filtering — give them a stable prefix so they sort sensibly (e.g. `A. Podcaster communities`, `B. Listener communities`).
 - If a row has no URL (e.g. a defunct competitor referenced for context), use `"—"` not `""`.

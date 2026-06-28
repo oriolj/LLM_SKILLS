@@ -113,6 +113,22 @@ TOPICS = {
             ("threat_level", "Threat level"),
         ],
     },
+    "pricing": {
+        "fields": [
+            ("category", "Category"),
+            ("item", "Item"),
+            ("surface", "Surface"),
+            ("price_point", "Price point"),
+            ("billing_model", "Billing model"),
+            ("value_metric", "Value metric"),
+            ("target_segment", "Target segment"),
+            ("positioning", "Positioning"),
+            ("benchmark_anchor", "Benchmark anchor"),
+            ("rationale", "Rationale"),
+            ("risk_or_note", "Risk / note"),
+            ("confidence", "Confidence"),
+        ],
+    },
     "regulatory": {
         "fields": [
             ("category", "Category"),

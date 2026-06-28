@@ -185,6 +185,37 @@ TOPICS: dict[str, dict] = {
             ("category", "By category", "bar"),
         ],
     },
+    "pricing": {
+        "title": "Pricing & Packaging",
+        "icon": "💰",
+        "tagline": "Market scan, value prop, recommended tiers & strategy",
+        "fields": [
+            ("category", "Category"),
+            ("item", "Item"),
+            ("surface", "Surface"),
+            ("price_point", "Price point"),
+            ("billing_model", "Billing model"),
+            ("value_metric", "Value metric"),
+            ("target_segment", "Target segment"),
+            ("positioning", "Positioning"),
+            ("benchmark_anchor", "Benchmark anchor"),
+            ("rationale", "Rationale"),
+            ("risk_or_note", "Risk / note"),
+            ("confidence", "Confidence"),
+        ],
+        "url_field": "url",
+        "name_field": "item",
+        "filter_fields": [
+            ("category", "Category"),
+            ("surface", "Surface"),
+            ("billing_model", "Billing model"),
+            ("confidence", "Confidence"),
+        ],
+        "charts": [
+            ("category", "By category", "bar"),
+            ("billing_model", "By billing model", "doughnut"),
+        ],
+    },
     "regulatory": {
         "title": "Regulatory Windows",
         "icon": "📜",
@@ -333,7 +364,7 @@ const ROLE_COLORS = {
   "RED FLAG": "bg-rose-200 text-rose-900",
 };
 
-const BADGE_FIELDS = new Set(["fit","surface","role","threat_level","status","compliance_burden_on"]);
+const BADGE_FIELDS = new Set(["fit","surface","role","threat_level","status","compliance_burden_on","confidence"]);
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));

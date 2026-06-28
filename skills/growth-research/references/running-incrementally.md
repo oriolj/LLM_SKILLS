@@ -87,7 +87,7 @@ Run it once. Then overwrite `scripts/build_xlsx.py` with the JSON-driven version
 
 ### 5. Copy the latest build_xlsx.py if your run needs newer topics
 
-If the existing script doesn't know about the topic you're adding (e.g. you're adding `influencers` but the script only handles the base 4), overwrite it with `references/build_xlsx.py`. The newer script supports all 7 topics and **skips any topic that has no JSON file** — so older topics keep working untouched.
+If the existing script doesn't know about the topic you're adding (e.g. you're adding `influencers` but the script only handles the base 4), overwrite it with `references/build_xlsx.py`. The newer script supports all 8 topics and **skips any topic that has no JSON file** — so older topics keep working untouched.
 
 ### 6. Scaffold only the new topic folders
 
@@ -132,6 +132,6 @@ The git log should make it obvious which slices were added when. Examples:
 
 - **Don't re-fetch the product page** unless the product has materially changed. The README and CLAUDE.md are the source of truth — using them keeps surface tags, language conventions, and pricing details consistent across slices.
 - **Don't reorder existing categories** in a refreshed slice's markdown without explicit reason. Diffs in xlsx are fine; diffs in markdown are reviewed by the user, and gratuitous reordering hides the actual content change.
-- **Don't run all 7 agents again to refresh one slice.** Spawn just the agent(s) that need refreshing.
+- **Don't run all 8 agents again to refresh one slice.** Spawn just the agent(s) that need refreshing.
 - **Don't bump the JSON schema for an existing topic without migrating the existing data.** If you need a new column on a slice that already has rows, write a migration script that backfills the new field on every existing row (use `""` or `"verify"` as default) and add it to `build_xlsx.py` and the agent prompt in one commit.
 - **Don't commit the migration script into the workdir.** It's a one-shot — keep it in `/tmp` and discard once the migration is verified.
