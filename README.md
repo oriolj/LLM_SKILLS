@@ -36,6 +36,7 @@ ln -s (pwd)/skills/find-leads        ~/.claude/skills/find-leads
 ln -s (pwd)/skills/core-web-vitals   ~/.claude/skills/core-web-vitals
 ln -s (pwd)/skills/pwa               ~/.claude/skills/pwa
 ln -s (pwd)/skills/celery-deploy-safety ~/.claude/skills/celery-deploy-safety
+ln -s (pwd)/skills/pydantic-ai-langfuse ~/.claude/skills/pydantic-ai-langfuse
 ln -s (pwd)/commands/qa-report.md    ~/.claude/commands/qa-report.md
 ```
 
