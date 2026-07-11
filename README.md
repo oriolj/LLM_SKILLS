@@ -19,6 +19,7 @@ commands/    # Slash commands — invoked explicitly with /<name>
 - **[core-web-vitals](skills/core-web-vitals/SKILL.md)** — Measure and fix Core Web Vitals (LCP, CLS, INP/TBT) on any web project: headless Lighthouse CLI recipes (desktop + throttled mobile), CrUX field data via the PSI API, how to read the report JSON (LCP breakdown/discovery insights, layout-shift culprits, heavy resources), per-metric fix playbooks (hero image priority, CMS-image CDN rewriting + lazy-loading, reserved space for CLS, lazy-importing libraries for TBT), and field-tested gotchas (lab numbers are Lantern-simulated, LCP can't beat FCP, verify deploys before re-measuring, stale service workers).
 - **[pwa](skills/pwa/SKILL.md)** — Ship and audit Progressive Web Apps: installability, manifest, service worker, offline support, push notifications, update flow. Covers Vite + React, Next.js, Astro, SvelteKit, Remix, plain HTML; cache strategies, install prompt UX, iOS Safari quirks, hosting headers, Lighthouse PWA audit.
 - **[pydantic-ai-langfuse](skills/pydantic-ai-langfuse/SKILL.md)** — Implement LLM features in Python with PydanticAI + Langfuse observability: agent/prompt builder patterns, PydanticAI 2.x breaking changes (`google:` provider rename, `Agent.instrument_all()`), OTel→Langfuse init that no-ops without keys, `@observe` capture rules (Django ORM OOM trap), TestModel/FunctionModel testing with `ALLOW_MODEL_REQUESTS=False`, rate-limit-safe batch scoring, user-steerable judge prompts, and SPA-aware website fetching for LLM input.
+- **[eu-law](skills/eu-law/SKILL.md)** — EU + Spanish web-law compliance checklist for websites and SaaS: the four legal pages and when each is required (aviso legal LSSI-CE, privacidad GDPR/LOPDGDD, cookies ePrivacy, términos), cookie-banner decision tree (engineer for zero cookies and skip the banner), GDPR engineering checklist (deletion, portability, DPAs, international transfers), SaaS terms structure (B2B vs B2C, 14-day withdrawal), LSSI email-marketing rules, and AI Act transparency touchpoints. Not legal advice — launch-ready groundwork.
 - **[celery-deploy-safety](skills/celery-deploy-safety/SKILL.md)** — Audit and fix a Django + Celery + Redis project so deploys, restarts, and crashes never silently lose background work: acks_late at-least-once delivery, Redis AOF persistence, orphan-resume sweeps, dispatch dedupe locks, worker memory bounds, stop_grace_period, and how to verify the whole chain.
 
 ### Commands
@@ -37,6 +38,7 @@ ln -s (pwd)/skills/core-web-vitals   ~/.claude/skills/core-web-vitals
 ln -s (pwd)/skills/pwa               ~/.claude/skills/pwa
 ln -s (pwd)/skills/celery-deploy-safety ~/.claude/skills/celery-deploy-safety
 ln -s (pwd)/skills/pydantic-ai-langfuse ~/.claude/skills/pydantic-ai-langfuse
+ln -s (pwd)/skills/eu-law               ~/.claude/skills/eu-law
 ln -s (pwd)/commands/qa-report.md    ~/.claude/commands/qa-report.md
 ```
 
