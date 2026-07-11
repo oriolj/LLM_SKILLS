@@ -120,7 +120,8 @@ pydantic_ai.models.ALLOW_MODEL_REQUESTS = False   # hard guarantee
 
 - **LLM only where it adds value.** Deterministic prefilter first (SQL/FTS/rules) → LLM judges only the small candidate set. The whole pipeline must work with zero API keys; LLM layers go behind env flags (`LLM_SCORING_ENABLED=1`).
 - **Cap calls per run** (`--max-llm-calls`, default ~200) and only score NEW items (unique-constraint idempotency) — reruns must be free.
-- **Free-tier Gemini dies fast** (~5-10 RPM): expect mid-batch 429s and transient TLS `ConnectError`s. Wrap each call in try/except, log, continue; never let one failure kill the batch. Use a paid key before enabling scoring in production.
+- **Free-tier Gemini dies fast** (~5-10 RPM for generation): expect mid-batch 429s and transient TLS `ConnectError`s. Wrap each call in try/except, log, continue; never let one failure kill the batch. Use a paid key before enabling scoring in production.
+- **Embeddings quota counts per TEXT, not per request**: `embed_content` with a 100-item batch burns 100 units of the free-tier `embed_content` quota (100/min for `gemini-embedding-001`). Design embedding backfills as resumable trickles (`embedding__isnull=True` queue + `--limit` per cron cycle) that break cleanly on 429 and continue next run.
 - Serial `run_sync` is fine for small batches; for volume use async + `asyncio.Semaphore` (PydanticAI is async-first).
 
 ## Prompt patterns that earned their keep
