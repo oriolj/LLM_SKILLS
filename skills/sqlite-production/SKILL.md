@@ -55,6 +55,13 @@ Verified safe (Simon Willison's Apr 2026 research, https://simonwillison.net/202
 
 Under these conditions, writes from one container are immediately visible in the other and locking is correct. Cross-host sharing is never safe.
 
+**The inode trap - how multi-process SQLite actually loses data in the wild.** WAL locking does not lose committed writes; deploy tooling that **replaces the database file** does. If any process unlinks/recreates/restores/renames the DB file (a restore script, `rails db:prepare`-style auto-creation, a "copy fresh db into place" step) while another process still has it open, the old process keeps writing to the **old inode** - those writes disappear silently when the inode is released. A documented incident (Rails 8 + Kamal blue-green, https://ultrathink.art/blog/sqlite-in-production-lessons): 11 deploys in 2 hours, three overlapping containers on one WAL file, orders charged in Stripe with no DB row. Rules:
+
+- Restores (Litestream or otherwise) run **before** the app opens the DB, never against a live file.
+- No deploy step may recreate or copy over the DB file; migrations mutate the existing DB in place.
+- Don't stack rapid successive deploys - each overlap window multiplies open handles.
+- Forensics for suspected lost writes: compare `sqlite_sequence` (`seq`) against `MAX(id)` - a gap proves rows were written and lost, even after deletes.
+
 ## Blue-green / rolling deploys (Coolify)
 
 Old and new containers overlap for a few seconds, both holding the DB open. This works if:
@@ -69,7 +76,7 @@ Coolify specifics (https://coolify.io/docs/knowledge-base/rolling-updates): roll
 
 Never `cp`/rsync a live database. Options, best first:
 
-1. **Litestream** (https://litestream.io) - streams WAL frames to S3-compatible storage continuously; restore to any point in time. Run as a sidecar process, or embedded in-process in Go apps (litestream as a library) to keep a single-container deploy. This should be the default for any production SQLite.
+1. **Litestream** (https://litestream.io) - streams WAL frames to S3-compatible storage continuously; restore to any point in time. Run as a sidecar process, or embedded in-process in Go apps (litestream as a library) to keep a single-container deploy. This should be the default for any production SQLite. Constraints worth knowing: v0.5+ supports a **single replica destination per DB**; databases crossing **1 GB** hit SQLite's lock-page boundary (Litestream handles it, but test restores at that size); `litestream restore` must complete **before** the app opens the DB (see the inode trap above) - typical pattern is "restore-if-missing at container start, then exec the app".
 2. **`VACUUM INTO '/backup/app-$(date).db'`** - produces a consistent, compacted single-file snapshot while live; ideal for cron-based backups.
 3. **`sqlite3 app.db ".backup /backup/app.db"`** - the online backup API; consistent, works while live.
 
@@ -107,9 +114,19 @@ DATABASES = {
 }
 ```
 
+## Schema and SQL gotchas
+
+- Use **`STRICT` tables** (`CREATE TABLE ... ) STRICT;`, SQLite 3.37+) - without it, column types are suggestions and `'abc'` inserts fine into an INTEGER column.
+- No `ILIKE` - use `WHERE name LIKE ? COLLATE NOCASE` (or `LOWER(...) LIKE`). Note default `LIKE` is already case-insensitive for ASCII only.
+- `json_extract()` returns native SQLite types; comparing against strings can fail silently - `CAST(json_extract(data, '$.x') AS TEXT)` when comparing to text.
+- One writer per **file**, so split unrelated write domains into separate DBs (app.db, cache.db, queue.db) on the same volume - each gets its own WAL and its own writer slot. This is how Rails 8 ships SQLite in production.
+- `EXPLAIN QUERY PLAN` before adding indexes; `PRAGMA optimize;` nightly or on close.
+
 ## Ops notes
 
 - WAL auto-checkpoints around 1000 pages by default; under constant read pressure the `-wal` file can grow - monitor its size, and if needed run `PRAGMA wal_checkpoint(TRUNCATE);` from a periodic job.
 - `PRAGMA optimize;` on connection close (or nightly) keeps the query planner statistics fresh.
 - Litestream replication lag and last-successful-sync are the two backup metrics worth alerting on.
 - Store the DB in a subdirectory of the volume (e.g. `/data/app.db`) so file permissions and sidecar files are simple to manage.
+- Optional performance pragmas once defaults feel slow (measure first): `cache_size=-64000` (64 MB), `mmap_size=268435456`, `temp_store=MEMORY`, `journal_size_limit=67108864` (caps a runaway `-wal` after checkpoints).
+- Run `PRAGMA quick_check;` periodically (cron or at boot) and alert on anything but `ok` - cheap early corruption detection.
