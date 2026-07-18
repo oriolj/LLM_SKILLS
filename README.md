@@ -23,6 +23,7 @@ commands/    # Slash commands — invoked explicitly with /<name>
 - **[eu-law](skills/eu-law/SKILL.md)** — EU + Spanish web-law compliance checklist for websites and SaaS: the four legal pages and when each is required (aviso legal LSSI-CE, privacidad GDPR/LOPDGDD, cookies ePrivacy, términos), cookie-banner decision tree (engineer for zero cookies and skip the banner), GDPR engineering checklist (deletion, portability, DPAs, international transfers), SaaS terms structure (B2B vs B2C, 14-day withdrawal), LSSI email-marketing rules, and AI Act transparency touchpoints. Not legal advice — launch-ready groundwork.
 - **[sqlite-production](skills/sqlite-production/SKILL.md)** — Run SQLite safely in production: required pragmas (WAL, busy_timeout, synchronous=NORMAL), the db/-wal/-shm file trio, single-writer discipline with BEGIN IMMEDIATE, same-host multi-container sharing on Docker volumes, blue-green/rolling deploys on Coolify (additive-only migrations, health checks), Litestream/VACUUM INTO backups, and Go (modernc.org/sqlite) + Django 5.1+ connection setup.
 - **[celery-deploy-safety](skills/celery-deploy-safety/SKILL.md)** — Audit and fix a Django + Celery + Redis project so deploys, restarts, and crashes never silently lose background work: acks_late at-least-once delivery, Redis AOF persistence, orphan-resume sweeps, dispatch dedupe locks, worker memory bounds, stop_grace_period, and how to verify the whole chain.
+- **[api-idempotency](skills/api-idempotency/SKILL.md)** — Make unsafe API writes idempotent so retries, flaky connections, and offline-queue replays can't create duplicate rows: the client-generated idempotency-key pattern (Stripe-style), the mint-once-per-intent rule, DB unique constraints + IntegrityError race handling, transient-vs-permanent retry classification, and how to audit a codebase for the "infra exists but a path skips it" gap.
 
 ### Commands
 
@@ -40,6 +41,7 @@ ln -s (pwd)/skills/find-leads        ~/.claude/skills/find-leads
 ln -s (pwd)/skills/core-web-vitals   ~/.claude/skills/core-web-vitals
 ln -s (pwd)/skills/pwa               ~/.claude/skills/pwa
 ln -s (pwd)/skills/celery-deploy-safety ~/.claude/skills/celery-deploy-safety
+ln -s (pwd)/skills/api-idempotency      ~/.claude/skills/api-idempotency
 ln -s (pwd)/skills/sqlite-production    ~/.claude/skills/sqlite-production
 ln -s (pwd)/skills/pydantic-ai-langfuse ~/.claude/skills/pydantic-ai-langfuse
 ln -s (pwd)/skills/eu-law               ~/.claude/skills/eu-law
