@@ -24,6 +24,9 @@ commands/    # Slash commands — invoked explicitly with /<name>
 - **[sqlite-production](skills/sqlite-production/SKILL.md)** — Run SQLite safely in production: required pragmas (WAL, busy_timeout, synchronous=NORMAL), the db/-wal/-shm file trio, single-writer discipline with BEGIN IMMEDIATE, same-host multi-container sharing on Docker volumes, blue-green/rolling deploys on Coolify (additive-only migrations, health checks), Litestream/VACUUM INTO backups, and Go (modernc.org/sqlite) + Django 5.1+ connection setup.
 - **[multitenancy-guardrails](skills/multitenancy-guardrails/SKILL.md)** — Design, review and test tenant isolation in row-level multi-tenant SaaS: core scoping rules (tenant from the server never the client, scope at the data-access layer, 404 not 403, UUIDs are not authorization), the leak-vector checklist (exports, files, stats, HTMX fragments, background jobs, emails, RAG retrieval, cache/rate-limit keys, storage paths, magic links, merge ops, widgets), enforcement patterns for Django, DRF (get_queryset + the related-field write leak), Go (pgx/sqlc guards, optional-scope param), and Postgres (per-tenant uniques, composite-FK integrity trick, tenant-leading indexes, RLS with FORCE), plus the mandatory two-tenant isolation test suite.
 - **[celery-deploy-safety](skills/celery-deploy-safety/SKILL.md)** — Audit and fix a Django + Celery + Redis project so deploys, restarts, and crashes never silently lose background work: acks_late at-least-once delivery, Redis AOF persistence, orphan-resume sweeps, dispatch dedupe locks, worker memory bounds, stop_grace_period, and how to verify the whole chain.
+- **[capacitor-ios](skills/capacitor-ios/SKILL.md)** — Compile, run, and distribute a Capacitor iOS app from the CLI: simulator builds, direct-to-device installs via devicectl, the TestFlight archive→upload lane (`xcodebuild` + `-allowProvisioningUpdates`, monotonic build numbers from `git rev-list --count`), App Store submission traps, and the field-tested signing failure playbook (WWDR intermediate, `errSecInternalComponent` keychain unlocks, device-registration for fresh teams). Encodes the disposable-`ios/` convention: durable config in idempotent scripts, signing passed at build time, never stored in the generated project.
+- **[capacitor-android](skills/capacitor-android/SKILL.md)** — Compile and distribute a Capacitor Android app: debug-APK device-testing lane (JDK 21 / android-36 pins, dev-URL bundle sanity check, one-current-APK share convention), and the signed-release/Play lane (upload keystore + Play App Signing, `signingConfigs`/`versionCode` injected by script into the disposable `android/`, AAB uploads, SHA-1s for Google sign-in). Companion to the native-Android **android** skill above.
+- **[api-idempotency](skills/api-idempotency/SKILL.md)** — Make unsafe API writes idempotent so retries, flaky connections, and offline-queue replays can't create duplicate rows: the client-generated idempotency-key pattern (Stripe-style), the mint-once-per-intent rule, DB unique constraints + IntegrityError race handling, transient-vs-permanent retry classification, and how to audit a codebase for the "infra exists but a path skips it" gap.
 
 ### Commands
 
@@ -41,6 +44,9 @@ ln -s (pwd)/skills/find-leads        ~/.claude/skills/find-leads
 ln -s (pwd)/skills/core-web-vitals   ~/.claude/skills/core-web-vitals
 ln -s (pwd)/skills/pwa               ~/.claude/skills/pwa
 ln -s (pwd)/skills/celery-deploy-safety ~/.claude/skills/celery-deploy-safety
+ln -s (pwd)/skills/api-idempotency      ~/.claude/skills/api-idempotency
+ln -s (pwd)/skills/capacitor-ios        ~/.claude/skills/capacitor-ios
+ln -s (pwd)/skills/capacitor-android    ~/.claude/skills/capacitor-android
 ln -s (pwd)/skills/sqlite-production    ~/.claude/skills/sqlite-production
 ln -s (pwd)/skills/pydantic-ai-langfuse ~/.claude/skills/pydantic-ai-langfuse
 ln -s (pwd)/skills/eu-law               ~/.claude/skills/eu-law
