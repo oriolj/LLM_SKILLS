@@ -1,6 +1,6 @@
 ---
 name: api-idempotency
-description: Make unsafe API writes idempotent so retries, flaky connections, and offline-queue replays can't create duplicates. Use when the user reports "I saw the record/dish/order created twice", "duplicates on bad connection", asks for "an idempotent way to make API calls", mentions idempotency keys / client tokens / exactly-once, or when building ANY backend<->frontend app with a JSON API where the client retries writes (offline queue, retry-on-timeout, mobile networks). Covers the client-generated idempotency key pattern (Stripe-style), the mint-once-per-intent rule, DB unique constraints + IntegrityError race handling, transient-vs-permanent retry classification, and how to audit an existing codebase for the "infra exists but a path skips it" gap.
+description: Make unsafe API writes idempotent so retries, flaky connections, and offline-queue replays can't create duplicates. Use when the user reports "I saw the record/dish/order created twice", "duplicates on bad connection", asks for "an idempotent way to make API calls", mentions idempotency keys / client tokens / exactly-once, or when building ANY backend<->frontend app with a JSON API where the client retries writes (offline queue, retry-on-timeout, mobile networks). Covers the client-generated idempotency key pattern (Stripe-style), the mint-once-per-intent rule, DB unique constraints + race handling (Django IntegrityError savepoints, Go/Postgres ON CONFLICT), the retry-middleware key-minting trap (interceptors re-run per attempt), transient-vs-permanent retry classification, and how to audit an existing codebase for the "infra exists but a path skips it" gap.
 ---
 
 # API idempotency: duplicate-safe writes
@@ -32,7 +32,15 @@ Two implementation shapes — pick one:
 | Shape | How | When |
 |-------|-----|------|
 | **Resource-scoped token column** (lighter, usually enough) | Store the key as a column on the created row + unique constraint scoped to the parent (e.g. `(meal_id, client_token)`); on repeat, return the parent/resource as a normal success | Single-resource creates from your own frontend. No TTL/store needed — the key lives on the row |
-| **Generic `Idempotency-Key` store** (Stripe-style) | Middleware table keyed by `(user, key)` storing status + response body; repeat replays the stored response; entries expire after ~24h | Many endpoints, third-party API consumers, or when the exact original response (incl. errors) must be replayed |
+| **Generic `Idempotency-Key` store** (Stripe-style) | Middleware table keyed by `(user, key)` storing status + response body; repeat replays the stored response; entries expire after ~24h | Many endpoints, third-party API consumers, action POSTs with side effects beyond one insert (emails, invoices, payments), or when the exact original response (incl. errors) must be replayed |
+
+The store shape has two extra states the column shape gets for free: a repeat
+arriving **while the original is still executing** (answer `409` — the claim
+row exists but has no stored response yet; Stripe errors here too), and the
+same key arriving **with a different payload** (store a hash of the body at
+claim time; on mismatch answer `422`, per the IETF draft
+`draft-ietf-httpapi-idempotency-key-header`). Both must be handled or the
+store silently degrades into the read-then-insert race.
 
 Key generation: **UUIDv4 is enough** (`crypto.randomUUID()` in browsers/
 WebViews, secure contexts only — keep a time+counter fallback). Don't bother
@@ -45,7 +53,15 @@ server-side (e.g. 64 chars) and trim.
 
 1. **Mint ONCE per user intent, not per request attempt.** The key must be
    created when the user acts (photo captured, order submitted), *before* the
-   first network attempt, and live outside the request function.
+   first network attempt, and live outside the request function. The sneaky
+   version of this bug: minting the key inside HTTP-pipeline machinery that
+   **re-runs on every retry attempt** — an Angular/axios interceptor, a fetch
+   wrapper, a request-builder hook. RxJS `retryWhen`/`retry` resubscription
+   re-executes the whole interceptor chain, and axios-retry re-runs request
+   interceptors, so an interceptor-minted key is fresh per attempt and dedups
+   nothing while looking implemented. Mint above the retry layer, pass the key
+   down (found as a real bug in an Angular app whose base service retried
+   POSTs up to 7×: the retries were exactly the duplicates).
 2. **Every path that can re-send must carry the SAME key.** Online attempt,
    retry-on-timeout, offline-queue replay, manual "try again" button — all of
    them. The classic gap (found in a real audit): the offline queue sent a
@@ -86,6 +102,28 @@ except IntegrityError:
         raise                                               # some other constraint
     parent.refresh_from_db()
     return Response(serialize(parent), status=200)          # lost the race = same no-op
+```
+
+Server (Go/Postgres flavor — the constraint claim is a single atomic
+statement, no savepoint dance needed):
+
+```go
+// Same partial unique index as the Django shape:
+//   CREATE UNIQUE INDEX ON child (parent_id, client_token)
+//   WHERE client_token <> '';
+// ON CONFLICT with the matching predicate makes claim + insert one atomic op.
+row := pool.QueryRow(ctx, `
+    INSERT INTO child (id, parent_id, client_token, ...)
+    VALUES ($1, $2, $3, ...)
+    ON CONFLICT (parent_id, client_token) WHERE client_token <> ''
+    DO NOTHING
+    RETURNING id`, id, parentID, token)
+if err := row.Scan(&createdID); errors.Is(err, pgx.ErrNoRows) {
+    // duplicate: the key already claimed the row — fetch and return it as success
+    return respondWithExisting(ctx, parentID, token) // 200, rule 4
+}
+// sqlc: emit the same statement with :one and check sql.ErrNoRows.
+// SQLite equivalent: INSERT OR IGNORE + changes()==0 → fetch existing.
 ```
 
 Client:
@@ -169,6 +207,14 @@ worker background sync, React Query mutation retries) — any of them turns
   path, and the user retries manually — which is fine *only* once the key
   exists per intent (a manual re-capture is a new intent, new key; an
   automatic retry of the same intent must reuse the key).
+- **Keys don't fix double-submits with a CHANGED payload.** A draft row whose
+  fields commit separately (inline-edit tables: description saves → create in
+  flight → user edits the price → second create with a different body) is the
+  same user intent but a different payload — under one key it 422s, under two
+  keys it duplicates. That's a client state-machine bug: serialize saves
+  per-resource (buffer commits while the create is in flight, flush them as a
+  PATCH once the real id arrives). Reproduced in the wild: needs only latency,
+  not a failed request.
 - **Meal/parent-level dedupe is separate**: "create parent" endpoints can
   often be made naturally idempotent by semantic identity (same type+date →
   return existing) without any token.
@@ -176,3 +222,8 @@ worker background sync, React Query mutation retries) — any of them turns
   (`backend/nutrilens/meals/api/views.py` add_dish/add_dish_text,
   `frontend-capacitor/src/services/capture-queue.ts` `newClientToken`,
   `docs/API_IDEMPOTENCY.md` in frontend-capacitor).
+- Reference for the lost-response e2e technique (Playwright `route.fetch()`
+  then `route.abort()` — request reaches the server, response dies) and the
+  changed-payload double-submit repro: BikeCRM
+  `bikecrm-frontend/tests/e2e/dupe-retry-repro.spec.ts` (+ design decisions in
+  `bikecrm-backend/PLANS/dupe_prevention/PLAN.md`).
