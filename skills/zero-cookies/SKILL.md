@@ -38,7 +38,7 @@ localStorage needs no consent **when and only when** all of these hold:
    only thing lost is *our* knowledge about the user — it was tracking.
 2. **No identifier outlives its purpose.** The chat session id is meaningless
    once the conversation is over; retention on the server purges it. Never a
-   永-lived "device id", never "first_seen", never counters of visits.
+   permanent "device id", never "first_seen", never counters of visits.
 3. **Nothing is ever sent to a third party or joined across sites/services.**
    Keys are namespaced per product, read only by our own first-party code,
    and never combined into a profile.
