@@ -27,6 +27,33 @@ So "zero cookies" really means: **only necessary state, in localStorage,
 plus nothing third-party that stores anything.** That combination is what
 removes the banner.
 
+## The consent-free localStorage rules (the operating policy)
+
+We don't track users — that stance is what makes consent-free possible.
+localStorage needs no consent **when and only when** all of these hold:
+
+1. **The state exists to deliver something the user asked for, right now.**
+   A conversation id (so the chat can continue), a user-chosen language, a
+   form draft, an offline queue, a PWA cache. If you deleted the key and the
+   only thing lost is *our* knowledge about the user — it was tracking.
+2. **No identifier outlives its purpose.** The chat session id is meaningless
+   once the conversation is over; retention on the server purges it. Never a
+   永-lived "device id", never "first_seen", never counters of visits.
+3. **Nothing is ever sent to a third party or joined across sites/services.**
+   Keys are namespaced per product, read only by our own first-party code,
+   and never combined into a profile.
+4. **The site works without it.** Storage-blocked browsers degrade
+   gracefully (new conversation each time, default language) — proof the
+   state is convenience, not surveillance.
+5. **Measure without identifiers**: aggregate server-side counts (requests,
+   answered-rate, top topics) give product metrics with zero terminal
+   storage. If a per-user metric ever seems "needed", the answer is no — we
+   don't track users.
+
+Say it in the privacy page: «no fem servir galetes ni cap identificador de
+seguiment; el navegador només guarda l'estat imprescindible (p. ex. l'id de
+la conversa) per oferir el servei».
+
 ## localStorage patterns that work
 
 - **Session identity**: mint a UUID server-side (e.g. conversation id),
