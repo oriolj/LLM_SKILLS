@@ -1,6 +1,6 @@
 ---
 name: pydantic-ai-langfuse
-description: Implement LLM features in Python with PydanticAI + Langfuse observability. Use when adding LLM calls to any Python/Django project, integrating PydanticAI agents, wiring Langfuse tracing, testing agents without hitting real models, choosing model strings, debugging "Unknown provider" / instrument errors, fetching websites as LLM input, or controlling LLM costs in batch pipelines. Covers PydanticAI 2.x API changes, OTel→Langfuse setup, TestModel/FunctionModel testing, Django-specific OOM traps, SPA scraping, and rate-limit-safe batch scoring.
+description: Implement LLM features in Python with PydanticAI + Langfuse observability. Use when adding LLM calls to any Python/Django project, integrating PydanticAI agents, wiring Langfuse tracing, testing agents without hitting real models, choosing model strings, debugging "Unknown provider" / instrument errors, fetching websites as LLM input, or controlling LLM costs in batch pipelines. Also use for LLM cost attribution questions — "who is spending", cost per client/tenant/user, "n/a is my top user", missing or wrong cost in Langfuse, trace user_id/session_id/tags not showing up, auditing which code path emits untagged traces. Covers PydanticAI 2.x API changes, OTel→Langfuse setup, TestModel/FunctionModel testing, Django-specific OOM traps, SPA scraping, and rate-limit-safe batch scoring.
 ---
 
 # PydanticAI + Langfuse: Python LLM implementation
@@ -91,6 +91,83 @@ def score_match(profile, tender): ...
 - **`langfuse.openai.OpenAI` wrapper buffers streamed responses** to write the trace — defeats client-side byte caps. Use the native client + explicit `start_as_current_generation` spans when you need streaming size limits.
 - Without keys, `@observe` logs a one-time "client will be disabled" warning and continues — harmless, don't chase it.
 
+## Cost attribution — tag every trace with a tenant
+
+An untagged trace is spend you cannot bill, cap, or explain. **Every trace gets a
+stable tenant identifier as `user_id`**, decided once per project (`client.slug`,
+`radio.codename`, `org_id` — whatever the invoice is keyed on). Use the *same*
+identifier in every repo and service that reports into one Langfuse project, or
+each one becomes its own unmergeable slice.
+
+**`user_id` / `session_id` / `tags` are first-class trace fields, not metadata.**
+Writing `metadata["user_id"]` looks right, ships clean, and populates nothing —
+`trace.userId` stays null and every cost-by-user dashboard buckets the spend
+under **n/a**.
+
+```python
+# v4 — context manager, wraps the observation that will carry the attributes
+from langfuse import propagate_attributes
+with propagate_attributes(user_id=tenant, session_id=f"episode:{ep.uuid}", tags=[...]):
+    with client.start_as_current_observation(as_type="generation", ...) as gen:
+        ...
+
+# v3 — no propagate_attributes; stamp from inside the observation
+with client.start_as_current_observation(as_type="generation", ...) as gen:
+    gen.update_trace(name="entity_extraction", user_id=tenant, session_id=f"news:{pk}")
+```
+
+- **`propagate_attributes` only affects the active span and spans opened after
+  it** — it cannot retroactively stamp an already-open parent. Wrap the root as
+  early as possible; wrapping late leaves earlier generations out of the
+  aggregation for that attribute.
+- **Threads break OTel context propagation.** If `run_sync` is isolated in a
+  `ThreadPoolExecutor` for a wall-clock timeout, wrap *inside* the worker
+  function — child threads start with empty context, so a parent-side wrapper
+  leaves the model spans orphaned in a different trace.
+- **A tenantless entry point is a design smell, not a tracing detail.** If the
+  function genuinely has no tenant (preview/anonymous flows), tag it
+  `user_id="anonymous-preview"` so it's a named bucket instead of n/a.
+
+### `cost_details` key is `total`, not `total_cost`
+
+```python
+gen.update(usage_details={"input": n_in, "output": n_out},
+           cost_details={"total": cost_from_provider})   # `total_cost` is silently ignored
+```
+
+The failure is invisible when your model *is* in Langfuse's price list: the real
+per-call cost (e.g. OpenRouter's `x-openrouter-cost` header) gets dropped and
+Langfuse back-fills a plausible estimate from token counts, so the dashboard
+looks fine and is wrong. Verified on cloud.langfuse.com (July 2026) with a model
+Langfuse can't price: `{"total_cost": 0.4242}` → `totalCost 0`;
+`{"total": 0.4242}` → `totalCost 0.4242`. Test with a **bogus model name** —
+that's what separates "my number landed" from "Langfuse guessed".
+
+### Audit: find the unattributed spend
+
+Don't eyeball the UI — bucket it. Read-only, works with any project's keys:
+
+```python
+import base64, collections, datetime, json, urllib.request
+auth = base64.b64encode(f"{PK}:{SK}".encode()).decode()
+frm = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+cost = collections.Counter()
+for page in range(1, 11):
+    url = f"{BASE}/api/public/traces?limit=100&page={page}&fromTimestamp={frm}"
+    d = json.load(urllib.request.urlopen(urllib.request.Request(url, headers={"Authorization": f"Basic {auth}"})))
+    for t in d["data"]:
+        cost[(t.get("name"), t.get("userId") or "<<N/A>>")] += t.get("totalCost") or 0
+    if page >= d["meta"]["totalPages"]: break
+for k, v in sorted(cost.items(), key=lambda x: -x[1])[:30]: print(f"{v:9.4f}  {k}")
+```
+
+Grouping by **(trace name, userId)** names the culprit function directly — a
+single untagged code path shows up as one trace name dominating the `<<N/A>>`
+rows. Timestamps must be `...Z`, not `+00:00` (the API 400s on the latter).
+Traces that carry `@observe` but never open a generation show up as `$0` rows:
+harmless noise, but they inflate the n/a *count* while contributing no cost —
+read the cost column, not the row count.
+
 ## Testing agents (no network, ever)
 
 Root `conftest.py`:
@@ -140,6 +217,8 @@ pydantic_ai.models.ALLOW_MODEL_REQUESTS = False   # hard guarantee
 ## Django integration checklist
 
 - [ ] `init_langfuse()` at end of `settings.py` (guarded, idempotent)
+- [ ] One documented tenant identifier, passed as `user_id` on **every** trace —
+      the helper that opens the trace should require it, not default it to `None`
 - [ ] `LLM_MODEL`, `LANGFUSE_*`, `GEMINI_API_KEY`/`ANTHROPIC_API_KEY` in `.env.example` + compose env
 - [ ] Agents in `apps/<app>/agents.py` with builder functions + prompt builders
 - [ ] `conftest.py` blocks real model requests
