@@ -1,12 +1,14 @@
 ---
 name: age-env-secrets
-description: Commit an encrypted .env to a PRIVATE PERSONAL repo using age passphrase encryption, so personal projects carry their own secrets across machines without a secret manager. Use when the user asks "can we commit the .env encrypted", "version the secrets", "how do I share .env between my machines via git", or when setting up a personal/hobby repo that needs API tokens/device passwords available after a fresh clone. Covers the two modes and how to choose: sops+age keypair (per-value encryption, readable diffs, agents can encrypt/decrypt autonomously — what busy-bar settled on) vs age -p passphrase (nothing on disk to back up, but interactive-only: agents can neither encrypt nor decrypt, so the committed copy goes stale unless the owner remembers). Also: Makefile env-encrypt/env-decrypt targets, the sops path_regex-matches-the-INPUT-file trap, the age-private-key-is-the-root-secret backup rule, and the CLAUDE.md documentation rule so future agents don't ask for secrets that are already committed. HARD SCOPE LIMIT: personal private repos ONLY — never professional repos, public OR private; those get a real secret manager.
+description: Commit an encrypted .env to a PRIVATE PERSONAL repo using age passphrase encryption, so personal projects carry their own secrets across machines without a secret manager. Use when the user asks "can we commit the .env encrypted", "version the secrets", "how do I share .env between my machines via git", or when setting up a personal/hobby repo that needs API tokens/device passwords available after a fresh clone. Covers the two modes and how to choose: sops+age keypair (per-value encryption, readable diffs, agents can encrypt/decrypt autonomously — what busy-bar settled on) vs age -p passphrase (nothing on disk to back up, but interactive-only: agents can neither encrypt nor decrypt, so the committed copy goes stale unless the owner remembers — Oriol's repeated explicit choice, honor it). Also: Makefile encrypt/decrypt targets (single .env and multi-file secrets/ dir variants), the sops path_regex-matches-the-INPUT-file trap, the age-private-key-is-the-root-secret backup rule, the passphrase-mode automation pattern (ansible/scripts deploy from the controller's gitignored decrypted plaintext — they can never prompt), the no-TTY rule (agents can't run age -p at all; owner runs the make target in a terminal, passphrase never goes in chat), and the CLAUDE.md documentation rule so future agents don't ask for secrets that are already committed. HARD SCOPE LIMIT: personal private repos ONLY — never professional repos, public OR private; those get a real secret manager.
 ---
 
 # Committed encrypted .env (age passphrase) — personal repos only
 
 Field-tested 2026-08-08 on the busy-bar repo (private personal repo needing a
-device password + Home Assistant + Toggl tokens available across machines).
+device password + Home Assistant + Toggl tokens available across machines)
+and on hq (homelab monorepo; Resend API key deployed to every machine by
+ansible, passphrase mode by explicit owner choice).
 
 ## Scope rule — read this first
 
@@ -46,7 +48,50 @@ encryption**:
 **sops does not support passphrases at all** (recipients only: age keys,
 KMS, GPG) — passphrase mode means plain `age -p` and losing sops's
 per-value format. Default to sops+age keypair unless the owner explicitly
-insists on a passphrase and accepts the staleness risk.
+insists on a passphrase and accepts the staleness risk. Oriol has now
+insisted on passphrase mode twice (busy-bar initially, hq 2026-08-08 even
+after the keypair default was presented and scaffolded) — when he asks,
+state the staleness trade-off once, then build passphrase mode without
+re-litigating.
+
+## Passphrase mode in practice (field-tested on hq)
+
+- **Agents cannot run `age -p` OR `age -d` at all** — both prompt on the
+  TTY and agent shells have none, so they fail outright, not just
+  awkwardly. Ask the owner to run the make target in a real terminal
+  (in Claude Code: `! make secrets-encrypt`). **Never ask for the
+  passphrase in chat**, and never try to pipe it in.
+- **Repo-wide secrets dir variant**: for a monorepo, keep secrets in one
+  place (e.g. `homelab/secrets/*.env`, gitignored via `secrets/*.env`)
+  and loop in the Makefile — targets named `secrets-encrypt` /
+  `secrets-decrypt`:
+
+  ```makefile
+  secrets-encrypt:
+  	@for f in homelab/secrets/*.env; do \
+  		[ -f "$$f" ] || continue; \
+  		age -p -a -o "$$f.enc" "$$f"; \
+  	done
+
+  secrets-decrypt:
+  	@for f in homelab/secrets/*.env.enc; do \
+  		[ -f "$$f" ] || continue; \
+  		out="$${f%.enc}"; age -d -o "$$out" "$$f"; chmod 600 "$$out"; \
+  	done
+  ```
+
+  (`-a` = ASCII armor, so the committed .enc is text.)
+- **Automation that must deploy the secret elsewhere** (ansible pushing a
+  config to remote machines, cron scripts, etc.) can never decrypt
+  mid-run. The working pattern: automation reads the **controller's
+  gitignored decrypted plaintext** (produced once by a manual
+  `make secrets-decrypt`) and pushes that to targets — targets never see
+  the passphrase or the ciphertext. Guard with a stat + a warn-and-skip
+  task so runs on a not-yet-decrypted controller degrade gracefully
+  instead of failing.
+- **Mode switches leave debris**: if keypair mode was scaffolded first,
+  delete `.sops.yaml` when switching to passphrase — dead config misleads
+  the next agent into the wrong flow.
 
 ## Setup (sops + age keypair)
 
