@@ -13,8 +13,11 @@ servers filterable by company, provider, cost and status.
 
 1. **Core plugins only. Never community plugins.** A fresh clone must work
    with zero per-machine setup. If something appears to need a plugin, find
-   the core equivalent first (there usually is one). Do not vendor plugin
-   code into the repo either.
+   the core equivalent first — CSS snippets cover a surprising amount of
+   what plugins are sold for. Do not vendor plugin code into the repo
+   either. If a plugin still looks unavoidable, Oriol's bar is
+   **>1k GitHub stars**, which in this ecosystem excludes almost
+   everything: check before proposing, and expect to fall back to CSS.
 2. **Markdown links, never `[[wikilinks]]`.** Wikilinks render as broken
    text on GitHub and for every non-Obsidian reader, including other agents.
 3. **Full-width pages** — readable line length off.
@@ -50,6 +53,7 @@ servers filterable by company, provider, cost and status.
 !.obsidian/app.json
 !.obsidian/appearance.json
 !.obsidian/core-plugins.json
+!.obsidian/snippets/
 ```
 
 **`.obsidian/*`, not `.obsidian/`.** Git cannot re-include a file whose
@@ -61,24 +65,61 @@ Deliberately NOT committed: `workspace.json` (pane layout, per-machine),
 user clicks around — expect churn, and re-read before editing rather than
 clobbering.
 
-## Hiding things: `userIgnoreFilters`, not `.obsidianignore`
+## Hiding things properly takes TWO native mechanisms
 
-**`.obsidianignore` is a trap.** It is not native — it only works with the
-"Ignore" community plugin (`devxoul/obsidian-ignore`). Without the plugin
-the file sits there looking authoritative and doing nothing, and someone
-will eventually edit it and wonder why the folder still shows.
+This is the single easiest thing to get wrong, and the docs you write about
+it will be confidently false if you don't test it.
 
-The native mechanism is `userIgnoreFilters` in `app.json`, which backs
-Settings → Files and links → Excluded files. It applies to the file
-explorer, search, Quick Switcher, graph, and link suggestions. The Ignore
-plugin's own README admits it just writes into this same setting.
+**`userIgnoreFilters` alone does NOT hide anything from the file
+explorer.** It is Obsidian's native "Excluded files" (Settings → Files and
+links) and it removes entries from **Search, Quick Switcher, graph and link
+suggestions** — but excluded folders remain listed in the explorer, merely
+dimmed. That is by design. Claiming otherwise in a README wastes the user's
+time when they restart and see no change.
 
-- Takes **paths and simple patterns**, not full gitignore globs. List each
-  path explicitly; don't assume `**/` works.
-- Excluded files are de-emphasised rather than erased — that is the
-  trade-off you accept for staying plugin-free.
-- To hide a file that exists in many directories (`CLAUDE.md`), add each
-  occurrence explicitly.
+**`.obsidianignore` is a trap.** It is not native — only the "Ignore"
+community plugin (`devxoul/obsidian-ignore`) reads it. Without that plugin
+the file sits there looking authoritative and doing nothing.
+
+So use both of these, and update both when adding an exclusion:
+
+1. **`userIgnoreFilters`** in `app.json` — search, switcher, graph. Takes
+   plain paths and simple patterns, **not** gitignore globs; list each
+   occurrence explicitly (every `CLAUDE.md` path, not `**/CLAUDE.md`).
+2. **A CSS snippet** in `.obsidian/snippets/*.css`, enabled via
+   `enabledCssSnippets` in `appearance.json` — this is what actually
+   removes rows from the explorer. Snippets are a **core** feature and both
+   files are committable, so it stays zero-setup.
+
+```css
+/* folder: hide the title AND the sibling children, or contents render */
+.nav-folder-title[data-path="homelab/ansible"],
+.nav-folder-title[data-path="homelab/ansible"] + .nav-folder-children {
+  display: none;
+}
+/* files by suffix, anywhere in the vault */
+.nav-file:has(> .nav-file-title[data-path$="CLAUDE.md"]) { display: none; }
+```
+
+`data-path` is the vault-relative path: `=` exact, `^=` prefix, `$=`
+suffix, `*=` contains.
+
+### Vetting plugins when one seems unavoidable
+
+Obsidian's ecosystem is small — a "popular" plugin is often <100 stars, and
+a >1k-star bar rules out every hide/ignore plugin that exists (checked
+2026-08: Hide Folders 71, Advanced Exclude 66, Explorer Hider 16, Ignore
+7 — the last also unreviewed by Obsidian staff). Check stars and review
+status **before** proposing one, especially for a vault containing
+sensitive inventory:
+
+```bash
+gh api repos/<owner>/<repo> --jq '"\(.stargazers_count) stars | pushed \(.pushed_at[0:10])"'
+```
+
+When the bar can't be met, say so and reach for CSS — Explorer Hider's own
+description admits it is "a little bit of auto-managed CSS", which is the
+tell that you can do it natively.
 
 ## Bases: filterable tables over notes
 
