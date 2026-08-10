@@ -91,6 +91,11 @@ So use both of these, and update both when adding an exclusion:
    removes rows from the explorer. Snippets are a **core** feature and both
    files are committable, so it stays zero-setup.
 
+**Ready-made snippet: [`assets/hide-non-docs.css`](assets/hide-non-docs.css)** —
+copy it to `<vault>/.obsidian/snippets/`, swap the placeholder paths, add
+the name to `enabledCssSnippets`. It already covers build noise and
+`CLAUDE.md`/`AGENTS.md`, and documents the selector syntax inline.
+
 ```css
 /* folder: hide the title AND the sibling children, or contents render */
 .nav-folder-title[data-path="homelab/ansible"],

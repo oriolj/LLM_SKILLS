@@ -1,0 +1,64 @@
+/* hide-non-docs.css — TEMPLATE
+ *
+ * Removes code, config mirrors and agent-instruction files from the
+ * Obsidian file explorer, natively — no community plugin.
+ *
+ * INSTALL
+ *   1. Copy to <vault>/.obsidian/snippets/hide-non-docs.css
+ *   2. Add to <vault>/.obsidian/appearance.json:
+ *        { "enabledCssSnippets": ["hide-non-docs"] }
+ *   3. Commit both, plus `!.obsidian/snippets/` in .gitignore, so a
+ *      fresh clone needs no setup.
+ *   4. Settings → Appearance → CSS snippets → reload (or restart).
+ *
+ * WHY THIS EXISTS
+ *   Obsidian's native "Excluded files" (userIgnoreFilters in app.json)
+ *   only DIMS entries in the explorer — it never removes them. Fully
+ *   hiding a folder otherwise needs a community plugin, and the ones
+ *   that do it are tiny (7–71 stars as of 2026-08, one unreviewed by
+ *   Obsidian staff). Explorer Hider's own description admits it is
+ *   "a little bit of auto-managed CSS" — so just write the CSS.
+ *
+ * PAIR IT with userIgnoreFilters, which does the half CSS cannot:
+ * keeping these out of Search, Quick Switcher, graph and link
+ * suggestions. Add every new exclusion to BOTH, or it will half-work.
+ *
+ * SELECTORS: `data-path` is the vault-relative path.
+ *   [data-path="a/b"]   exact      [data-path^="a/"]  prefix
+ *   [data-path$=".md"]  suffix     [data-path*="tmp"] contains
+ * A folder needs BOTH its title and the sibling .nav-folder-children
+ * hidden, or its contents still render as orphaned rows.
+ */
+
+/* --- folders: replace these paths with your own ----------------------- */
+.nav-folder-title[data-path="PATH/TO/CODE_DIR"],
+.nav-folder-title[data-path="PATH/TO/CODE_DIR"] + .nav-folder-children,
+.nav-folder-title[data-path="PATH/TO/CONFIG_MIRROR"],
+.nav-folder-title[data-path="PATH/TO/CONFIG_MIRROR"] + .nav-folder-children,
+.nav-folder-title[data-path="PATH/TO/SECRETS"],
+.nav-folder-title[data-path="PATH/TO/SECRETS"] + .nav-folder-children {
+  display: none;
+}
+
+/* --- build noise, wherever it appears (usually keep as-is) ------------ */
+.nav-folder-title[data-path*="node_modules"],
+.nav-folder-title[data-path*="node_modules"] + .nav-folder-children,
+.nav-folder-title[data-path*="__pycache__"],
+.nav-folder-title[data-path*="__pycache__"] + .nav-folder-children,
+.nav-folder-title[data-path*=".venv"],
+.nav-folder-title[data-path*=".venv"] + .nav-folder-children {
+  display: none;
+}
+
+/* --- agent instructions: read from disk, never browsed ---------------- */
+/* Hide the whole row, not just its label, so no empty line is left. */
+.nav-file:has(> .nav-file-title[data-path$="CLAUDE.md"]),
+.nav-file:has(> .nav-file-title[data-path$="AGENTS.md"]) {
+  display: none;
+}
+
+/* Fallback for any build where :has() is unavailable. */
+.nav-file-title[data-path$="CLAUDE.md"],
+.nav-file-title[data-path$="AGENTS.md"] {
+  display: none;
+}
