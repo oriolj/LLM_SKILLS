@@ -6,9 +6,10 @@ description: Commit an encrypted .env to a PRIVATE PERSONAL repo using age passp
 # Committed encrypted .env (age passphrase) — personal repos only
 
 Field-tested 2026-08-08 on the busy-bar repo (private personal repo needing a
-device password + Home Assistant + Toggl tokens available across machines)
-and on hq (homelab monorepo; Resend API key deployed to every machine by
-ansible, passphrase mode by explicit owner choice).
+device password + Home Assistant + Toggl tokens available across machines;
+since 2026-08-15 it lives inside hq at `homelab/busy-bar/`, keeping its own
+sops+age setup) and on hq (homelab monorepo; Resend API key deployed to every
+machine by ansible, passphrase mode by explicit owner choice).
 
 ## Scope rule — read this first
 
