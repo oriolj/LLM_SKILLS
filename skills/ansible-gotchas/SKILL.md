@@ -108,12 +108,16 @@ packages, default shell, no prior run's leftovers. For every task ask:
   auth; only the API key — verify which auth channel a probe actually
   tests.) A "compare user only, force-flag for password" fallback is
   strictly worse: it can't detect a drifted password.
-- **Probes reading privileged paths need `become` + `failed_when: false`.**
-  `/boot` is frequently a root-only ESP mount (vfat fmask → 0700), /sys
-  attributes vary — an unprivileged `stat` dies with EACCES and kills the
-  whole classification. Privilege the probe, tolerate its failure, and have
-  the consumer default the missing register (`.stat.exists |
-  default(false)`); a detection fact must never be able to fail a play.
+- **Detection probes must never need sudo — find a world-readable signal.**
+  `/boot` is frequently a root-only ESP mount (vfat fmask → 0700): an
+  unprivileged `stat` dies with EACCES, and "just add `become`" is WORSE —
+  a wrong/mismatched sudo password fails the task BEFORE the module runs,
+  where `failed_when: false` cannot rescue it (become errors precede the
+  module; this killed a two-host run twice in one day). Probe an
+  unprivileged equivalent instead: the package database (`pacman -Q x`,
+  `dpkg -s x`), /sys, os-release, hwdb files. Always `failed_when: false`
+  + consumer-side `default()` on top; a detection fact must never be able
+  to fail a play.
 - **Detect hardware against SHIPPED databases, not vendor greps.** For
   "does this box have X" facts, match device ids against an authoritative
   list already on disk (e.g. systemd's hwdb files are generated from the
