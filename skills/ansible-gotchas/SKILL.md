@@ -99,6 +99,15 @@ packages, default shell, no prior run's leftovers. For every task ask:
   is a skip-stub — dereferencing `item.json.x` in a later `when` fails the
   item instead of skipping it. Put existence-check and dereference in ONE
   lazy expression: `item.json is defined and item.json.x == y`.
+- **One-shot tasks (run once per machine, ever):** `command:` + `args:
+  creates: <artifact the script produces>` makes every later run free. Have
+  the script print a machine-readable outcome on stdout ("applied: …" /
+  "skipped: …") and key `changed_when` on it; for cosmetic features
+  (wallpaper, greeting, MOTD) add `failed_when: false` — a nicety must
+  never fail a provision. The script, not ansible, should detect whether
+  the machine can use the feature (desktop present, hardware attached) and
+  no-op cleanly — that keeps the ansible gate simple and the behavior
+  correct when the script runs by hand.
 
 ## Controller vs target
 
