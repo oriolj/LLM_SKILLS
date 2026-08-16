@@ -168,6 +168,10 @@ packages, default shell, no prior run's leftovers. For every task ask:
   `tags: always`; keep groups only for remote runs. And parse
   /etc/os-release yourself when derivatives matter: `ansible_distribution`
   short-circuits on marker files and reports the parent distro.
+  For pure POLICY (not detectable hardware — e.g. "this box is the
+  remote-dev machine"), hostname-key it in group_vars
+  (`x_hostnames: [...]` + `is_x: "{{ ansible_hostname in x_hostnames }}"`)
+  — works identically for local and remote runs, unlike host_vars.
 - **Fact caching can go stale/poisoned** — a cached fact from a probe that
   once failed sticks around; prefer re-probing cheap facts every run under
   `tags: always`.
