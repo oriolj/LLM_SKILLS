@@ -99,6 +99,29 @@ packages, default shell, no prior run's leftovers. For every task ask:
   is a skip-stub — dereferencing `item.json.x` in a later `when` fails the
   item instead of skipping it. Put existence-check and dereference in ONE
   lazy expression: `item.json is defined and item.json.x == y`.
+- **Hashed/opaque state needs a BEHAVIORAL probe, not a compare.** A stored
+  bcrypt password, token hash, or write-only field can't be diffed against
+  the desired value. Probe by exercising it: attempt an authenticated
+  request/login with the desired credentials — success = skip, failure =
+  set. (Real case: Syncthing GUI password — POST the creds to its login
+  endpoint, 204 skip / 403 set. Bonus finding: its REST never honors basic
+  auth; only the API key — verify which auth channel a probe actually
+  tests.) A "compare user only, force-flag for password" fallback is
+  strictly worse: it can't detect a drifted password.
+- **Detect hardware against SHIPPED databases, not vendor greps.** For
+  "does this box have X" facts, match device ids against an authoritative
+  list already on disk (e.g. systemd's hwdb files are generated from the
+  driver project's supported-device list — fingerprint readers have no USB
+  class, but the libfprint hwdb enumerates every supported id). A curated
+  vendor-name grep rots; the shipped database updates with the OS.
+- **PAM: vendor-stack overrides must be COMPLETE files.** Some pam.d
+  services live in /usr/lib/pam.d with /etc/pam.d taking full precedence —
+  an /etc file with just your one line REPLACES the vendor stack (locking
+  auth or opening it). Copy the vendor content + your line; revert =
+  delete the file. For in-place edits (sudo), lineinfile with
+  insertbefore + firstmatch, mark lines with a trailing comment for
+  idempotent removal, and only ever add 'sufficient' methods so password
+  auth survives a broken module.
 - **One-shot tasks (run once per machine, ever):** `command:` + `args:
   creates: <artifact the script produces>` makes every later run free. Have
   the script print a machine-readable outcome on stdout ("applied: …" /
