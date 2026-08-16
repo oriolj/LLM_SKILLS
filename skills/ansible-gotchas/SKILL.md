@@ -176,6 +176,18 @@ packages, default shell, no prior run's leftovers. For every task ask:
   once failed sticks around; prefer re-probing cheap facts every run under
   `tags: always`.
 
+- **Risky updates: automate the NOTICING, never the applying.** Firmware
+  flashes, bootloader changes, dist-upgrades — the playbook's job is a
+  background metadata refresh + a notification/report ("updates exist,
+  run X"), with the destructive step left as an explicit manual command
+  that prompts for its own reboot. A desktop with no software-center UI
+  needs the notifier built (systemd user timer + notify-send); a DE that
+  already notifies (GNOME Software) should have the custom notifier
+  SKIPPED, not duplicated. Check how neighbor distros handle the same
+  problem before building — their issue trackers are free field reports
+  (a capsule-staging bug on one distro's bootloader layout flagged the
+  same risk on ours).
+
 ## sudo / become
 
 - **One source of the become password.** A `vars_prompt`-set
