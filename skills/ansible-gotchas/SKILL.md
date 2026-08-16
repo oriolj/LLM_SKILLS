@@ -131,6 +131,17 @@ packages, default shell, no prior run's leftovers. For every task ask:
   the machine can use the feature (desktop present, hardware attached) and
   no-op cleanly — that keeps the ansible gate simple and the behavior
   correct when the script runs by hand.
+  **But skip the `creates:` guard when the script can legitimately DEFER
+  part of its work** (a step that must wait for an app to close, a
+  network resource, a first login): an artifact guard freezes the partial
+  state forever. Make the script itself the probe-then-set (parse the
+  real state, act only on what's missing, ~instant when complete) and run
+  it every provision with `changed_when` on its outcome.
+- **GUI-app CLIs invoked from ansible usually need a headless flag.** A
+  GTK/Qt binary aborts without a display even for pure-CLI subcommands
+  (`firefox -CreateProfile` dies with "no DISPLAY" — it needs
+  `firefox --headless -CreateProfile`). Test the exact invocation in an
+  environment without DISPLAY/WAYLAND_DISPLAY before wiring it.
 
 ## Controller vs target
 
