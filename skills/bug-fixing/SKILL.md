@@ -54,8 +54,10 @@ target).
   click the option by **ref** — coordinates shift as the page re-layouts while data loads.
 - `read_network_requests` only records from its first call — call it (with `clear`)
   *before* the action you want to inspect. Pair it with the backend log.
-- Detail pages often **poll**; a stale-UI repro must inject the server-side change
-  *after* the page loaded, then act quickly — or you'll test a refreshed page.
+- Check whether detail pages **poll** or re-fetch on component events before calling
+  repeated GETs "polling" (read the network log); a stale-UI repro must inject the
+  server-side change *after* the page loaded, then act quickly — or you'll be testing a
+  refreshed page.
 - To show the *original* failure after you've already fixed it: temporarily put the
   files back (`git stash` WIP, `git checkout <pre-fix-sha> -- <files>` in each repo),
   walk the path, then restore (`git checkout HEAD -- <files>`, `git stash pop`). Both
@@ -92,5 +94,11 @@ Then confirm in the DB — the UI can lie in both directions.
 - UX question, every time: *did the user have any way of knowing?* If the failure was
   silent, add the toast/error/banner and the i18n keys in **all** supported languages.
 - If production is monitored for that flow (synthetic smoke tests), update the suite.
+- Run a cleanup review (`/simplify`) on the fix and *apply* the "this belongs in the
+  shared service/base class" findings — a page-level special case usually means every
+  other caller has the same gap.
+- Pushing: a `Permission denied (publickey)` line can come from a first key attempt
+  while the push still lands — confirm with `git ls-remote origin <branch>` vs
+  `git rev-parse HEAD` before reporting a failed push.
 - Write down what you learned that wasn't obvious (a landmine, a repro trick) in the
   project's companion skill or testing docs — the next bug will be faster.
