@@ -52,6 +52,13 @@ target).
   (`localStorage` / cookie) via the JS tool, then reload.
 - Material/headless-UI selects: click the combobox, then `find` the open listbox and
   click the option by **ref** — coordinates shift as the page re-layouts while data loads.
+- Inline/contenteditable cells: a coordinate click may not enter edit mode; verify with
+  a zoom before typing (a stray `ctrl+a` selects the whole page). When the UI path is
+  flaky, drive the component itself in dev mode (`ng.getComponent(el).method()`) — it
+  exercises the same wiring (emitters → parent handler → toast) deterministically.
+- Toasts are short-lived and the toast container may be recreated per toast: read
+  `#toast-container` within ~1 s of the action (poll in the same JS call); a
+  MutationObserver on the old container misses them.
 - `read_network_requests` only records from its first call — call it (with `clear`)
   *before* the action you want to inspect. Pair it with the backend log.
 - Check whether detail pages **poll** or re-fetch on component events before calling
@@ -90,7 +97,10 @@ Then confirm in the DB — the UI can lie in both directions.
 ## 4. Close the loop
 
 - Release notes in **every** repo you touched (technical on the backend, user-facing
-  wording on the frontend); ask whether public release notes deserve an entry.
+  wording on the frontend); ask whether public release notes deserve an entry. Each
+  bug entry gets a **3–5 word name** in bold, then *How you hit it* (the exact clicks),
+  *What happened* (what the user saw — often "nothing"), and *Now* (the new behaviour).
+  A reader who never saw the bug should be able to reproduce the old path from it.
 - UX question, every time: *did the user have any way of knowing?* If the failure was
   silent, add the toast/error/banner and the i18n keys in **all** supported languages.
 - If production is monitored for that flow (synthetic smoke tests), update the suite.
