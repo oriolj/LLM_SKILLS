@@ -106,7 +106,19 @@ Then confirm in the DB — the UI can lie in both directions.
 - If production is monitored for that flow (synthetic smoke tests), update the suite.
 - Run a cleanup review (`/simplify`) on the fix and *apply* the "this belongs in the
   shared service/base class" findings — a page-level special case usually means every
-  other caller has the same gap.
+  other caller has the same gap. Then `/code-review --fix`: each round on this kind of
+  fix found real gaps (an exception type change that turned a 400 into a 500, probes
+  on a manager that hides rows). A review agent may stop mid-verification without a
+  final report — check `git status` for its uncommitted edits and verify them yourself.
+- **Sibling scan the MECHANISM, not the symptom**, once the fix is in: grep for the
+  pattern (hand-rolled `__init__` trackers, per-tenant uniqueness probes against a
+  global unique, `isNaN` on user text…) across every model/component. Write a tiny test
+  per candidate on the pre-fix code: some are real (deferred recursion in a second
+  tracker), some are false alarms (a filtering manager that isn't the default) — the
+  test settles it in seconds and documents the scan for the next person.
+- External QA reports: triage each item against `git log` first — half were already
+  fixed by a concurrent review round; the rest (non-finite numbers passing `isNaN`, a
+  success toast for a no-op path added later) were real and cheap.
 - Pushing: a `Permission denied (publickey)` line can come from a first key attempt
   while the push still lands — confirm with `git ls-remote origin <branch>` vs
   `git rev-parse HEAD` before reporting a failed push.
