@@ -198,6 +198,11 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   container never goes healthy, and every deploy "rolls back" with no app
   error in the deploy log. Always append `127.0.0.1`/`localhost` in settings
   (the healthcheck is infrastructure, not a spoofable public Host).
+- **Coolify auto-assigns an sslip domain to EVERY application** — including
+  workers, where `ports_exposes` is a required API field even though nothing
+  listens. A Celery worker then gets a public hostname routed at a dead
+  port: zero function, nonzero surface. After creating any non-web app,
+  `PATCH {domains: ""}` + redeploy to remove the router.
 - **One image, web + worker**: entrypoint switches on `ROLE` (web: migrate +
   gunicorn; worker: `exec celery … --concurrency=2`), and the HEALTHCHECK
   must be role-aware too — a worker can never answer `/healthz`, so it uses
