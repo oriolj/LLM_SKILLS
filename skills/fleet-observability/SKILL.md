@@ -7,7 +7,8 @@ description: Integrate any app or server with the estate's monitoring (Prometheu
 
 The hub is **monitor-1-nc** (`hq-monitoring` repo, deployed by Coolify):
 Prometheus (metrics, pull), Loki (logs, push, compose-internal), Grafana
-(dashboards + email alerts). This skill is the *integration* side: how a
+(dashboards + email alerts). Error tracking is separate: **GlitchTip**
+(Sentry-compatible, on the `infra-monitoring` host) — see §5b. This skill is the *integration* side: how a
 server or an application joins it. Design doc: hq
 `shared/docs/monitoring.md`. Coolify mechanics: `coolify-deploy` skill.
 
@@ -236,6 +237,45 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   label cardinality bounded exactly like log labels.
 - Wire the deployed release into a metric (`app_info{version="<sha>"} 1`)
   so deploys are visible as Grafana annotations.
+
+## 5b. Error tracking — GlitchTip (the estate's Sentry alternative)
+
+Errors/exceptions go to **GlitchTip**, not Sentry — it is Sentry-API
+compatible, so every project uses the **official Sentry SDKs** pointed at a
+GlitchTip DSN. It runs on the `infra-monitoring` host (tailnet MagicDNS
+`http://infra-monitoring:8000`), separate from the metrics/logs hub. Logs
+tell you *what happened on a host*; GlitchTip tells you *this exception,
+grouped, with a stack trace* — a project wants both.
+
+Per stack (all standard Sentry SDK setup, only the DSN differs):
+
+- **Django/Python**: `sentry_sdk.init(dsn=…, environment=…, release=…)` with
+  the Django (+Celery) integrations. `send_default_pii=False` unless decided
+  otherwise; keep `traces_sample_rate` at 0 or very low — GlitchTip is for
+  errors, perf tracing eats its Postgres.
+- **Go**: `sentry-go`, `sentry.Init` + recover middleware.
+- **Next.js/Astro (node)**: `@sentry/nextjs` / `@sentry/node`.
+
+Non-negotiables, wired to the rest of the estate's rules:
+
+- `environment` must equal the compose's **`oj.env`** value (prod|beta|dev)
+  so errors and logs/metrics slice the same way.
+- `release` = the deployed **git SHA** (the global release-identifier rule;
+  on Coolify use `SOURCE_COMMIT`) — enables regression detection.
+- The DSN is a credential: **Coolify env var, runtime-only** (or the
+  project's secrets mechanism) — never committed.
+
+**Ask the user — do not invent these:**
+
+1. **The DSN itself.** Projects are created by hand in the GlitchTip UI
+   (per project × env, or one project with environments — the user's
+   choice); an agent cannot self-serve one. Ask for it, or ask the user to
+   create the GlitchTip project and paste the DSN.
+2. **Reachability of the DSN host from the app's servers.** The GlitchTip
+   UI is tailnet-only today; whether app servers send events over the
+   tailnet or a public ingest endpoint exists is deployment-specific —
+   confirm before wiring an SDK that would silently fail to deliver
+   events (SDKs swallow transport errors by design).
 
 ## 6. `make logs` — prod/beta logs from the dev machine
 
