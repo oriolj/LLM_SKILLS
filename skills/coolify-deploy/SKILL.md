@@ -270,6 +270,27 @@ downtime; the sequence and traps:
    `gh api repos/<org>/<repo>/hooks -f name=web -F active=true -f 'events[]=push'
    -f 'config[url]=https://app.coolify.io/webhooks/source/github/events/manual'
    -f 'config[content_type]=json' -f 'config[secret]=<manual_webhook_secret_github>'`
+
+   Learned again on enachat (2026-08-25) — this bites EVERY deploy-key app from
+   day one, not just migrations. Extra field notes:
+   - **Diagnostic**: `GET /deployments/applications/{uuid}` — if every row has
+     `is_webhook: false`, all deploys were manual/API and pushes are going
+     nowhere. Days of "deploys" can silently be someone clicking the button.
+   - **One webhook per APP, not per repo**: the secret is per-application, so a
+     monorepo serving N Coolify apps (web + worker) needs N webhooks on the
+     same repo, same URL, each with that app's `manual_webhook_secret_github`.
+     GitHub allows duplicate-URL hooks; Coolify matches by secret.
+   - **Trigger the backlog without an empty commit**: after wiring, `gh api -X
+     POST repos/<org>/<repo>/hooks/<id>/tests` delivers a synthetic push event
+     for the latest commit — Coolify accepts it (200) and deploys the pending
+     HEAD. Check results with `gh api …/hooks/<id>/deliveries`.
+   - **Prefer the GitHub App integration for new apps** when someone can do
+     the one-time interactive install: source webhooks come wired for every
+     app automatically (plus PR preview deploys), and none of this section is
+     needed. Deploy keys remain the right choice only for fully-headless/API
+     onboarding or repos where installing the App is undesirable — accept the
+     manual webhook wiring as part of that trade, and do it at creation time,
+     not after the first "why didn't it deploy".
 8. `PATCH docker_compose_domains` is **asymmetric**: GET returns an object keyed by
    service, but PATCH demands an array — `[{"name": "homepage", "domain": ""}]`.
 
