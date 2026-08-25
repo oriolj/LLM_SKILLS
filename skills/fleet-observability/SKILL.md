@@ -16,6 +16,13 @@ Everything rides the **tailnet** — joining Tailscale is a hard prerequisite
 for any host before its agent (Prometheus scrapes agents over it; agents push
 logs over it; nothing observability-related touches a public interface).
 
+**Addressing rule (Oriol's standing preference): use Tailscale MagicDNS
+short hostnames, never raw `100.x` IPs, in every URL** — homepage links,
+`LOKI_ADDR`, scrape target lists, DSNs, docs (`http://monitor-1-nc:3000`,
+`http://infra-monitoring:8000`). Names survive IP changes and read like the
+inventory. The one place an IP is still required is a **compose port bind**
+(`${TAILNET_IP}:3000:3000` — bind addresses must be literal IPs).
+
 ## 1. Architecture (one agent, both signals)
 
 ```
@@ -150,7 +157,7 @@ prometheus.scrape "self" { targets = prometheus.exporter.unix.host.targets ... }
 
 loki.write "hub" {
   endpoint {
-    url = "http://<hub-tailnet-ip>:3100/loki/api/v1/push"
+    url = "http://monitor-1-nc:3100/loki/api/v1/push"
     basic_auth { username = "agent-<host>" password_file = "/etc/alloy/loki.pass" }
   }
   wal { enabled = true }   // survive gateway restarts/outages; bounded by max_wal_time
@@ -283,7 +290,7 @@ Workstations are on the tailnet; `logcli` + the `reader` cred give real
 tailing. homelab/ansible deploys `~/.config/oj-loki/env`:
 
 ```bash
-LOKI_ADDR=http://<hub-tailnet-ip>:3100
+LOKI_ADDR=http://monitor-1-nc:3100
 LOKI_USERNAME=reader
 LOKI_PASSWORD=…
 ```
