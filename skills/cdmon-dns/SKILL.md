@@ -1,0 +1,89 @@
+---
+name: cdmon-dns
+description: Use the CDmon Domains API safely — DNS records on the zones hosted at CDmon (enacast.com). Use when creating/editing/deleting DNS records for enacast.com or any CDmon-hosted zone, when the user mentions CDmon, when wiring a CNAME for a Pages/Vercel/Coolify deployment on enacast.com, or when planning wildcard/delegation records for EnaChat branded chats. Covers the API base URL and auth, the DNS endpoints, and the SAFETY RULES — this key operates on a PRODUCTION zone with ~150 records serving every radio client, and some endpoints charge real money.
+---
+
+# CDmon Domains API (DNS)
+
+Field notes from 2026-08-25 (first use: creating `chat.enacast.com` for the
+EnaChat comercial site on Cloudflare Pages). Official docs (Apiary, the raw
+blueprint is fetchable): https://domainsapi1.docs.apiary.io/ —
+`GET /api-description-document` on that host returns the full API blueprint
+as markdown when the rendered page won't load.
+
+## ⚠️ SAFETY RULES (Oriol: "be extra careful on cdmon api")
+
+The key operates on the LIVE `enacast.com` zone: ~150 records, including
+every radio client's website CNAME, streaming hosts, Google MX for the
+company mail, and DKIM/SPF records. There is no staging, no dry-run, no
+undo, and no record history.
+
+- **Read-only by default.** `getDnsRecords` freely; any WRITE beyond adding
+  a brand-new record needs explicit confirmation from Oriol first.
+- **NEVER call the money endpoints**: `register`/`create` (domain
+  registration), `renew`, `transfer`, `restore` charge the account balance.
+  Nothing an agent does should ever need them.
+- **Never touch** `dns` (nameserver changes), `dnssec`, `block`,
+  `whoisprivate`, `contacts/modify`, `autorenewal/manage` — account-level
+  operations, human-only.
+- **Adding a NEW record (unique host+type) is the safe operation** — it
+  cannot clobber anything. Still: `getDnsRecords` FIRST to confirm the
+  host doesn't exist, and again AFTER to verify exactly one record changed.
+- **Edit/delete match on `host`+`type` only** — with multiple records on
+  the same host+type (MX, NS, TXT sets), an edit/delete may hit more than
+  you intend. For those, list first, show Oriol the exact record(s), and
+  get a yes.
+- The API returns `{"status": "ok"|"ko", "data": …}` — always check
+  `status`, a 200 does not mean success.
+
+## Auth + base URL
+
+- Base: `https://api-domains.cdmon.services/api-domains/<endpoint>`
+- Every call is **POST** with JSON, even reads.
+- Headers: `apikey: <key>` + `Accept: application/json` +
+  `Content-Type: application/json`.
+- Key: `hq/homelab/secrets/cdmon.env` → `CDMON_API_KEY` (age-encrypted
+  committed copy; grep/cut to read, never `source`). Regenerating the key
+  in the CDmon panel invalidates the old one.
+
+## DNS endpoints (types supported: A, CNAME, TXT)
+
+```bash
+KEY=$(grep '^CDMON_API_KEY=' $SECRETS/cdmon.env | cut -d= -f2)
+API=https://api-domains.cdmon.services/api-domains
+
+# List (do this before AND after any write)
+curl -s -X POST "$API/getDnsRecords" -H "apikey: $KEY" \
+  -H "Accept: application/json" -H "Content-Type: application/json" \
+  -d '{"data": {"domain": "enacast.com"}}'
+
+# Create (host is the LABEL, not the FQDN; destination for A/CNAME, value for TXT)
+curl -s -X POST "$API/dnsrecords/create" -H "apikey: $KEY" \
+  -H "Accept: application/json" -H "Content-Type: application/json" \
+  -d '{"data": {"domain": "enacast.com", "type": "CNAME", "ttl": 900,
+       "host": "chat", "destination": "enachat-website.pages.dev"}}'
+
+# Edit — current selects by host+type; new carries ttl + destination/value
+# {"data": {"domain": "…", "current": {"host": "x", "type": "CNAME"},
+#           "new": {"ttl": 900, "destination": "y"}}}      → /dnsrecords/edit
+# Delete — {"data": {"domain": "…", "type": "CNAME", "host": "x"}} → /dnsrecords/delete
+```
+
+- TTL convention in the zone: **900** for almost everything.
+- `host: "@"` = apex. Wildcards work as labels (`*.ai` exists as an A
+  record). Sub-zone NS delegation works too (`test` is delegated to AWS).
+- Propagation is fast: a created record answered from `ns1.cdmon.net`
+  within seconds.
+
+## The enacast.com zone — what lives there (2026-08-25 snapshot)
+
+- Radio-client websites: dozens of `<radio>` CNAMEs → Vercel
+  (`*.vercel-dns-016.com`); apex + `www` → 91.134.113.207.
+- `chatapp` → coolify-ovh-vps-1.enacast.com (EnaChat app);
+  `chat` → enachat-website.pages.dev (comercial site, Cloudflare Pages).
+- Company mail: Google MX on `@` + Mailgun/SES/Resend TXT+DKIM — mail
+  breaks if these are touched.
+- Planned (see enachat/plans/custom-domains.md): wildcards
+  `*.xat` / `*.chat` for branded per-town chats — as CDmon records they
+  can be plain wildcard CNAMEs to the app host; remember the explicit
+  `chat` record and a `*.chat` wildcard coexist as separate records.
