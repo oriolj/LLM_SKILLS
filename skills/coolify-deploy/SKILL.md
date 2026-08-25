@@ -249,8 +249,20 @@ downtime; the sequence and traps:
    its router instantly. The overlap window where both resources claim the same Host
    rule is harmless (both serve the app).
 6. Keep the old resource **stopped, not deleted** — it is the rollback (start it,
-   restore its domains, stop the new one).
-7. `PATCH docker_compose_domains` is **asymmetric**: GET returns an object keyed by
+   restore its domains, stop the new one). And **disable its auto-deploy**
+   (`PATCH {is_auto_deploy_enabled: false}`): a stopped GitHub-App resource with
+   auto-deploy on is RESURRECTED by the next push to the repo — it came back
+   `running:healthy` minutes after being stopped, redeployed by the migration's own
+   docs commit. (It redeployed with the already-cleared domains, so it never stole
+   traffic — clearing domains BEFORE stopping is what made this benign.)
+7. **Deploy-key apps have no source webhook — push-to-deploy dies with the migration**
+   unless you rewire it. Every app pre-generates `manual_webhook_secret_github` (visible
+   in `GET /applications/{uuid}`) and defaults `is_auto_deploy_enabled: true`; add a
+   repo webhook and parity is restored (verified: push → delivery 200 → rolling deploy):
+   `gh api repos/<org>/<repo>/hooks -f name=web -F active=true -f 'events[]=push'
+   -f 'config[url]=https://app.coolify.io/webhooks/source/github/events/manual'
+   -f 'config[content_type]=json' -f 'config[secret]=<manual_webhook_secret_github>'`
+8. `PATCH docker_compose_domains` is **asymmetric**: GET returns an object keyed by
    service, but PATCH demands an array — `[{"name": "homepage", "domain": ""}]`.
 
 Rolling-update verification: the deploy log literally prints `Rolling update started` /
