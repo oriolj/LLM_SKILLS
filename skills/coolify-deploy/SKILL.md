@@ -143,6 +143,15 @@ Unwedge on the server: `rm -rf` the stub under
 `/data/coolify/applications/<uuid>/`, `scp` the real file(s) in, redeploy.
 Files that existed before Preserve Repository's first copy are unaffected.
 
+⚠️ **The preserve-repository copy is ADDITIVE** — it is a `docker cp` with
+no `--delete`, so a file REMOVED from the repo lives on under
+`/data/coolify/applications/<uuid>/` forever. Anything that scans a mounted
+directory (Grafana provisioning, conf.d includes) keeps loading the deleted
+file on every restart. Removing a config file from git therefore needs a
+manual `rm` on the server plus a service restart. And the copy runs AFTER
+`compose up`, so a newly added file in a directory mount takes effect one
+restart LATER than the deploy that introduced it.
+
 Fix: enable **Preserve Repository During Deployment**
 (`settings.is_preserve_repository_enabled`, PATCHable via API) — Coolify then
 copies the cloned repo into `/data/coolify/applications/<uuid>/` on every

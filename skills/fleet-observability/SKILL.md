@@ -273,6 +273,18 @@ interpolation — **verified working** alongside `$__env{...}` (2026-08-25).
 Give critical a much shorter `repeat_interval` (30 m here) than the default
 (24 h) — critical should NAG until someone acts.
 
+**Provisioned alert rules do NOT die with their file.** Deleting a
+provisioning yml only stops UPDATES — the rules live on in grafana.db,
+still firing (a leftover always-true test rule paged every 30 m for an
+hour). The only provisioned deletion path is a **`deleteRules:` tombstone**
+(uid + orgId) in a file that stays. Two Coolify interactions stack on top:
+the repo copy is additive (the deleted yml survives on the server and
+re-creates the rules every restart — `rm` it there), and the copy lands
+after startup while Grafana reads alerting provisioning ONLY at startup, so
+any new provisioning file needs one extra restart to take effect. Verify
+with the unauthenticated `/metrics`: `grafana_alerting_rule_group_rules`
+lists every live group.
+
 **Post-deploy notification timing**: a redeploy restarts Grafana and resets
 every rule's `for` clock, so notifications lag by pending-time + group_wait
 after each deploy. Diagnose with `grafana_alerting_notifications_total` /
