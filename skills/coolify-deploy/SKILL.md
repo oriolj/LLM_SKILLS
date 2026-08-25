@@ -354,7 +354,32 @@ Three mechanisms, layered by tenant need:
   be updated in the same change. Cost: a rebuild-deploy per domain change —
   fine at tens-of-tenants scale, wrong at hundreds (then: file-provider
   generation above, or Cloudflare for SaaS — 100 custom hostnames free —
-  with the origin routing a catch-all).
+  with the origin routing a catch-all). Fetch-then-append mechanics: GET the
+  app first — the current comma-separated domains are in `fqdn` (Dockerfile
+  resources) — and PATCH `domains` with old+new joined; PATCH replaces, so
+  a bare new value silently drops the live sslip/prod domains.
+- **Django behind this: dynamic ALLOWED_HOSTS with no env churn (verified
+  in prod, EnaChat 2026-08-25).** Django's `request.get_host()` validates by
+  ITERATING `settings.ALLOWED_HOSTS` (`django.http.request.validate_host`)
+  on every call — the setting only needs to be an iterable of patterns. A
+  `list` subclass whose `__iter__` also yields the currently-active custom
+  domains from the DB (short-TTL cached, `()` on any DB error = fail closed)
+  lets client domains pass strict host validation with zero env edits and
+  zero redeploys, while unknown Hosts still 400. Wildcard-subdomain tiers
+  stay static: `.{base}` suffix entries (Django matches base + any
+  subdomain). CSRF usually needs nothing if the tenant hosts serve only
+  GET pages + csrf-exempt keyed APIs. Two traps: define the class where
+  settings can import it without loading models (query lazily inside
+  `__iter__`), and Django's `setup_test_environment()` replaces
+  ALLOWED_HOSTS with a plain list — tests must `override_settings` with a
+  fresh instance of the dynamic class.
+- **Wildcard-cert DNS reality check**: DNS-01 needs API control of the zone
+  holding `_acme-challenge.<base>`. Cloudflare cannot host a subdomain-only
+  zone except on Enterprise ("subdomain setup") — so if the apex zone lives
+  at an API-less registrar (CDmon…), either migrate the whole zone to
+  Cloudflare or NS-delegate just the base subdomains to any lego-supported
+  DNS host that accepts arbitrary zone names (DigitalOcean DNS, deSEC,
+  Route53) and point the certresolver's provider there.
 
 ## 6. Deploy speed and signal handling
 
