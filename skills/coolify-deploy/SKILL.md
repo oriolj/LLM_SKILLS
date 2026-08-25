@@ -400,6 +400,46 @@ Three mechanisms, layered by tenant need:
 - Big Compose stacks: split into a `web` resource and a `workers` resource so web deploys don't cycle every worker container.
 - Base Directory vs Dockerfile Location are separate fields: the **build context must contain everything the Dockerfile COPYs** (migrations dir, sibling frontend/). A too-narrow base dir often still builds — with the COPY silently empty. Huge image → check the repo-root `.dockerignore`.
 
+## 6b. Deploys: one per push, and the mixed-version failure mode
+
+**A `git push` to a connected repo ALREADY deploys.** Calling
+`POST /deploy?uuid=…` on top just queues a second, redundant build of the
+same commit. Push *or* trigger — never both.
+
+**Blue-green means both versions serve at once during the swap.** The old
+and new containers both carry `traefik.enable=true`, so Traefik
+round-robins across them until the old one is stopped. Normally that window
+is seconds. The symptom when it is not: **the same URL returns old content
+and new content on alternate requests** (a page title, a template string, a
+feature flag — flapping request to request). Do not chase this as a caching
+bug; check how many app containers are running.
+
+**Wedged deploy = permanent mixed-version serving.** Coolify Cloud drives
+the deploy over SSH into a per-deployment `coollabsio/coolify-helper`
+container. If that connection drops mid-run (a flaky tunnel will do it),
+the deploy stalls at ~95%: new container healthy and serving, **old
+container never stopped**, deployment stuck `in_progress` forever.
+
+```bash
+# diagnose — two app containers + an idle helper is the signature
+docker ps --filter "name=<app-uuid>" --format "{{.Names}} {{.Status}}"
+docker ps --format "{{.Names}}\t{{.Image}}" | grep coolify-helper
+docker top <helper>       # only tini + "tail -f /dev/null" => idle, not working
+docker inspect <c> --format '{{.Config.Image}}'   # which build each one is
+```
+
+Remedy, in order: `docker stop -t 30 <old-container>` — that ends the mixed
+serving immediately and is exactly what the deploy would have done — then
+`docker rm -f <helper>` to clear the orphan. **The API has no cancel
+endpoint** (`DELETE /api/v1/deployments/<uuid>` → 404); a genuinely stuck
+queue entry has to be cancelled from the Coolify UI, though clearing the
+orphaned helper usually lets it resolve on its own.
+
+API notes: `GET /api/v1/deployments` (the queue, with `status` and `commit`
+per entry) is the reliable read; `GET /api/v1/deployments/<uuid>` returned
+an empty body in practice. Statuses seen: `queued`, `in_progress`,
+`finished`, `failed`, `cancelled`.
+
 ## 7. Operating the prod host
 
 - **Coolify keeps NO repo checkout on the server** — the clone is discarded after build. One-off commands needing repo files: `scp` to host, then `docker cp` into the container. Never write runbooks assuming `$REPO` exists on prod.
