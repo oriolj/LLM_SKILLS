@@ -213,6 +213,45 @@ packages, default shell, no prior run's leftovers. For every task ask:
   sanitizes the environment, so an env-var password arrives empty and burns
   auth attempts into a faillock lockout.
 
+## Credentials, firewalls, alert plumbing (server fleets)
+
+- **Group-scoped credentials must be managed BOTH ways.** An
+  `authorized_key`/token task gated `when: "'somegroup' in group_names"`
+  only ever ADDS: removing the host from the group silently leaves the
+  credential behind. Drop the `when` and flip
+  `state: "{{ 'present' if 'somegroup' in group_names else 'absent' }}"`
+  so leaving the group revokes on the next run.
+- **A tag-scoped task that restarts/reloads a listener must open its own
+  firewall holes first.** Real case: `--tags ssh` reloaded sshd onto a new
+  port while the ufw allow for it lived in the (unrun) `firewall` tag —
+  the connected session survives but nothing new can get in. Probe
+  `ufw status` (failed_when: false — ufw may not be installed yet) and
+  allow the ports before the reload; duplicate allows are no-ops.
+- **Daemon-vs-config convergence checks must compare BOTH directions.**
+  "Reload if a wanted port is missing" passes while a stale extra
+  listener (old port 22) stays bound forever. Use
+  `symmetric_difference`, and assert the same both ways.
+- **`logger` ignores stdin when given a message argument.**
+  `body | logger -t x "subject"` journals only the subject — the piped
+  diagnostic body is silently dropped. Pipe everything:
+  `printf '%s\n%s\n' "$subject" "$body" | logger -t x`.
+- **One-shot bootstrap playbooks: reload services unconditionally.** A
+  `when: <file task> is changed` reload-gate wedges after an interrupted
+  run (file written, reload never happened → every later run skips it).
+  For a play that runs once per box, always reload and put the cosmetics
+  in `changed_when`.
+- **Unsigned release packages get a sha256 recorded at pin time.** GitHub
+  release SHA256SUMS often covers only some artifacts (Loki: zips yes,
+  deb/rpm no) — download once, hash, and store the checksums NEXT TO the
+  version pin so a bump forces re-hashing; install via
+  `get_url checksum:` + local-file apt/dnf, gated on a version probe.
+- **Repeated blob-parsing Jinja belongs in a filter plugin.** The
+  regex_search+`default([],true)`+sentinel+`first|trim` incantation for
+  reading KEY=value out of a secrets file, copied per role, is a 15-line
+  `filter_plugins/env_get.py` (split on first '=' — values can contain
+  '=' and '|'; never `source` or `cut`). Wire the dir in ansible.cfg
+  (cfg-relative) so plays under playbooks/ resolve it too.
+
 ## Validation ladder (run in this order, cheapest first)
 
 1. `ansible-playbook site.yml --syntax-check` — parse errors only.
