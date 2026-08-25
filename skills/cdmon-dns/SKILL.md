@@ -9,7 +9,8 @@ Field notes from 2026-08-25 (first use: creating `chat.enacast.com` for the
 EnaChat comercial site on Cloudflare Pages). Official docs (Apiary, the raw
 blueprint is fetchable): https://domainsapi1.docs.apiary.io/ —
 `GET /api-description-document` on that host returns the full API blueprint
-as markdown when the rendered page won't load.
+as markdown when the rendered page won't load (it 502s intermittently —
+curl with `--retry 3 --retry-delay 2`).
 
 ## ⚠️ SAFETY RULES (Oriol: "be extra careful on cdmon api")
 
@@ -69,6 +70,12 @@ curl -s -X POST "$API/dnsrecords/create" -H "apikey: $KEY" \
 # Delete — {"data": {"domain": "…", "type": "CNAME", "host": "x"}} → /dnsrecords/delete
 ```
 
+- **Field asymmetry, verified**: records READ back with `value`
+  (`{"type","host","ttl","value","priority"?}` inside `data.result`), but
+  are WRITTEN with `destination` (A/CNAME) or `value` (TXT). Don't echo a
+  listed record back into create/edit without renaming the field.
+- Success shapes: list → `{"status":"ok","data":{"msg":…,"result":[…]}}`;
+  create → `{"status":"ok","data":"Record added successfully"}`.
 - TTL convention in the zone: **900** for almost everything.
 - `host: "@"` = apex. Wildcards work as labels (`*.ai` exists as an A
   record). Sub-zone NS delegation works too (`test` is delegated to AWS).
