@@ -133,6 +133,16 @@ an empty **directory**, and a file mount fails with `OCI runtime create
 failed: … not a directory` (or the service starts with an empty config dir,
 which is worse: silent).
 
+⚠️ **Adding a NEW bind-mounted config file wedges the next deploy** even
+with Preserve Repository ON: `compose up` runs BEFORE the end-of-deploy repo
+copy, so Docker auto-creates the not-yet-copied source as a directory stub —
+the mounting container breaks, and the final `docker cp` then fails forever
+with `cannot overwrite directory "<file>" with non-directory` (every retry
+hits the same stub, and the failed stop-start can leave services down).
+Unwedge on the server: `rm -rf` the stub under
+`/data/coolify/applications/<uuid>/`, `scp` the real file(s) in, redeploy.
+Files that existed before Preserve Repository's first copy are unaffected.
+
 Fix: enable **Preserve Repository During Deployment**
 (`settings.is_preserve_repository_enabled`, PATCHable via API) — Coolify then
 copies the cloned repo into `/data/coolify/applications/<uuid>/` on every
