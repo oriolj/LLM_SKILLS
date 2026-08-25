@@ -219,6 +219,69 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   resource **uuid as hostname** — Dockerfile apps on the same destination
   network reach it directly; use those hostnames in app env.
 
+## 5c. Migrating a live Compose resource to Dockerfile (zero-downtime cutover, 2026-08-25)
+
+Compose → Dockerfile cannot convert in place (different buildpack) — you create a NEW
+application and cut the domains over. Done live on the EnaCast homepage with zero
+downtime; the sequence and traps:
+
+1. **Recon the old resource first**: `GET /applications/{uuid}` — for compose apps the
+   top-level `fqdn` is null; the real domains live in `docker_compose_domains` (JSON
+   keyed by service, values may carry a `:port` suffix = port-in-domain routing).
+   Check `envs` (only `SERVICE_*` magic vars? then all real config is hardcoded in the
+   compose `environment:` and must be re-created as UI env vars on the new app) and
+   whether the compose mounts volumes (none = image is immutable, easiest case).
+2. **GitHub deploy keys are globally unique**: a key already installed as a deploy key
+   on repo A cannot be added to repo B (`gh repo deploy-key add` → 422 "key is already
+   in use"). Reusing an existing Coolify key across repos is therefore impossible —
+   generate a fresh keypair per repo, register it with `POST /security/keys`
+   (`{name, private_key}` → uuid), then `gh repo deploy-key add` the pubkey read-only.
+3. Create the new app (`POST /applications/private-deploy-key`, `instant_deploy: false`),
+   POST its env vars, THEN deploy. Put **every** future hostname into things like
+   `HOMEPAGE_ALLOWED_HOSTS` up front (sslip + prod domains) so the cutover needs no
+   env change + redeploy.
+4. **Verify on the auto-assigned sslip domain before touching the prod domain.**
+5. Cutover, zero-downtime order: PATCH new app's `domains` (comma-separated, keep
+   sslip) + redeploy new (rolling — see below) → verify prod Host serves → clear the
+   old app's domains → `POST /applications/{old}/stop`. **Never redeploy the old
+   compose resource to drop its Traefik labels** — a compose redeploy is stop-then-
+   start (a 502 window) for nothing: stopping the resource removes the container and
+   its router instantly. The overlap window where both resources claim the same Host
+   rule is harmless (both serve the app).
+6. Keep the old resource **stopped, not deleted** — it is the rollback (start it,
+   restore its domains, stop the new one).
+7. `PATCH docker_compose_domains` is **asymmetric**: GET returns an object keyed by
+   service, but PATCH demands an array — `[{"name": "homepage", "domain": ""}]`.
+
+Rolling-update verification: the deploy log literally prints `Rolling update started` /
+`New container started` / `Removing old containers` / `Rolling update completed`. An
+image HEALTHCHECK **inherited from the base image** gates it fine — even though
+`custom_healthcheck_found` stays false (Coolify only scans YOUR Dockerfile text) and
+the UI healthcheck is off; `status: running:healthy` confirms Docker sees it.
+
+### Config-driven static-ish sites (gethomepage pattern)
+
+- **Bake the config into the image** (`FROM ghcr.io/gethomepage/homepage:latest` +
+  `COPY config/ /app/config/`), no volumes: the image is fully immutable, blue-green
+  is trivially safe, and every config change is a git commit + deploy. This beats
+  bind-mounting `config/` (which needs Preserve Repository and its stub-wedge traps,
+  section 4).
+- **`FROM x:latest` resolves fresh on every Dockerfile-resource build** (buildkit
+  re-pulls the metadata), while the old compose resource had months-stale cache — so
+  the migration silently upgraded gethomepage several versions. Expect this on any
+  `:latest` base when moving between resources; pin the tag if the app version matters.
+- **Verify with the app's API, not the HTML**: gethomepage ≥ v1.7 stopped SSR-ing
+  services into the initial page — `curl /` returns a default-looking "Homepage"
+  title even when the config is loaded and fine. `/api/services`, `/api/widgets`,
+  `/api/healthcheck` tell the truth; a headless-chromium screenshot
+  (`chromium --headless=new --screenshot --virtual-time-budget=15000 <url>`) proves
+  client-side widgets (custom.js) actually render. Almost shipped a "broken" rollback
+  over what was a rendering-strategy change.
+- gethomepage specifics: listens on 3000 (`ports_exposes: 3000`), image HEALTHCHECK
+  hits `/api/healthcheck` (wget, start-period 20s) — no UI healthcheck needed; every
+  Host it's served under (sslip included) must be in `HOMEPAGE_ALLOWED_HOSTS` or it
+  400s "Host validation failed".
+
 ## 6. Deploy speed and signal handling
 
 - **Compose buildpack stops containers sequentially with `docker stop -t 30` and IGNORES `stop_grace_period`** (upstream coolify#5975). Still set `stop_grace_period` (honored elsewhere), but the real lever is making SIGTERM work:
