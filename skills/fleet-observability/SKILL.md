@@ -245,6 +245,31 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
 - Wire the deployed release into a metric (`app_info{version="<sha>"} 1`)
   so deploys are visible as Grafana annotations.
 
+## 5a-bis. Alert email — Resend SMTP, and the blocked-port trap
+
+Grafana delivers alerts by email through **Resend SMTP**. Two field-verified
+facts (monitor-1-nc, 2026-08-25):
+
+- 🔴 **netcup blocks outbound SMTP ports (25/587) by default** on
+  vServers/root servers — anti-spam policy. Symptom: every notification
+  fails with `dial tcp <ip>:587: i/o timeout` (~10–15 s each), while the
+  config looks perfect. **Fix: `smtp.resend.com:2587`** — Resend listens
+  there precisely for blocked-port hosts. No support ticket needed. Check
+  the provider's egress policy before debugging credentials.
+- Delivery health is a metric, not a feeling: Grafana's own
+  `/metrics` exposes `grafana_alerting_notifications_total` and
+  `…_failed_total` (per integration). The failed counter ABSENT means zero
+  failures; present and equal to total means nothing ever left the box.
+  And the stack debugs itself — query `{compose_service="grafana"} |~
+  "(?i)smtp|notify"` in Loki for the actual dial error instead of hunting
+  for docker logs.
+
+To force a real end-to-end email without waiting for repeat_interval
+(the nflog dedupes re-notifications for 24 h): create a temporary
+always-firing rule (`vector(1)`, `for: 10s`, own ruleGroup so it forms a
+fresh alert group) via the provisioning API with `X-Disable-Provenance`,
+watch the counters, then DELETE it. A fresh group notifies immediately.
+
 ## 5b. Error tracking — GlitchTip (the estate's Sentry alternative)
 
 Errors/exceptions go to **GlitchTip**, not Sentry — it is Sentry-API
