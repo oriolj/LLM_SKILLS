@@ -83,6 +83,22 @@ in Prometheus — which is what makes Grafana's graph↔logs jumps line up.
   (`count by (project) ({oj_tagged="false"})`) — stragglers must be visible,
   not silently absorbed.
 
+**Setting oj.* labels on Coolify resources (verified 2026-08-25, EnaChat):**
+
+- **Applications (Dockerfile buildpack): the `custom_labels` API field
+  works.** It is base64 and PRE-FILLED with Coolify's generated Traefik
+  labels — `GET /applications/{uuid}`, decode, **append** the `oj.*` lines,
+  re-encode, PATCH, redeploy. Never replace the existing content (it IS the
+  Traefik routing). Verified: labels land on the container, routing intact.
+  Workers have an empty field; just set the oj.* lines.
+- **Database resources have no custom_labels**, but need none: Coolify
+  stamps `coolify.projectName` (= project if named right),
+  `coolify.environmentName` (`production` → relabel to `prod`) and
+  `coolify.database.subType` (`standalone-postgresql` / `standalone-redis` →
+  relabel to `postgres`/`redis`). The role's alloy config carries these
+  fallbacks generically, so `service=postgres|redis` needs no per-host map.
+  DB streams still show `oj_tagged="false"` (correct: no oj.* labels).
+
 ## 3. The per-host agent (ansible-managed compose)
 
 Deployed by `shared/ansible` (role `observability_agent`), NOT as a Coolify
@@ -91,6 +107,17 @@ per-host config (hostname, creds, network name) comes from the inventory.
 Role drops `/opt/observability/{docker-compose.yml,config.alloy,nginx.conf}`
 and runs `docker compose up -d`. Agent updates = bump the pinned image in
 the role, run the play.
+
+**Status (2026-08-25): the role EXISTS and the first agent is LIVE** on
+coolify-ovh-vps-1 (opt-in `observability` inventory group; monitor-1-nc is
+deliberately excluded — the hub compose runs its own Alloy there). Shipped
+**logs-only**: journald + docker with the full label relabeling, WAL, tailnet
+bind on :12345. Still planned: the metrics pipeline (unix exporter, app
+`/metrics` discovery, central Prometheus target) and the rest of the fleet.
+Per new host: generate a password, add `agent-<host>:<pw>` to the hub app's
+`LOKI_WRITERS` Coolify env + redeploy the hub, add
+`LOKI_AGENT_PASSWORD_<HOST>` to `homelab/secrets/loki-agents.env`, put the
+host in `observability`, run `--tags observability`.
 
 The agent is a **pair**: `alloy` + `socket-proxy`, because the Docker socket
 is host-root and `:ro` does not restrict the API. The proxy is plain nginx
@@ -103,9 +130,16 @@ way:
 - `/networks` must be allowed: `discovery.docker` calls it, and without it
   discovery silently yields **zero targets** while journald keeps flowing.
 - Inspect is allowed (Alloy needs TTY framing detection) and returns
-  `Config.Env` — so **no credential may live in container env** on any
-  monitored host (file-based secrets; see `coolify-deploy` §9). The agent
-  makes container env READABLE to anything that reaches the proxy.
+  `Config.Env` — so ideally **no credential lives in container env** on any
+  monitored host (file-based secrets; see `coolify-deploy` §9). **On Coolify
+  hosts that ideal is false**: Coolify injects every UI env var into
+  container env, so app secrets ARE readable via inspect. The accepted
+  trade-off (first fleet agent, coolify-ovh-vps-1 2026-08-25): keep the
+  inspect route (Alloy needs it), keep the proxy **unpublished and only on
+  the agent compose's private default network** — the complete set of things
+  that can reach it is then the two pinned upstream images (alloy + nginx).
+  Never attach the proxy to the coolify network, never publish it, never add
+  a third service to the agent compose without re-reading this.
 
 Compose essentials (full template lives in the ansible role):
 
@@ -339,7 +373,11 @@ Non-negotiables, wired to the rest of the estate's rules:
 ## 6. `make logs` — prod/beta logs from the dev machine
 
 Workstations are on the tailnet; `logcli` + the `reader` cred give real
-tailing. homelab/ansible deploys `~/.config/oj-loki/env`:
+tailing. homelab/ansible installs logcli (note: Arch's `extra/logcli`
+lags the hub — pin the release binary matching the hub's Loki minor into
+`~/.local/bin` when it matters). `~/.config/oj-loki/env` is **not yet
+ansible-deployed** (tracked in homelab/docs/TODO_AND_EXPLORE.md); today it
+exists hand-made on one workstation:
 
 ```bash
 LOKI_ADDR=http://monitor-1-nc:3100
@@ -381,6 +419,9 @@ LogQL crib: `|= "text"` exact, `|~ "regex"`, `| json | status >= 500`,
    history and Loki 400-rejects everything older than
    `reject_old_samples_max_age` (7 d) as "timestamp too old". That is the
    guard working — watch that drops fall to zero, don't page on the burst.
+   (A host whose containers were all recreated recently shows NO burst —
+   coolify-ovh-vps-1's first rollout was silent because every container was
+   hours old. Absence of the burst is not a mis-wire.)
 7. One host at a time; watch ingest rate, stream count
    (`loki_ingester_memory_streams`), and hub disk before the next.
 
