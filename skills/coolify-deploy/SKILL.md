@@ -58,6 +58,31 @@ Magic variables (auto-generated, persisted across deploys; needs v4.0.0-beta.411
 - **Build vs Runtime flags**: mark everything the build doesn't need (API keys, DSNs, JWT secrets) **Runtime-only** — keeps secrets out of `/artifacts/build-time.env` and the build context. For build-time-only secrets (private package tokens), enable "Use Docker Build Secrets" + `# syntax=docker/dockerfile:1`; Coolify rewrites `RUN` with `--mount=type=secret`.
 - **A var not threaded through the compose file cannot be set from the UI at all.** Audit that every runtime setting appears in the compose `environment:`.
 
+### Auto-seeding traps (verified on Coolify Cloud, compose_parsing_version 5)
+
+When Coolify first parses a compose file it creates UI env rows for every
+referenced variable — and the seeded VALUES are traps:
+
+- `${VAR:?hint}` → the row is created **with the hint text as its literal
+  value** ("where alerts go, e.g. …" became the actual alert recipient).
+  The `:?` guard then passes with garbage. Audit every `:?` var after the
+  first parse.
+- `${VAR}` / `${VAR:?}` → seeded as **empty string** (fails `:?`, silently
+  satisfies a bare `${VAR}`).
+- `${VAR:-default}` → the default is seeded as the value — **including any
+  nested `${OTHER}` unexpanded**, and compose does NOT re-interpolate env
+  values, so `GRAFANA_ROOT_URL=http://${TAILNET_IP}:3000` ships literally.
+  Avoid nested variables in defaults, or overwrite the seeded value.
+- **Magic vars referenced only in a top-level `secrets:` block are NOT
+  auto-generated** — the scanner reads service `environment:`, not
+  `secrets.*.environment`. A `SERVICE_PASSWORD_X` used solely as a secret
+  source must be created by hand (UI or API).
+- **Compose-buildpack interpolation runs against `/artifacts/build-time.env`**
+  (`docker compose --env-file …`). Any var used in `${...}` interpolation —
+  port binds, image tags, secret sources — must be **buildtime**; a
+  runtime-only var is invisible to interpolation and fails the deploy with
+  "required variable X is missing a value".
+
 ### The empty-string trap (bites every Django project)
 
 **Coolify injects declared-but-unset vars as empty strings**, and `python-decouple` / `django-environ` `default=` only applies when the var is **absent**, not empty. This silently wipes `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL`, Sentry env, S3 config. Same trap from the compose side: `${VAR:-}` sets an empty string. Defenses:
@@ -137,6 +162,27 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
 - `coolify-sentinel` eating CPU on a busy host can be throttled/disabled in Coolify settings.
 - Prod commands not matching the repo = stale deploy or a **UI command override** on the resource — check there before debugging code.
 - After changing env vars in the UI, you must **redeploy** for them to apply.
+
+## 7b. Coolify Cloud API (debugging deploys without the UI)
+
+Base `https://app.coolify.io/api/v1`, `Authorization: Bearer <token>`.
+**Cloudflare fronts it and 403s (error 1010) default tool UAs** — python
+urllib/httpx must send a real browser User-Agent (same finding as
+api.resend.com; curl's default UA happens to pass).
+
+- `GET /applications/{uuid}` — resource + its **server** object, including
+  `validation_logs` (connection errors) and `ip_previous`.
+- `GET /deployments/applications/{uuid}` — deployment history; `logs` is a
+  JSON array of `{command, output}` steps, including the real compose error.
+- `GET/POST/PATCH /applications/{uuid}/envs` — PATCH updates by `key`
+  (`{key, value, is_buildtime, is_literal}`); GET returns each var TWICE
+  (production + preview rows) — not a bug, dedupe by key.
+- `GET /deploy?uuid={app}` — trigger a deploy.
+- The server's `ip` field must resolve **from Coolify Cloud** (public DNS).
+  Setting a not-yet-published hostname breaks the connection ("dial tcp:
+  lookup … no such host"), blocks all deploys, and flips the server
+  unreachable; `ip_previous` keeps the old value. Create the DNS record
+  first, then change the field.
 
 ## 8. Failure → cause → fix
 
