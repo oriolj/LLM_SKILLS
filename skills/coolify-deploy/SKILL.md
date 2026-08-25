@@ -25,6 +25,14 @@ Rolling/blue-green preconditions (official): passing health check, default conta
 
 **Migrate-on-boot is a blue-green feature**: run migrations at container start, before opening the listener, gated by `pg_advisory_lock(<constant>)`. A failed migration fails the boot → healthcheck never passes → traffic stays on the old container. Exactly what you want.
 
+## 1b. Push-to-deploy is mandatory (house rule)
+
+**Every Coolify app gets working push-to-deploy at creation time — verify it, never assume it.** `git push` deploying is the contract; "click Deploy in the UI" is never an acceptable steady state (Oriol, 2026-08-25, after enachat shipped days of pushes nobody deployed).
+
+- GitHub-App-sourced apps have it out of the box. **Deploy-key apps do NOT** — wire the per-app repo webhook the moment the app is created (mechanics + diagnostics in §5c item 7: `manual_webhook_secret_github`, one webhook per app, the `/hooks/<id>/tests` synthetic-push trigger).
+- **Acceptance test before calling the setup done**: push (or fire the hook's `/tests` endpoint) and confirm a deployment row with `is_webhook: true` appears in `GET /deployments/applications/{uuid}`.
+- When onboarding can be interactive, prefer the GitHub App source precisely because it makes this rule free.
+
 ## 2. Networking / Traefik
 
 - **Never add `ports:` or `expose:` for the web interface.** Coolify's Traefik routes over the internal Docker network; host port mappings interfere with routing (and disable blue-green). Set the internal port in the UI's **"Port Exposes"** field instead.
