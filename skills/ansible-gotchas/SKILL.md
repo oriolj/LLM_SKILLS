@@ -74,11 +74,24 @@ packages, default shell, no prior run's leftovers. For every task ask:
   package_map keyed by a NORMALIZED distro key; `ansible_distribution |
   lower` is not normalized (e.g. `archlinux`, `macosx`) and silently indexes
   to nothing behind a `default([])`.
-- **Enable third-party repos by writing the `.repo`/pacman.conf content
-  directly** (a literal `copy`), not by shelling out to the distro's
-  enable command — CLI behavior differs across versions (dnf4 vs dnf5
-  `copr enable` prompting broke silently) while a static file is read
-  identically by all.
+- **Enable third-party repos by writing the `.repo`/pacman.conf/apt
+  `.list` content directly** (a literal `copy`), not by shelling out to
+  the distro's enable command — CLI behavior differs across versions
+  (dnf4 vs dnf5 `copr enable` prompting broke silently) while a static
+  file is read identically by all. This applies to `apt_repository` too:
+  **it only ADDS lines** — after a failed run with a wrong codename, the
+  corrected task writes its line NEXT to the broken one and apt stays
+  broken until someone hand-edits. `copy` owning the whole file
+  self-heals. Related: third-party apt repos can lag brand-new distro
+  releases (pkg.cloudflare.com had no Debian-trixie dist) — keep the
+  codename a variable so one host var pins the previous release.
+- **A skip-with-warning role reads as SUCCESS in the recap.** An optional
+  feature that skips when its input is missing (no token, no key) ends the
+  play green — `ok=13 skipped=5` — and the operator reports "apply done"
+  while nothing was installed. When gating a whole role on an input:
+  make the skip message name the missing thing AND the file to fix, and
+  when someone says a play "ran", verify the ARTIFACT (unit exists, port
+  answers), not the recap.
 
 ## Idempotency and check-mode
 

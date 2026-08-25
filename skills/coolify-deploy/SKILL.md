@@ -202,6 +202,18 @@ api.resend.com; curl's default UA happens to pass).
   the "same" password.
 - App settings like `is_preserve_repository_enabled` PATCH directly on
   `/applications/{uuid}` even though GET nests them under `settings`.
+- **Replacing Coolify's tunnel connector, zero-downtime**: Coolify Cloud's
+  automated Cloudflare-tunnel setup runs a docker container named
+  `coolify-cloudflared` (`cloudflare/cloudflared:latest`). A Cloudflare
+  tunnel accepts **multiple connectors on the same token**, so the swap to a
+  managed native install is: start the new connector with the same token
+  (both serve the tunnel; dashboard shows 2), verify the new one's
+  `/ready`, `docker rm -f coolify-cloudflared`, then prove it with a
+  deploy. Never remove first — the tunnel is Coolify's only way in. On
+  strict-egress/netcup hosts force `TUNNEL_TRANSPORT_PROTOCOL=http2` (see
+  the exit-255 row below). Note `pkg.cloudflare.com` can lag new Debian
+  releases (no trixie dist while the host ran Debian 13) — pin the previous
+  codename; cloudflared is a static Go binary, any dist works.
 - The server's `ip` field must resolve **from Coolify Cloud** (public DNS).
   Setting a not-yet-published hostname breaks the connection ("dial tcp:
   lookup … no such host"), blocks all deploys, and flips the server
