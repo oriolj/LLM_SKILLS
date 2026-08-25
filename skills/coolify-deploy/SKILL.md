@@ -281,6 +281,7 @@ api.resend.com; curl's default UA happens to pass).
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| 404 on a domain that RESOLVES to the server | Traefik has no router for that Host — the domain isn't on the resource (or it was added without a redeploy) | PATCH `domains` (comma-separated — ADD, keep the sslip one) + update ALLOWED_HOSTS/CSRF/PUBLIC_BASE_URL in the same change + redeploy. 404-vs-502 is the diagnostic: 404 = DNS fine, routing unclaimed; 502 = routed but app dead |
 | 502 after deploy | No swap, OOM during build | `free -m`; add swapfile, persist |
 | 502, no OOM in dmesg | Custom traefik.* labels conflict | Remove all custom labels |
 | 504 intermittent | Container on two networks | Delete the `networks:` block |
