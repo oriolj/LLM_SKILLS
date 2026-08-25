@@ -1,6 +1,6 @@
 ---
 name: cloudflare-deploy
-description: Deploy and operate services on Cloudflare — Pages (static Astro sites), custom domains on external-DNS zones, R2 S3-compatible storage, API/wrangler auth. Use when deploying a static site to Cloudflare Pages, when the user says "deploy to cloudflare pages" / "pages not workers", when wiring a custom domain onto a Pages project whose zone is NOT on Cloudflare (CNAME validation), when using the ENACAST_ Cloudflare credentials from homelab/secrets, or when touching R2 via the S3 API. Covers wrangler direct-upload deploys, the Pages-vs-Workers rule for static sites, custom-domain attach + external-DNS CNAME flow, and credential handling.
+description: Deploy and operate services on Cloudflare — Pages (static Astro sites), custom domains on external-DNS zones, R2 S3-compatible storage, API/wrangler auth. Use when deploying a static site to Cloudflare Pages, when the user says "deploy to cloudflare pages" / "pages not workers", when wiring a custom domain onto a Pages project whose zone is NOT on Cloudflare (CNAME validation), when using the ENACAST_ Cloudflare credentials from homelab/secrets, or when touching R2 via the S3 API. Also use when a deployed static site shows localhost/dev URLs in production, or when visitors report a browser prompt like "<site> wants to access devices on your local network" (build-time PUBLIC_*/VITE_*/NEXT_PUBLIC_* fallback leaked into the artifact — section 1b). Covers wrangler direct-upload deploys, the Pages-vs-Workers rule for static sites, pre-deploy artifact gating + post-deploy smoke tests, custom-domain attach + external-DNS CNAME flow, and credential handling.
 ---
 
 # Cloudflare deployments
@@ -47,6 +47,64 @@ wrangler pages deploy dist --project-name=<project> --branch=master --commit-dir
 - **Set Astro's `site:` to the real public URL** (e.g.
   `https://chat.enacast.com`) before building — canonical URLs and
   sitemaps bake it in at build time.
+
+## 1b. Gate the dist BEFORE uploading, smoke-test the live URL AFTER
+
+Direct upload means the artifact is whatever the operator's shell happened to
+produce. Build-time env vars (`PUBLIC_*` in Astro/Vite, `NEXT_PUBLIC_*`,
+`VITE_*`) are **baked into the static output**, so a var that is unset at
+build time silently ships its dev fallback to the public — and nothing in the
+Pages pipeline will ever tell you.
+
+**This has already shipped once** (chat.enacast.com, 2026-08-25): the site
+went live with `<script src="http://localhost:8304/v1.js">` because
+`PUBLIC_APP_URL` was never set for the build. It was not a cosmetic bug —
+Chrome's Local Network Access check treats a public page reaching the
+loopback address space as a permission request, so **every visitor got a
+prompt saying "chat.enacast.com wants to access devices on your local
+network"**. On a phone that reads like the site is trying to scan the
+network. The console line to recognise:
+
+```
+Access to script at 'http://localhost:8304/v1.js' from origin
+'https://chat.enacast.com' has been blocked by CORS policy: Permission was
+denied for this request to access the `loopback` address space.
+```
+
+Rules, in order of how much they save you:
+
+1. **Never write an unconditional dev fallback.** Gate it on the dev flag, so
+   a production build cannot inherit it:
+   ```ts
+   const DEV = import.meta.env.DEV;
+   export const APP_URL = import.meta.env.PUBLIC_APP_URL ||
+     (DEV ? "http://localhost:8304" : "https://app.example.com");
+   ```
+   For anything with no sane production default (an API key, a demo tenant
+   key), leave it empty and have the UI *drop the feature* rather than render
+   a broken promise.
+2. **Gate the artifact.** A ~60-line script that greps `dist/` for
+   `localhost`, `127.0.0.1`, `0.0.0.0`, `[::1]`, `192.168.*` and
+   `src|href="http://`, plus "every HTML page has an https canonical".
+   Reference implementation: `enachat/comercial-website/scripts/check-dist.mjs`
+   in the enasuite monorepo.
+3. **Make deploy depend on the gate** so it cannot be skipped under time
+   pressure — `make website-deploy` = build → check → upload → verify.
+4. **Smoke-test the live URL after every deploy**, not the local build:
+   ```bash
+   curl -fsS https://site.example | grep -qiE 'localhost|127\.0\.0\.1|src="http://' \
+     && echo "LEAK" || echo "clean"
+   ```
+5. To reproduce a visitor-side prompt without a phone, headless Chromium
+   prints the permission denial to the console:
+   ```bash
+   chromium --headless --disable-gpu --user-data-dir=/tmp/probe \
+     --enable-logging=stderr --virtual-time-budget=8000 --dump-dom https://site.example
+   ```
+
+This is not an Astro problem or a Cloudflare problem — it is a property of
+every "build locally, upload the folder" deploy. The same gate belongs in
+front of Netlify/Vercel/S3 static uploads.
 
 ## 2. Custom domain when the zone is NOT on Cloudflare
 
