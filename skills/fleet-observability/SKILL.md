@@ -264,6 +264,21 @@ facts (monitor-1-nc, 2026-08-25):
   "(?i)smtp|notify"` in Loki for the actual dial error instead of hunting
   for docker logs.
 
+**Pushover for paging** (email is an inbox nobody stares at): two contact
+points routed by the `severity` label — warning → priority 0, critical →
+priority 1 with a distinct sound (bypasses quiet hours; priority 2/emergency
+re-alerts until acked and additionally needs `retry`/`expire`). Token + user
+key ride the `/run/secrets` pattern via Grafana's `$__file{...}` provisioning
+interpolation — **verified working** alongside `$__env{...}` (2026-08-25).
+Give critical a shorter `repeat_interval` (4 h) than the default (24 h) — a
+broken pipeline should nag.
+
+**Post-deploy notification timing**: a redeploy restarts Grafana and resets
+every rule's `for` clock, so notifications lag by pending-time + group_wait
+after each deploy. Diagnose with `grafana_alerting_notifications_total` /
+`…_failed_total` (the `/metrics` endpoint answers unauthenticated): zero
+failed + zero attempted = timing, not routing — wait before debugging.
+
 To force a real end-to-end email without waiting for repeat_interval
 (the nflog dedupes re-notifications for 24 h): create a temporary
 always-firing rule (`vector(1)`, `for: 10s`, own ruleGroup so it forms a
