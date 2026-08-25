@@ -270,8 +270,8 @@ priority 1 with a distinct sound (bypasses quiet hours; priority 2/emergency
 re-alerts until acked and additionally needs `retry`/`expire`). Token + user
 key ride the `/run/secrets` pattern via Grafana's `$__file{...}` provisioning
 interpolation — **verified working** alongside `$__env{...}` (2026-08-25).
-Give critical a shorter `repeat_interval` (4 h) than the default (24 h) — a
-broken pipeline should nag.
+Give critical a much shorter `repeat_interval` (30 m here) than the default
+(24 h) — critical should NAG until someone acts.
 
 **Post-deploy notification timing**: a redeploy restarts Grafana and resets
 every rule's `for` clock, so notifications lag by pending-time + group_wait
