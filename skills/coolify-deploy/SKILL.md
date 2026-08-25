@@ -123,6 +123,23 @@ Named volume vs bind mount: named survives redeploys but orphans on resource del
 
 **Volume names (`<name>-<resource_uuid>`) are stable across redeploys and safe to reference in backup tooling; container names are NOT** (timestamp suffix changes every deploy).
 
+### Relative bind mounts (config files from the repo) need Preserve Repository
+
+The compose buildpack **rewrites every relative `./path` bind to
+`/data/coolify/applications/<uuid>/path`** (absolute paths pass through
+untouched) — and by default the repo is NOT there: the clone lives in a
+transient `/artifacts/<deploy-uuid>` dir. Docker then creates the source as
+an empty **directory**, and a file mount fails with `OCI runtime create
+failed: … not a directory` (or the service starts with an empty config dir,
+which is worse: silent).
+
+Fix: enable **Preserve Repository During Deployment**
+(`settings.is_preserve_repository_enabled`, PATCHable via API) — Coolify then
+copies the cloned repo into `/data/coolify/applications/<uuid>/` on every
+deploy, so the rewritten paths land on real files. Required for ANY compose
+that bind-mounts configs out of the repo (`./prometheus/prometheus.yml:…`).
+Verified live 2026-08-25 on the hq-monitoring stack.
+
 ### Nonroot images + bind mounts = first-deploy failure
 
 Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distroless `:nonroot` = uid 65532) can't write → SQLite `unable to open database file (14)` → healthcheck fails → every deploy "rolls back" (that message prints even on a first deploy with no old container). Fixes:
