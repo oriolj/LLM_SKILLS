@@ -222,6 +222,7 @@ api.resend.com; curl's default UA happens to pass).
 | 30 s to stop every container | Shell-as-PID-1 / no SIGTERM handler | `exec`, `init: true` |
 | Env var change has no effect | Not redeployed, or var not threaded through compose | Redeploy; declare it in `environment:` |
 | Fresh deploy: DB "uninitialized and password option is not specified" | MariaDB/MySQL service without a root password setting | `MARIADB_RANDOM_ROOT_PASSWORD=yes` — invisible until the volume is empty (disaster recovery) |
+| Deploys on a tunnel-connected server fail intermittently, exit 255 mid-command (`mkdir -p` "fails" with no output) | SSH transport drop: cloudflared on QUIC over DEGRADED UDP (strict egress fw, netcup UDP filtering) — connects, then drops mid-transfer | Force `TUNNEL_TRANSPORT_PROTOCOL=http2` (TCP) on the connector; retry the deploy meanwhile — the failure is transient |
 
 ## 9. Secrets, domains, scheduling
 
