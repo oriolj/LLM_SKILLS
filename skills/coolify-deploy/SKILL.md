@@ -452,6 +452,43 @@ api.resend.com; curl's default UA happens to pass).
   unreachable; `ip_previous` keeps the old value. Create the DNS record
   first, then change the field.
 
+## 7c. Docker-image apps by API (exporters etc. — EnaChat monitoring, 2026-08-25)
+
+Public-image sidecars (postgres-exporter, redis_exporter, …) as their own
+resources: `POST /applications/dockerimage` with `project_uuid`,
+`server_uuid`, `environment_name` **and** `environment_uuid` (both
+required), `docker_registry_image_name`/`_tag` (verify the tag against the
+registry — never `latest`), `ports_exposes`, `connect_to_docker_network:
+true` (to reach DB resources by their uuid hostname), `instant_deploy:
+false`; then envs → storages → `PATCH {domains: ""}` (sslip is
+auto-assigned even here) → `POST /deploy`.
+
+- **`ports_mappings` via API is digits-only** — the rule is
+  `regex:/^(\d+:\d+)(,\d+:\d+)*$/` (bootstrap/helpers/api.php), so an
+  IP-qualified bind (`100.x.y.z:9187:9187`) 422s even though the UI field
+  accepts it and docker supports it. Consequence: an API-created port
+  publish is always **0.0.0.0, which bypasses ufw**. Fix on the host with
+  DOCKER-USER rules (the supported Docker hook), persisted via a oneshot
+  systemd unit after docker.service:
+  `iptables -I DOCKER-USER ! -i tailscale0 -p tcp -m conntrack
+  --ctorigdstport <port> --ctdir ORIGINAL -j DROP` (+ ip6tables). Install
+  the rules BEFORE the first deploy so there is no exposure window, and
+  document them in the server's hq doc — Coolify knows nothing about them.
+- **Envs field is `is_buildtime`** — `is_build_time` 422s ("field not
+  allowed"). Storage of `type: "file"` on an APPLICATION works like on
+  services (inline `content` + `fs_path`; the server file lands under
+  `/data/coolify/applications/<uuid>/…`) — but do NOT send `name` for
+  type file (422). This is how postgres-exporter gets its
+  `PG_EXPORTER_EXTEND_QUERY_PATH` custom-queries yaml with zero repo.
+- `GET /deployments/applications/{uuid}` returns
+  `{"deployments": [...]}` (a wrapper object, newest first) — not a bare
+  array.
+- postgres-exporter (quay.io/prometheuscommunity/postgres-exporter) wants
+  `DATA_SOURCE_NAME=postgres://…@<db-uuid>:5432/<db>?sslmode=disable`
+  (from the DB resource's `internal_db_url`); redis_exporter
+  (oliver006/redis_exporter) wants `REDIS_ADDR=redis://<db-uuid>:6379` +
+  `REDIS_PASSWORD` split out — it does NOT parse creds from the URL.
+
 ## 8. Failure → cause → fix
 
 | Symptom | Likely cause | Fix |

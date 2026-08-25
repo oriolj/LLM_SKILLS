@@ -247,6 +247,39 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   `child_exit` hook or dead workers' gauge files linger. The classic
   symptom of missing multiproc: metrics **flicker** between values as each
   request hits a different worker's private registry.
+  Field notes from wiring EnaChat live (2026-08-25, `prometheus_client`
+  directly — the right call when you need a token-gated view + a business
+  collector anyway and pg/redis exporters cover the DB/cache layer):
+  - `--max-requests 1000` (house default) makes the `child_exit` hook
+    **non-optional**: workers recycle every few minutes of real traffic,
+    and each dead pid leaves gauge mmap files behind. A 3-line
+    `gunicorn.conf.py` (`child_exit` → `multiprocess.mark_process_dead
+    (worker.pid)`) added with `-c` fixes it.
+  - **Business metrics = a custom collector computed per scrape**, not
+    counters sprinkled through app code: `collect()` yields
+    `GaugeMetricFamily` from single GROUP-BY ORM aggregates (~10 cheap
+    queries at the 60 s interval). Absolute truths survive deploys, and the
+    collector **never touches the mmap files** — it runs in whichever
+    worker serves the scrape, sidestepping the multiproc Gauge trap
+    entirely. Registration is mode-dependent: multiproc → register on the
+    per-scrape registry next to `MultiProcessCollector(registry)`;
+    single-process (dev/tests) → default REGISTRY at import.
+  - Per-tenant labels (town/client slug) are fine exactly when tenants are
+    bounded-tens; the app version rides a labeled gauge
+    (`app_info{version="<sha>"} 1`) because Info doesn't exist in
+    multiproc.
+- **Coolify Dockerfile apps: the token-gated public-origin scrape path.**
+  Publishing the app port as a host port would **disable blue-green**, and
+  the Coolify API rejects IP-qualified `ports_mappings` anyway
+  (`coolify-deploy` §7c) — so scrape the app's existing public https
+  origin with a bearer token: `/metrics` view 401s without
+  `Authorization: Bearer $METRICS_TOKEN` and **fails CLOSED when the env
+  is unset in prod**; token = runtime-only Coolify env on the app, same
+  value on the hub as an environment-sourced compose secret read via
+  `authorization.credentials_file: /run/secrets/<name>` (never a token
+  inside prometheus.yml). ⚠️ `promtool check config` STATS every
+  credentials_file — the validate gate must mount a dummy `/run/secrets`
+  or it fails on the missing file.
 - **Celery**: don't hand-roll — run the maintained standalone
   `celery-exporter` as one more compose service pointed at the broker,
   labeled with `oj.metrics.port`. Task counts/latency/queue depth per task
