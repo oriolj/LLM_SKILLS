@@ -294,6 +294,39 @@ the UI healthcheck is off; `status: running:healthy` confirms Docker sees it.
   Host it's served under (sslip included) must be in `HOMEPAGE_ALLOWED_HOSTS` or it
   400s "Host validation failed".
 
+## 5c. Per-tenant domains (SaaS custom domains/subdomains) on Coolify
+
+Verified 2026-08-25 (empirically on coolify-ovh-vps-1 + Coolify's own docs).
+Three mechanisms, layered by tenant need:
+
+- **Wildcard subdomains (`<tenant>.app.example.com`) — instant, zero API
+  calls.** Coolify officially supports Traefik wildcard certs via DNS-01
+  (docs: knowledge-base/traefik/wildcard-certificates): add a certresolver
+  with `dnsChallenge` + a Cloudflare API token (Zone/DNS/Edit +
+  Zone/Zone/Read) to the server's proxy configuration, wildcard DNS record,
+  and either leave the app's Domain field EMPTY with a wildcard domain (the
+  documented multi-tenant pattern) or add a file-provider router. The app
+  resolves the tenant from the Host header. Tenant creates themselves in
+  the product's own UI — infra never changes.
+- **File-provider dynamic configs — the extension point.** Coolify's Traefik
+  loads `/data/coolify/proxy/dynamic/` (`providers.file.directory`,
+  watch=true, enabled by default). Two EMPIRICAL facts that make it usable:
+  the generated docker-provider service names are **stable across deploys**
+  (`http-0-<app-uuid>` / `https-0-<app-uuid>` — keyed by app uuid, not the
+  changing container name), so a file-provider router can reference
+  `https-0-<app-uuid>@docker` safely; and file changes hot-reload without
+  touching the app. ⚠️ If an app GENERATES these files from user-entered
+  domains, sanitize hard — a hostile "domain" string is arbitrary Traefik
+  config injection.
+- **Full custom domains (client's own `xat.client.tld`) — via the API.** The
+  app (or an operator) `PATCH /applications/{uuid}` appending to the
+  comma-separated `domains` + triggers a deploy: blue-green makes it
+  zero-downtime, LE HTTP-01 issues on the new host, ALLOWED_HOSTS/CSRF must
+  be updated in the same change. Cost: a rebuild-deploy per domain change —
+  fine at tens-of-tenants scale, wrong at hundreds (then: file-provider
+  generation above, or Cloudflare for SaaS — 100 custom hostnames free —
+  with the origin routing a catch-all).
+
 ## 6. Deploy speed and signal handling
 
 - **Compose buildpack stops containers sequentially with `docker stop -t 30` and IGNORES `stop_grace_period`** (upstream coolify#5975). Still set `stop_grace_period` (honored elsewhere), but the real lever is making SIGTERM work:
