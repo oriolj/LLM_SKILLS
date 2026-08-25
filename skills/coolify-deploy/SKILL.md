@@ -194,7 +194,14 @@ api.resend.com; curl's default UA happens to pass).
 - `GET/POST/PATCH /applications/{uuid}/envs` — PATCH updates by `key`
   (`{key, value, is_buildtime, is_literal}`); GET returns each var TWICE
   (production + preview rows) — not a bug, dedupe by key.
-- `GET /deploy?uuid={app}` — trigger a deploy.
+- `POST /deploy?uuid={app}` — trigger a deploy (GET returns 405).
+- **`is_literal: true` single-quotes the stored value**: `real_value` comes
+  back WITH the quotes (`'fcU…y'`), but compose's `.env` parsing strips them,
+  so the container sees the inner value. Anything reading `real_value`
+  (scripts, copy-paste from the UI) must strip the quotes or auth fails with
+  the "same" password.
+- App settings like `is_preserve_repository_enabled` PATCH directly on
+  `/applications/{uuid}` even though GET nests them under `settings`.
 - The server's `ip` field must resolve **from Coolify Cloud** (public DNS).
   Setting a not-yet-published hostname breaks the connection ("dial tcp:
   lookup … no such host"), blocks all deploys, and flips the server
