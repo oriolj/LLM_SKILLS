@@ -176,6 +176,44 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
 - Celery: never `celery -A config inspect ping` as a healthcheck (boots all of Django, ~265 MB + 100% CPU, thousands of times/day). Use `grep -q celery /proc/1/cmdline` (requires `exec` so celery is PID 1), or for threads-pool wedge detection the Django-free broker-only form: `celery -b $REDIS_URL inspect ping -d celery@$(hostname)`.
 - UI healthcheck for Dockerfile resources: GET /healthz, expected 200, initial delay 10–15 s (5 s causes false Bad Gateway right after deploy), interval 30 s, retries 3.
 
+## 5b. Field notes from a full API-only onboarding (server -> app, 2026-08-25)
+
+- **Adding a server by API**: `POST /servers` (name, ip, port, user,
+  `private_key_uuid`, `instant_validate`) after installing that key's pubkey
+  on the box. Validation is `POST /servers/{uuid}/validate` (GET 405s) and
+  it does NOT install prerequisites: it fails naming them one at a time —
+  `jq` (plus curl/wget/git/openssl), then **Docker Engine**. Its error text
+  mentions a validate-with-install endpoint; installing docker yourself
+  works but violates the Coolify-owns-docker rule — prefer the install
+  variant when scripting.
+- **App from a private repo without a GitHub App**:
+  `POST /applications/private-deploy-key` with `private_key_uuid` (add that
+  key read-only via `gh repo deploy-key add`), `build_pack: dockerfile`,
+  `base_directory: /<subdir>`, and `dockerfile_location` **relative to the
+  base directory** (`/backend/Dockerfile`, not `/<subdir>/backend/…`).
+  Monorepos: one app per service, all pointing at subdirectories.
+- **Django's ALLOWED_HOSTS breaks blue-green invisibly**: the image
+  HEALTHCHECK probes `http://127.0.0.1:8000/healthz`; with ALLOWED_HOSTS set
+  to only the public domain, Django answers **400 DisallowedHost**, the
+  container never goes healthy, and every deploy "rolls back" with no app
+  error in the deploy log. Always append `127.0.0.1`/`localhost` in settings
+  (the healthcheck is infrastructure, not a spoofable public Host).
+- **One image, web + worker**: entrypoint switches on `ROLE` (web: migrate +
+  gunicorn; worker: `exec celery … --concurrency=2`), and the HEALTHCHECK
+  must be role-aware too — a worker can never answer `/healthz`, so it uses
+  the free celery check (`grep -q celery /proc/1/cmdline`). Two Coolify
+  applications share the repo/Dockerfile; the worker just adds `ROLE=worker`.
+- **App-side https guards vs Coolify defaults**: Coolify assigns the sslip
+  domain as `http://`; an app that enforces `https://` origins in production
+  (good!) fails boot until you `PATCH /applications/{uuid}`
+  `{domains: "https://<sslip>"}` — LE issues fine on sslip.
+- **pgvector**: create the DB resource with `image: pgvector/pgvector:pg17`,
+  not plain postgres — the extension cannot be added to the stock image at
+  runtime. PATCH image + restart works while the DB is empty.
+- DB/Redis resources created by API return `internal_db_url` with the
+  resource **uuid as hostname** — Dockerfile apps on the same destination
+  network reach it directly; use those hostnames in app env.
+
 ## 6. Deploy speed and signal handling
 
 - **Compose buildpack stops containers sequentially with `docker stop -t 30` and IGNORES `stop_grace_period`** (upstream coolify#5975). Still set `stop_grace_period` (honored elsewhere), but the real lever is making SIGTERM work:
