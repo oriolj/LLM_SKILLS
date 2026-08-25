@@ -198,6 +198,14 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   container never goes healthy, and every deploy "rolls back" with no app
   error in the deploy log. Always append `127.0.0.1`/`localhost` in settings
   (the healthcheck is infrastructure, not a spoofable public Host).
+- **Persistent storage by API**: `POST /applications/{uuid}/storages` with
+  `type` ∈ **`persistent`** (volume/bind; add `host_path` for a bind mount)
+  or **`file`** (inline `content` + `fs_path`). The enum is in no doc —
+  when the API rejects guesses, read Coolify's own
+  `raw.githubusercontent.com/coollabsio/coolify/main/openapi.json` (grep
+  the path's requestBody schema): the source is the spec. Related dead end:
+  `custom_docker_run_options` accepts and STORES `-v host:container` but
+  silently never applies it — volumes go through the storages API/UI only.
 - **Coolify auto-assigns an sslip domain to EVERY application** — including
   workers, where `ports_exposes` is a required API field even though nothing
   listens. A Celery worker then gets a public hostname routed at a dead
