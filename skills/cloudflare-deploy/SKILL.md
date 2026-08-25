@@ -61,8 +61,9 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
 # → status "initializing", validation method "http"
 ```
 
-Then the zone owner creates: `sub CNAME <project>.pages.dev` (at the
-external DNS). Cloudflare validates over HTTP once the CNAME resolves and
+Then create `sub CNAME <project>.pages.dev` at the external DNS — for
+enacast.com that's the CDmon API (load the `cdmon-dns` skill; its safety
+rules apply). Cloudflare validates over HTTP once the CNAME resolves and
 issues the cert (CA: Google Trust Services). Until then the domain sits in
 "initializing/pending" — that state is normal, not an error. Check status:
 `GET .../domains` on the same endpoint, or `wrangler pages project list`.
