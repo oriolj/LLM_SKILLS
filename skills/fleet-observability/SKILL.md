@@ -191,28 +191,51 @@ public, so the endpoint needs no auth of its own.
       oj.metrics.port: "8000"     # container port, not a host port
 ```
 
-Per stack:
+Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
 
-- **Django**: `django-prometheus` (metrics middleware + DB/cache probes).
+- **Django**: `django-prometheus` (request/DB/cache metrics + `/metrics`).
   ⚠️ Under gunicorn (multi-worker) you MUST use multiprocess mode:
-  `PROMETHEUS_MULTIPROC_DIR=/tmp/prom` set in the **start script** (not
-  Python), the dir **wiped on container start** (`rm -rf && mkdir` before
-  `exec gunicorn`), and know the consequences — counters reset on every
-  deploy (rate() handles it), `Gauge` needs a multiprocess_mode, `Info`/
-  `Enum` don't work. Without the dir each worker answers with its own
-  private counters and graphs "flicker" between values — the classic
-  symptom.
+  `PROMETHEUS_MULTIPROC_DIR=/tmp/prom` set in the **start script** (not from
+  Python — it must reach child processes), the dir **wiped on container
+  start** (`rm -rf "$PROMETHEUS_MULTIPROC_DIR"; mkdir -p …` before
+  `exec gunicorn`), and know the consequences: counters reset on every
+  deploy (`rate()` handles it), `Gauge` needs an explicit
+  `multiprocess_mode`, `Info`/`Enum` don't work, and gunicorn's worker
+  recycling (`max-requests`) needs `mark_process_dead(pid)` in a
+  `child_exit` hook or dead workers' gauge files linger. The classic
+  symptom of missing multiproc: metrics **flicker** between values as each
+  request hits a different worker's private registry.
 - **Celery**: don't hand-roll — run the maintained standalone
   `celery-exporter` as one more compose service pointed at the broker,
-  labeled with `oj.metrics.port`. Gives task counts/latency/queue depth per
-  task name.
-- **Go**: `promhttp.Handler()` on the app port (or a second internal port).
-- **Icecast / third-party**: the corresponding exporter container beside it,
-  same labeling.
-- Metric naming: follow Prometheus conventions (`<app>_<thing>_<unit>_total`);
-  keep per-label cardinality bounded exactly like log labels.
-- Wire the app's Sentry-style release into a metric
-  (`app_info{version="<sha>"} 1`) so deploys are visible as annotations.
+  labeled with `oj.metrics.port`. Task counts/latency/queue depth per task
+  name; pairs with the `celery-deploy-safety` skill.
+- **Plain Python** (scripts, daemons): `prometheus_client.start_http_server`
+  on the internal port; single-process, so none of the multiproc pain.
+- **Go**: `promhttp.Handler()` on the app mux (or a second internal-only
+  mux). Instrument the golden signals first: an HTTP middleware
+  `HistogramVec` — and keep its labels to `code`/`method`(+coarse `path`
+  bucket, never raw URLs); the stdlib-style
+  `promhttp.InstrumentHandlerDuration` wrappers enforce exactly that.
+  Histogram partitioning is expensive: few histograms, few labels, default
+  buckets unless you have a reason.
+- **Next.js** (self-hosted node server — ours are): `prom-client` via the
+  built-in `instrumentation.ts` hook — `register()` runs once at server
+  start; guard with `process.env.NEXT_RUNTIME === "nodejs"`, create the
+  Registry there, expose it from a `/metrics` route handler. Collect
+  `collectDefaultMetrics()` (event loop lag, heap) + request counters.
+  Note: this only exists because we self-host the node server — a
+  serverless deploy has nothing stable to scrape.
+- **Astro**: split by output mode. **Static builds have no runtime to
+  instrument** — observability there is the web server's logs (already
+  shipped by the host agent) plus uptime/Web-Vitals tooling, not
+  Prometheus. SSR with the node adapter = a normal node server: wrap the
+  adapter's middleware with `prom-client` exactly like Next.js.
+- **Icecast / third-party**: the corresponding exporter container beside
+  it, same labeling.
+- Metric naming: Prometheus conventions (`<app>_<thing>_<unit>_total`);
+  label cardinality bounded exactly like log labels.
+- Wire the deployed release into a metric (`app_info{version="<sha>"} 1`)
+  so deploys are visible as Grafana annotations.
 
 ## 6. `make logs` — prod/beta logs from the dev machine
 
@@ -264,9 +287,16 @@ LogQL crib: `|= "text"` exact, `|~ "regex"`, `| json | status >= 500`,
 
 ## 8. What NOT to do
 
-- No per-app promtail/filebeat/vector sidecars — the host agent already
-  ships every container's stdout. Apps log to **stdout/stderr, JSON if
-  cheap**, never to files inside the container.
+- **One agent per HOST — never an Alloy/promtail/vector sidecar per compose
+  stack.** Sidecars duplicate memory, connections and config, and every
+  stack update becomes a monitoring update. The host agent's
+  `discovery.docker` sees new stacks the moment they start; deploys need no
+  monitoring change at all. Apps log to **stdout/stderr, JSON if cheap**,
+  never to files inside the container.
+- Don't switch the metrics path to `prometheus.remote_write` push without a
+  reason: pull keeps `up{}` semantics (target-down alerting for free) and
+  needs no `--web.enable-remote-write-receiver` on the hub. Push is for
+  hosts that genuinely cannot accept an inbound scrape.
 - No `docker logs`-based cron scrapers, no `ssh host docker logs` runbooks —
   that's what `make logs` replaces.
 - Don't publish `/metrics` on a host port "temporarily" — published ports
