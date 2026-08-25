@@ -319,6 +319,19 @@ any new provisioning file needs one extra restart to take effect. Verify
 with the unauthenticated `/metrics`: `grafana_alerting_rule_group_rules`
 lists every live group.
 
+**Dashboard iteration needs NO deploys.** The dashboard file provider
+WATCHES its directory (`updateIntervalSeconds`), unlike alerting/datasource
+provisioning (startup-only). On a Coolify-deployed hub, iterate by scp'ing
+the JSON straight into the preserve-repository dir
+(`/data/coolify/applications/<uuid>/grafana/dashboards/`) — live within
+~30 s — and commit the identical file to git: the next deploy overwrites the
+dir from git, so uncommitted server-side edits self-heal away (a feature,
+not a bug). Deploys remain the correct transport for scrape-config and
+alert-provisioning changes; batch those. Never create dashboards via the
+Grafana HTTP API — they land only in grafana.db, which is exactly the
+dashboards-lost-with-the-database failure this git-provisioned design
+prevents.
+
 **Post-deploy notification timing**: a redeploy restarts Grafana and resets
 every rule's `for` clock, so notifications lag by pending-time + group_wait
 after each deploy. Diagnose with `grafana_alerting_notifications_total` /
