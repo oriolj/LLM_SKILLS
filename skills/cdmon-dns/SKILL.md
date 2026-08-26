@@ -1,6 +1,6 @@
 ---
 name: cdmon-dns
-description: Use the CDmon Domains API safely — DNS records on the zones hosted at CDmon (enacast.com). Use when creating/editing/deleting DNS records for enacast.com or any CDmon-hosted zone, when the user mentions CDmon, when wiring a CNAME for a Pages/Vercel/Coolify deployment on enacast.com, or when planning wildcard/delegation records for EnaChat branded chats. Covers the API base URL and auth, the DNS endpoints, and the SAFETY RULES — this key operates on a PRODUCTION zone with ~150 records serving every radio client, and some endpoints charge real money.
+description: Use the CDmon Domains API safely — DNS records on the zones hosted at CDmon (enacast.com). Use BEFORE any nameserver change (CDmon signs zones by default — moving NS without disabling DNSSEC first takes the domain dark with SERVFAIL everywhere), when creating/editing/deleting DNS records for enacast.com or any CDmon-hosted zone, when the user mentions CDmon, when wiring a CNAME for a Pages/Vercel/Coolify deployment on enacast.com, or when planning wildcard/delegation records for EnaChat branded chats. Covers the API base URL and auth, the DNS endpoints, and the SAFETY RULES — this key operates on a PRODUCTION zone with ~150 records serving every radio client, and some endpoints charge real money.
 ---
 
 # CDmon Domains API (DNS)
@@ -21,6 +21,42 @@ nameservers point at Cloudflare so the apex can serve Cloudflare Pages and so
 Traefik can get DNS-01 wildcard certs for tenant chat hosts. **Do not recreate
 `enacast.chat` records here** — the only CDmon-side operation it needs is the
 nameserver change, which is human-only (see the safety rules).
+
+## 🔥 Before ANY nameserver change: check DNSSEC first
+
+**CDmon signs zones by default.** Moving nameservers without removing the DS
+record takes the domain **completely dark** — the registry still publishes a DS
+for the old provider's key, the new nameservers can't produce matching
+signatures, and every validating resolver answers **SERVFAIL**. Not a partial
+outage: no A record, no MX, nothing, for everyone.
+
+Burned on `enacast.chat`, 2026-08-26: NS moved to Cloudflare, then both Google
+and Cloudflare public resolvers returned SERVFAIL while Cloudflare's edge
+answered plain HTTP with a bare `409`. The tell is SERVFAIL from a *validating*
+resolver while the delegation itself looks correct.
+
+```bash
+# 1. ALWAYS check before touching /dns
+curl -sL https://rdap.org/domain/<domain> | python3 -c \
+  "import json,sys; print(json.load(sys.stdin).get('secureDNS'))"
+#    delegationSigned: true  ->  disable DNSSEC FIRST, then move nameservers
+
+# 2. Disable (removes the DS from the registry)
+curl -s -X POST "$API/dnssec" -H "apikey: $KEY" -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"data": {"domain": "<domain>", "action": "disable"}}'
+
+# 3. Verify the DS is gone (delegationSigned: false, dsData: []) before /dns
+```
+
+Recovery if you already flipped: disable DNSSEC as above — the registry drops
+the DS within seconds, then resolvers clear their cached failures as the DS TTL
+expires (~1h; they recover at different times, so partial resolution is normal
+mid-recovery). To re-sign later, take the DS from the *new* provider (Cloudflare
+publishes one per zone) and add it at the registrar — never leave the old one.
+
+Order that always works: **disable DNSSEC → change NS → re-enable with the new
+provider's DS.**
 
 ## Two limits that decide architecture
 
