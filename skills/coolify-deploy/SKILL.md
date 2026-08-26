@@ -1,6 +1,6 @@
 ---
 name: coolify-deploy
-description: Deploy, configure and operate applications on Coolify (self-hosted PaaS) without repeating known outages. Use when creating or reviewing ANY Coolify resource (Dockerfile app, Compose stack, static site), writing a docker-compose meant for Coolify, choosing between Dockerfile and Compose resource types, wiring Coolify env vars / magic variables (SERVICE_PASSWORD_*, SERVICE_FQDN_*, SOURCE_COMMIT), setting up Persistent Storage / volumes, or when the user reports "502 Bad Gateway", "504 intermittent", "data disappeared after redeploy", "deploy takes forever / containers take 30s to stop", "unable to open database file", "env var not applying", "rolled back on first deploy", or asks "how do I deploy this to Coolify", "set up the Coolify resource", "why did the volume reset". Covers the Dockerfile-over-Compose blue-green rule, Traefik/networking traps (no ports, no custom labels, no networks: block), env var syntax + the empty-string default-wipe trap, anonymous-volume data loss + recovery, nonroot bind-mount chown, healthcheck design, PID-1 signal handling, and prod-host operating rules (no repo checkout, container-name instability, detached one-offs).
+description: Deploy, configure and operate applications on Coolify (self-hosted PaaS) without repeating known outages. Use when creating or reviewing ANY Coolify resource (Dockerfile app, Compose stack, static site), writing a docker-compose meant for Coolify, choosing between Dockerfile and Compose resource types, wiring Coolify env vars / magic variables (SERVICE_PASSWORD_*, SERVICE_FQDN_*, SOURCE_COMMIT), setting up Persistent Storage / volumes, or when the user reports "502 Bad Gateway", "504 intermittent", "data disappeared after redeploy", "deploy takes forever / containers take 30s to stop", "unable to open database file", "env var not applying", "rolled back on first deploy", "deploy does nothing / already queued for this commit", "the app is stuck on an old commit", or asks "how do I deploy this to Coolify", "set up the Coolify resource", "why did the volume reset". Covers the Dockerfile-over-Compose blue-green rule, Traefik/networking traps (no ports, no custom labels, no networks: block), env var syntax + the empty-string default-wipe trap, anonymous-volume data loss + recovery, nonroot bind-mount chown, healthcheck design, PID-1 signal handling, and prod-host operating rules (no repo checkout, container-name instability, detached one-offs).
 ---
 
 # Coolify deployments
@@ -457,15 +457,74 @@ docker inspect <c> --format '{{.Config.Image}}'   # which build each one is
 
 Remedy, in order: `docker stop -t 30 <old-container>` — that ends the mixed
 serving immediately and is exactly what the deploy would have done — then
-`docker rm -f <helper>` to clear the orphan. **The API has no cancel
-endpoint** (`DELETE /api/v1/deployments/<uuid>` → 404); a genuinely stuck
-queue entry has to be cancelled from the Coolify UI, though clearing the
-orphaned helper usually lets it resolve on its own.
+`docker rm -f <helper>` to clear the orphan — **but removing the helper does
+NOT clear Coolify's record.** The deployment stays `in_progress` forever on
+the control-plane side, and that is the part that actually hurts.
 
-API notes: `GET /api/v1/deployments` (the queue, with `status` and `commit`
-per entry) is the reliable read; `GET /api/v1/deployments/<uuid>` returned
-an empty body in practice. Statuses seen: `queued`, `in_progress`,
-`finished`, `failed`, `cancelled`.
+### A stuck deployment head-of-line blocks every later one
+
+This is the failure that cost the most time, so recognise it fast. A wedged
+`in_progress` deployment does not just fail itself — **the queue is
+serial**, so every subsequent deploy of that resource stacks up behind it
+and never runs. Symptoms:
+
+- `POST /deploy` keeps answering **"Deployment already queued for this
+  commit."** and nothing happens. Pushing a NEW commit does not help: when
+  the resource's `git_commit_sha` is `HEAD`, "this commit" always matches.
+- No `coolify-helper` container ever appears on the host — the control
+  plane never dispatches.
+- The app keeps serving an old build for hours while its siblings (a worker
+  resource on the same repo and webhook) deploy normally. **That asymmetry
+  is the tell**: the pipeline is fine, one resource's queue is jammed.
+
+Diagnose with the PER-APPLICATION listing, not the global one — the global
+`GET /api/v1/deployments` showed an empty queue while 13 deploys were
+stacked up:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" -H "User-Agent: $UA" \
+  "$API/deployments/applications/<app-uuid>?take=20"
+# find the oldest entry still `in_progress` — that is the blocker
+```
+
+Then cancel it:
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "User-Agent: $UA" \
+  "$API/deployments/<deployment-uuid>/cancel"
+# -> {"message":"Deployment cancelled successfully.","status":"cancelled-by-user"}
+```
+
+Cancelling the single blocker drains the whole backlog and the newest build
+runs immediately. No UI needed.
+
+API notes:
+- **`POST /deployments/{uuid}/cancel` is the cancel endpoint.** (`DELETE
+  /deployments/{uuid}` 404s — do not conclude from that that cancelling is
+  unsupported, as this skill previously did.)
+- `GET /deployments/applications/{uuid}` is the per-resource queue and the
+  one to trust; `GET /deployments` (global) can read empty while a resource
+  is jammed, and `GET /deployments/{uuid}` returned an empty body.
+- **The published spec is the source of truth**: `app.coolify.io/openapi.json`
+  302s, but the real file is
+  `raw.githubusercontent.com/coollabsio/coolify/main/openapi.json`. Grep it
+  before assuming an endpoint does not exist.
+- Statuses seen: `queued`, `in_progress`, `finished`, `failed`, `cancelled`,
+  `cancelled-by-user`.
+
+### While a resource is jammed, watch for code/schema skew
+
+Sibling resources keep deploying, so a worker can end up running code whose
+migrations the (jammed) web resource never applied — the first task touching
+a new column then dies on `ProgrammingError`. Migrations that are
+**additive-only** (AddField with defaults, no rename/drop) are safe to apply
+out-of-band from the sibling's image, and become a no-op when the jammed
+resource finally deploys:
+
+```bash
+docker exec -w /app <worker-container> python manage.py showmigrations <app>
+docker exec -w /app <worker-container> python manage.py migrate <app>
+```
 
 ## 7. Operating the prod host
 
