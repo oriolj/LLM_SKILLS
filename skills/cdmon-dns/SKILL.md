@@ -92,7 +92,13 @@ undo, and no record history.
   Nothing an agent does should ever need them.
 - **Never touch** `dns` (nameserver changes), `dnssec`, `block`,
   `whoisprivate`, `contacts/modify`, `autorenewal/manage` — account-level
-  operations, human-only.
+  operations, human-only **by default**. One scoped exception exists: on
+  2026-08-26 Oriol explicitly said "change cdmon yourself" for the
+  `enacast.chat` nameserver move (and the DNSSEC disable it turned out to
+  need). That authorization was for that domain, which was one day old and
+  resolving nothing. It does **not** generalise: on `enacast.com` these calls
+  can take every radio client's site and the company mail down at once, so
+  they still need a fresh, explicit yes each time.
 - **Adding a NEW record (unique host+type) is the safe operation** — it
   cannot clobber anything. Still: `getDnsRecords` FIRST to confirm the
   host doesn't exist, and again AFTER to verify exactly one record changed.
