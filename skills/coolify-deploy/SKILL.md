@@ -388,6 +388,33 @@ Three mechanisms, layered by tenant need:
   Cloudflare or NS-delegate just the base subdomains to any lego-supported
   DNS host that accepts arbitrary zone names (DigitalOcean DNS, deSEC,
   Route53) and point the certresolver's provider there.
+- **The cheapest resolution is often a NEW domain (EnaChat, 2026-08-26).**
+  The dilemma above assumes you must move the zone you already depend on —
+  for enacast.com that meant recreating ~150 live records (every radio
+  client's site, company MX, DKIM) with no undo, which is why the wildcard
+  tier sat unactivated for weeks. Registering `enacast.chat` and putting
+  *that* zone on Cloudflare cost nothing to migrate (SOA + NS only) and
+  unlocked DNS-01 wildcards, an apex on Pages, and a cleaner product name in
+  one move. When a wildcard-TLS plan stalls on "we can't move the zone",
+  price a second domain before designing around the constraint.
+
+### Coolify hosts behind a Cloudflare-hosted zone
+
+- **Every A record pointing at the Coolify box must be DNS-only (grey
+  cloud).** Traefik terminates TLS itself with Let's Encrypt; an orange-cloud
+  record makes Cloudflare terminate instead, and HTTP-01 validation for the
+  new host fails behind the proxy (you get 525/526 or a permanently pending
+  cert). Set `"proxied": false` when creating them by API — the dashboard
+  defaults to proxied. Pages custom domains are the opposite: those are
+  proxied, and Cloudflare manages the record itself.
+- **Never retire the old app hostname when moving domains.** Installed
+  one-script embeds on client websites hardcode the origin they were pasted
+  with (`<script src="https://<old-host>/v1.js" data-backend="https://<old-host>">`),
+  and the portfolio rule is that a town pastes the tag once and never touches
+  its site again. Keep the old FQDN attached to the resource (Coolify
+  `domains` is a comma-separated list — append, never replace) for as long as
+  any embed can exist, i.e. indefinitely. A 301 does not save you: the widget
+  also makes API calls to `data-backend`.
 
 ## 6. Deploy speed and signal handling
 

@@ -132,6 +132,33 @@ issues the cert (CA: Google Trust Services). Until then the domain sits in
   (`GET /client/v4/zones`) rather than assuming: e.g. the enacast account
   holds `enacasthq.com` and `radiodesvern.com`, but NOT `enacast.com`.
 
+## 2b. The enacast.chat zone (main domain since 2026-08-26)
+
+`enacast.chat` is registered at CDmon but **its DNS is on Cloudflare** (zone
+`78798ebd9e4d55ea03c5ac24e3d4537d`) — the first zone in this account that is
+also a product's main domain. It was moved here on purpose: the apex has to
+serve Pages (impossible from CDmon, §2 rule), and Traefik needs DNS-01 for the
+tenant wildcard certs (no lego provider for CDmon). Because the domain was one
+day old and empty, the "migrate 150 live records" risk that blocked moving
+enacast.com simply did not exist.
+
+| Host | Serves | How |
+|---|---|---|
+| `enacast.chat` (apex) | comercial website | Pages `enachat-website`, CNAME→`enachat-website.pages.dev`, **proxied** (CNAME flattening) |
+| `docs.enacast.chat` | public docs (Starlight) | Pages `enachat-docs`, CNAME, proxied |
+| `app.enacast.chat` | Django app + panel | A → `141.95.29.64` (Coolify), **DNS-only** |
+| `*.xat.enacast.chat`, `*.chat.enacast.chat` | per-town branded chats | A → `141.95.29.64` (Coolify), **DNS-only** |
+
+- **Records for the Coolify box must be grey-cloud (`"proxied": false`)** —
+  Traefik does its own LE certs and HTTP-01 fails behind the CF proxy. The
+  dashboard and the API both default to proxied; set it explicitly.
+- A Pages custom domain added while the zone is still `pending` (nameservers
+  not yet switched) sits at `initializing` and no DNS record is auto-created —
+  add the CNAME yourself; validation completes once the zone goes `active`.
+- Adding the zone (`POST /zones`) is safe and inert; the nameserver switch at
+  the registrar is the only step that changes what resolves, and at CDmon that
+  step is human-only.
+
 ## 3. Coexistence with app subdomains (the enacast layout)
 
 `chat.enacast.com` (apex of the family) serves the Pages comercial site,
