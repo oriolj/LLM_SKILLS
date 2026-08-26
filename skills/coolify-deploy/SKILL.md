@@ -492,7 +492,13 @@ api.resend.com; curl's default UA happens to pass).
   JSON array of `{command, output}` steps, including the real compose error.
 - `GET/POST/PATCH /applications/{uuid}/envs` — PATCH updates by `key`
   (`{key, value, is_buildtime, is_literal}`); GET returns each var TWICE
-  (production + preview rows) — not a bug, dedupe by key.
+  (production + preview rows) — not a bug, dedupe by key. **`is_preview`
+  tells them apart**: `false` is the production row, `true` is the
+  preview-deployment row, and the two often hold different values (on
+  enachat-web, prod `PUBLIC_BASE_URL=https://chatapp.enacast.com` vs preview
+  `http://<uuid>.<ip>.sslip.io`). Reading the pair as duplicates and taking
+  whichever came first means a 50% chance of reporting — or overwriting —
+  the wrong environment's value.
 - `POST /deploy?uuid={app}` — trigger a deploy (GET returns 405).
 - **`is_literal: true` single-quotes the stored value**: `real_value` comes
   back WITH the quotes (`'fcU…y'`), but compose's `.env` parsing strips them,
