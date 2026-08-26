@@ -68,7 +68,14 @@ la conversa) per oferir el servei».
 - **Embeds/widgets**: localStorage in a widget is per-HOST-origin. Fine for
   per-site continuity; do not expect identity across different town sites —
   that would be tracking anyway.
-- sessionStorage when the state should die with the tab (drafts, scroll).
+- sessionStorage when the state should die with the tab (drafts, scroll) —
+  and for surfaces used on SHARED devices (a town's public chat site at an
+  OAC counter or a library): a conversation id or recent questions kept in
+  localStorage would hand one citizen's thread to the next (EnaChat's public
+  site: `sessionStorage`; its embedded widget: `localStorage` per key).
+- URL-as-state where it helps the user: a shareable `?q=` answer URL costs
+  no storage at all — but mark such pages `noindex` and give the entry page
+  the canonical, so reflected text never gets indexed under the brand.
 - Wrap access in try/catch: Safari private mode and storage-disabled
   browsers throw; a public widget must degrade, not break.
 
