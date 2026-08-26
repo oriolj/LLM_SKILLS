@@ -499,7 +499,13 @@ api.resend.com; curl's default UA happens to pass).
   `http://<uuid>.<ip>.sslip.io`). Reading the pair as duplicates and taking
   whichever came first means a 50% chance of reporting — or overwriting —
   the wrong environment's value.
-- `POST /deploy?uuid={app}` — trigger a deploy (GET returns 405).
+- `POST /deploy?uuid={app}` — trigger a deploy (GET returns 405). **Add
+  `&force=true` after any domain or env change.** Without it the API answers
+  `{"message": "Deployment already queued for this commit."}` and does
+  nothing — the commit is unchanged, so Coolify dedupes it. The app stays
+  `running:healthy` with its OLD Traefik labels, so a freshly added domain
+  answers 404 on HTTP with no certificate and looks like a DNS or ACME
+  problem. Verified on enachat-web, 2026-08-26.
 - **`is_literal: true` single-quotes the stored value**: `real_value` comes
   back WITH the quotes (`'fcU…y'`), but compose's `.env` parsing strips them,
   so the container sees the inner value. Anything reading `real_value`
