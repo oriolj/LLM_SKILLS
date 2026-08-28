@@ -264,6 +264,9 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     entirely. Registration is mode-dependent: multiproc → register on the
     per-scrape registry next to `MultiProcessCollector(registry)`;
     single-process (dev/tests) → default REGISTRY at import.
+  - `prometheus_client` APPENDS `_total` to every `CounterMetricFamily`
+    name (`llmwatch_celery_tasks` → `llmwatch_celery_tasks_total`) — read
+    the live endpoint before writing dashboards/alerts, never the source.
   - Per-tenant labels (town/client slug) are fine exactly when tenants are
     bounded-tens; the app version rides a labeled gauge
     (`app_info{version="<sha>"} 1`) because Info doesn't exist in
@@ -296,10 +299,19 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   (catalogue-first: every metric documented in the repo, hub jobs
   `licita-radar-app|scheduler|postgres`, dashboards `licita-radar*.json`,
   alert group `hq;licita-radar`). Copy that shape for the next Django app.
-- **Celery**: don't hand-roll — run the maintained standalone
-  `celery-exporter` as one more compose service pointed at the broker,
-  labeled with `oj.metrics.port`. Task counts/latency/queue depth per task
-  name; pairs with the `celery-deploy-safety` skill.
+- **Celery**: on a compose host, run the maintained standalone
+  `celery-exporter` as one more service pointed at the broker, labeled
+  with `oj.metrics.port`. **On Coolify Dockerfile apps (worker/beat are
+  separate unpublished resources) the exporter has nowhere to be scraped
+  either** — the pattern that works (llm-index-watcher, 2026-08-28): Celery
+  signal hooks (`task_prerun/postrun/retry`) write per-task counters,
+  duration sums and last-start timestamps to Redis hashes, worker and beat
+  each run a heartbeat thread setting a TTL key (`heartbeat_sent` only
+  fires with events `-E` on — don't rely on it), and the WEB app's
+  `/metrics` reads them back as `CounterMetricFamily`/gauges (+ `LLEN` of
+  the queue). One scrape path, one token; counters survive deploys because
+  they live in Redis. Reference: `config/prom.py` + `config/celery.py` in
+  `oriolj/llm-index-watcher`, documented in its `METRICS.md`.
 - **Plain Python** (scripts, daemons): `prometheus_client.start_http_server`
   on the internal port; single-process, so none of the multiproc pain.
 - **Go**: `promhttp.Handler()` on the app mux (or a second internal-only

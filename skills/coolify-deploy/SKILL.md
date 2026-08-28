@@ -837,10 +837,23 @@ api.resend.com; curl's default UA happens to pass).
   so the container sees the inner value. Anything reading `real_value`
   (scripts, copy-paste from the UI) must strip the quotes or auth fails with
   the "same" password.
-- **`custom_labels`: GET returns plaintext, PATCH expects plaintext and
-  base64-encodes it itself.** Sending base64 double-encodes and corrupts
-  every Traefik label (llm-index-watcher, 2026-08-28 — reverted). Deployment
-  rows carry `commit` and `is_webhook`.
+- **`custom_labels` is base64 BOTH ways on Coolify Cloud** (re-verified
+  2026-08-28 on docker-image resources): GET returns the base64 blob, and
+  PATCH with plaintext answers 422 `The custom_labels should be base64
+  encoded`. Recipe: GET → decode → append `oj.*` lines → encode → PATCH →
+  redeploy (labels apply at container create). A regenerated label set
+  (after `PATCH {domains: ""}`) REPLACES yours — re-append after domain
+  changes. If a value ever fails to decode to `traefik…` lines, it was
+  double-encoded by a previous mistake: decode repeatedly until plaintext.
+  Deployment rows carry `commit` and `is_webhook`.
+- **Coolify UI health check on worker/beat containers**: expose a tiny
+  in-process HTTP `/healthz` (python `ThreadingHTTPServer` thread started
+  from Celery's `worker_ready` / `beat_init` signals, port 9000, never
+  published), set `ports_exposes: "9000"` + `health_check_path: /healthz`,
+  and ship `curl` in the image (the probe Coolify injects needs it —
+  `python:slim` has neither curl nor wget, the deploy rolls back with "New
+  container is not healthy"). Verified 2026-08-28, llm-index-watcher: all
+  three resources `running:healthy` with the UI check ON.
 - `POST /s3-storages` `description` is validated like `POST /projects` —
   ASCII punctuation only (a `:` or `*` fails with "format is invalid").
 - App settings like `is_preserve_repository_enabled` PATCH directly on
