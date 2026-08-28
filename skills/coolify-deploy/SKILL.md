@@ -80,14 +80,31 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "User-Agent: $UA" \
 
 Note `git_repository` is `owner/repo` for the App variant, not the ssh URL.
 
-⚠️ **The source cannot be switched on an existing app.** `source_type` /
-`private_key_id` are not PATCHable in a way that migrates an app; moving a
-deploy-key app to the App means **recreating the resource** (new uuid, new
-container names, deployment history lost, domains and envs re-entered).
-So: leave a working deploy-key app alone unless you specifically want PR
-previews on it — and if you do, recreate it deliberately, not as a side
-effect of something else. EnaChat's two resources are deploy-key sourced
-and stay that way for now.
+**Switching an existing deploy-key app to the App — in place, probably.**
+`PATCH /applications/{uuid}` accepts `github_app_uuid` (+ `git_repository`
+as `owner/repo`), so a migration without recreating the resource looks
+possible — this skill previously said it was not; that was an unverified
+assumption. Not yet exercised on a live app as of 2026-08-28. When doing
+it:
+
+- **Worker-type resource first** (no domains, no traffic), then the web.
+- Send ONLY the source fields in the PATCH — `domains` replaces on PATCH
+  (§5c), so never include it here.
+- Read back `source_type` (`App\Models\GithubApp`) and `source_id`, then
+  prove it with a push: a deployment row with `is_webhook: true`.
+- Have the rollback ready: `private_key_uuid` is NOT in the PATCH schema,
+  so reverting to a deploy key may need the UI.
+
+If in-place fails, the fallback is recreating the resource (new uuid, new
+container names, history lost, domains + envs re-entered) — do that
+deliberately, never as a side effect.
+
+API quirk (2026-08-28): `GET /github-apps/{uuid}/repositories` and
+`…/branches` return **500 "Server Error" for every App** in the account
+while 12 apps are happily App-sourced from the same Apps — it is the
+listing endpoint that is broken, not the integration. Don't read a 500
+there as "the App can't see the repo"; check the GitHub side
+(`gh api orgs/<org>/installations`) instead.
 
 The acceptance test in §1b still applies — the App wiring is automatic, but
 "automatic" is a claim until a push shows `is_webhook: true`.
