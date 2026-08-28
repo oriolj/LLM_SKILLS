@@ -108,7 +108,15 @@ undo, and no record history.
   you intend. For those, list first, show Oriol the exact record(s), and
   get a yes.
 - The API returns `{"status": "ok"|"ko", "data": …}` — always check
-  `status`, a 200 does not mean success.
+  `status`, a 200 does not mean success. Under concurrent writers it also
+  answers `{"message":"API rate limit exceeded"}` with NO `status` key —
+  treat a missing `status` as "not done", re-list, retry.
+- **Several agents writing the zone at once is fine, but the proof is a
+  SET diff, not a count.** Diff records by `(host, type, value, ttl)`
+  before/after and assert "my record present, nothing removed"; the count
+  moved 160 → 169 in minutes on 2026-08-28 from seven parallel writers.
+  Never assume the host you want is still free: `getDnsRecords`
+  immediately before the write.
 
 ## Auth + base URL
 

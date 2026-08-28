@@ -109,6 +109,64 @@ This is not an Astro problem or a Cloudflare problem — it is a property of
 every "build locally, upload the folder" deploy. The same gate belongs in
 front of Netlify/Vercel/S3 static uploads.
 
+## 1c. The gate cannot see everything — three more rules (six sites, 2026-08-28)
+
+Preparing five sibling Astro sites in one afternoon showed the same
+defects in every one — they were scaffolded from one template, so a bug in
+one is in all of them until grepped (`grep -rn localhost */comercial-website/src/config.ts`):
+
+- **Trailing slashes are part of the canonical contract.** Pages
+  308-redirects `/page` → `/page/` for `page/index.html` output; a site
+  whose path helper, canonical and sitemap emit slash-less URLs ships
+  canonicals and hreflang that point at redirects. Emit `/page/`
+  everywhere (or Astro `trailingSlash: 'always'`), and check the live
+  site with `curl -sI https://<host>/page`.
+- **A relative `hreflang` href is a silent no-op** for crawlers — every
+  alternate must be absolute from `Astro.site`. Consider adding "hreflang
+  hrefs start with https://" to `check-dist.mjs`; the canonical rule alone
+  does not catch it.
+- **Gate the promise, not just the URL.** A demo link derived from a
+  valid `APP_URL` never trips the localhost rule, yet still ships a link
+  to a tenant that may not exist in prod. Pattern: empty production
+  default → `HAS_DEMO` / `HAS_DOCS` false → the feature is hidden until
+  `PUBLIC_DEMO_TOWN` / `PUBLIC_DOCS_URL` are set at build time.
+- Prove the gate on the page that actually carries the app URL
+  (`grep -l 'app\.' dist/**/index.html`), not on a page that only trips
+  the canonical rule. `astro build --mode development` does NOT set
+  `import.meta.env.DEV` (that is tied to `astro dev`), so every build is a
+  production artifact — prove gating with the dist grep, never a mode flag.
+- Contact addresses: three sites had `hola@<product>.com` — domains we do
+  not own, so the only contact bounced. Grep `mailto:` too.
+
+### First deploy of a new project: order matters
+
+`make website-deploy` ends with `website-verify` against the custom
+hostname, so on a brand-new project the first run "fails" AFTER a
+successful upload (the domain is not attached yet). Sequence:
+`wrangler pages project create` → `make website-deploy` (ignore the
+verify failure, check `<project>.pages.dev`) → attach the domain via the
+API → `make website-verify`. The CDmon CNAME can and should exist before
+the project does (it NXDOMAINs end-to-end until then — expected). Verify
+fresh records with DoH (`https://cloudflare-dns.com/dns-query?name=…&type=CNAME`,
+`accept: application/dns-json`), not the system resolver; `dig` may be
+absent.
+
+### Starlight docs sites
+
+- Starlight emits **`sitemap-index.xml`** (via its `@astrojs/sitemap`
+  dependency, enabled by `site:` alone), not `sitemap.xml` — a verify
+  target that reads `/sitemap.xml` fails; walk index → child → pages.
+- Starlight ships **no `robots.txt`**; on a proxied zone the URL still
+  answers 200 with Cloudflare's managed "content signals" file that has
+  no `Sitemap:` line — invisible to a status check. Add
+  `src/pages/robots.txt.ts` from `Astro.site` (custom pages coexist with
+  the docs collection) and assert the `Sitemap:` line in verify.
+- Without `site:` Starlight builds fine but emits no sitemap and no
+  canonical — the gate's canonical rule is the tripwire.
+- `check-dist.mjs` works on a Starlight dist unchanged. Default Starlight
+  is third-party-free (system fonts, no analytics): the zero-cookie audit
+  is a grep for foreign origins plus `Set-Cookie` on the live host.
+
 ## 2. Custom domain when the zone is NOT on Cloudflare
 
 Zones can live elsewhere (enacast.com DNS is at CDmon). A **subdomain**

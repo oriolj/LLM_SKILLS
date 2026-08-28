@@ -90,10 +90,20 @@ and worker with **zero failed requests** (30/30 `200` per host during and
 after the swap). The playbook, every step verified:
 
 1. **Capture the old resource** — `GET /applications/{uuid}` (build
-   settings, `custom_labels`) and `GET …/envs` (values + `is_literal` +
-   `is_buildtime` flags). Note `environment_uuid` (`GET /projects/{uuid}`
-   → `environments[]`) and `destination_uuid` (`.destination.uuid` on the
-   app JSON).
+   settings, `custom_labels`), `GET …/envs` (values + `is_literal` +
+   `is_buildtime` flags) **and `GET …/storages`**. Note `environment_uuid`
+   (`GET /projects/{uuid}` → `environments[]`) and `destination_uuid`
+   (`.destination.uuid` on the app JSON).
+   ⚠️ **Storages do not travel with a recreate, and nothing warns you.**
+   The EnaChat migration forgot them: the new containers came up healthy,
+   every check passed, and the client's uploaded PDFs 404'd for ~45 min
+   until a sibling agent noticed `GET …/storages` was empty. Host-path
+   binds survive on disk (the old resource's `delete_volumes=true` does
+   not touch a host dir), named volumes do NOT — copy them first. Re-add
+   with `POST /applications/{new}/storages {"type":"persistent","name":…,
+   "host_path":…,"mount_path":…}` BEFORE the first deploy, and make
+   "`docker inspect … Mounts` on the new container" part of the cutover
+   check, not an afterthought.
 2. **Create the new one** with `POST /applications/private-github-app`
    (`github_app_uuid`, `git_repository: "owner/repo"`, same
    `base_directory` / `dockerfile_location` / `ports_exposes`,
@@ -168,6 +178,29 @@ API notes learned on the way:
 
 The acceptance test in §1b still applies — the App wiring is automatic, but
 "automatic" is a claim until a push shows `is_webhook: true`.
+
+### Monorepo + GitHub App: every push deploys EVERY app — set `watch_paths`
+
+A GitHub-App-sourced app deploys on every push to its branch, with no
+path filter by default. On a monorepo that means one commit to
+`enapost/docs/` rebuilds enachat, enajoin, enainbox and their workers too
+(six builds, serialised by the server's `concurrent_builds: 2`) — and it
+starts **the moment the resource exists**, before you have deployed it
+yourself: four brand-new apps collected failed webhook builds from other
+agents' pushes within minutes of creation, on build settings that were
+not finished yet. Two rules:
+
+- **Get build settings, envs, storage and labels right BEFORE the first
+  push lands**, or create with the right `base_directory` from the start —
+  there is no "not yet" state.
+- **Set `watch_paths`** (newline-separated globs, repo-root relative) on
+  every app in a monorepo: `enapost/backend/**` for a backend that only
+  COPYs its own dir; add `enachat/frontend/**` where the image bundles
+  the widget. Then a docs-only commit deploys nothing and a backend
+  commit deploys one app. Prove both directions with two pushes.
+
+A long `queued` while siblings build is normal (`concurrent_builds`);
+only an `in_progress` row that never finishes is the jam from §6b.
 
 ## 2. Networking / Traefik
 
@@ -319,6 +352,13 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
 - **Exempt `/healthz` from any auth** you add, or both the blue-green gate and Docker HEALTHCHECK break.
 - Celery: never `celery -A config inspect ping` as a healthcheck (boots all of Django, ~265 MB + 100% CPU, thousands of times/day). Use `grep -q celery /proc/1/cmdline` (requires `exec` so celery is PID 1), or for threads-pool wedge detection the Django-free broker-only form: `celery -b $REDIS_URL inspect ping -d celery@$(hostname)`.
 - UI healthcheck for Dockerfile resources: GET /healthz, expected 200, initial delay 10–15 s (5 s causes false Bad Gateway right after deploy), interval 30 s, retries 3.
+- **Distroless / no-shell images: turn the UI healthcheck OFF**
+  (`PATCH {health_check_enabled: false}`) and rely on the image's own
+  `HEALTHCHECK`. With it on, Coolify reported `custom_healthcheck_found:
+  false` even though the Dockerfile declared one, injected its curl/wget
+  probe (absent in distroless) and rolled back three consecutive deploys
+  with "New container is not healthy" (EnaInbox, 2026-08-28). The image
+  HEALTHCHECK gates blue-green on its own.
 
 ## 5b. Field notes from a full API-only onboarding (server -> app, 2026-08-25)
 
@@ -561,6 +601,17 @@ Three mechanisms, layered by tenant need:
 - **Coolify ≥ v4.0.0-beta.450 for Docker layer caching** — older versions injected per-build args that busted the cache every deploy.
 - Coolify reports "deployed" when containers **start**, not when healthy — do collectstatic at build time, keep the entrypoint fast, tune `start_period`.
 - Big Compose stacks: split into a `web` resource and a `workers` resource so web deploys don't cycle every worker container.
+- **Base Directory IS the build context, period**: Coolify runs
+  `cd <base_directory> && docker build -f <base_directory><dockerfile_location> <base_directory>`.
+  The EnaChat shape (`/enachat` + `/backend/Dockerfile`) only works because
+  that Dockerfile COPYs `backend/` and `frontend/` as siblings. A flat Go
+  backend whose Dockerfile does `COPY go.mod go.sum ./` needs
+  `base_directory: /<product>/backend` + `dockerfile_location: /Dockerfile`
+  or every build dies with `"/go.mod": not found` (EnaJoin, EnaInbox,
+  2026-08-28 — copied the EnaChat values blindly). Also: PATCHing
+  `base_directory`/`dockerfile_location` **regenerates `custom_labels`**
+  and drops your `oj.*` lines — re-append them as the LAST patch before
+  deploying, and verify on the container, never from the API alone.
 - Base Directory vs Dockerfile Location are separate fields: the **build context must contain everything the Dockerfile COPYs** (migrations dir, sibling frontend/). A too-narrow base dir often still builds — with the COPY silently empty. Huge image → check the repo-root `.dockerignore`.
 
 ## 6b. Deploys: one per push, and the mixed-version failure mode
@@ -732,6 +783,40 @@ api.resend.com; curl's default UA happens to pass).
   lookup … no such host"), blocks all deploys, and flips the server
   unreachable; `ip_previous` keeps the old value. Create the DNS record
   first, then change the field.
+
+### More API facts, verified 2026-08-28 (four products in one afternoon)
+
+- `POST /databases/redis` **`redis_conf` must be base64** (plain text →
+  "The redis_conf should be base64 encoded"). It becomes
+  `/usr/local/etc/redis/redis.conf`; `appendonly yes\nappendfsync everysec`
+  there is how a Coolify Redis resource gets AOF (verify: `config get`).
+- **Named persistent storage cannot be shared between two resources** —
+  Coolify prefixes the volume with the resource uuid, so a web and a
+  worker each get a private volume. For media written by the worker and
+  served by the web, use a `host_path` bind on BOTH (`POST …/storages
+  {"type":"persistent","name":…,"host_path":…,"mount_path":…}`) and chown
+  the dir to the image uid first. `PATCH …/storages {uuid, host_path}`
+  converts an existing named entry.
+- Named volume + nonroot needs **no host chown** if the Dockerfile
+  pre-creates and `--chown=65532:65532`s the mount dir into the distroless
+  image — the volume initialises with that ownership (EnaJoin). Bind
+  mounts remain the chown case.
+- `POST /projects` `description` rejects an em dash — ASCII punctuation
+  only (`- _ . , ! ? ( ) ' " + = * / @ &`).
+- The Cloud API **intermittently returns 200 with an empty body** (seen
+  on `GET /deployments/applications/{uuid}` for minutes while builds ran).
+  Retry on empty; never read empty as "no deployments".
+- `stop_grace_period` reads back `null` after a 200 PATCH; app `status`
+  shows `running:healthy` while its deployment row is still `queued`.
+- gunicorn ≥ 26 opens a control socket under `$HOME/.gunicorn/`; with a
+  `--no-create-home` system user it logs `Control server error:
+  Permission denied` every boot — pass `--control-socket /tmp/gunicorn.ctl`.
+- `curl -I` on a `@require_GET` health view returns 405 — probe with GET.
+- Distroless one-offs: `docker exec <c> /<binary> <subcommand>` inherits
+  the container env, so bake onboarding into the binary
+  (`create-staff`, …) — there is no shell and no repo checkout in prod.
+- R2: a TLS **handshake failure** on `<account>.r2.cloudflarestorage.com`
+  means R2 is not enabled on the Cloudflare account — don't debug the keys.
 
 ## 7c. Docker-image apps by API (exporters etc. — EnaChat monitoring, 2026-08-25)
 
