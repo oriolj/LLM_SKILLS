@@ -7,6 +7,33 @@ description: Deploy, configure and operate applications on Coolify (self-hosted 
 
 Field-tested rules for deploying to Coolify. Every rule here has caused a real outage, data loss, or wasted debugging session at least once. Cross-references: Celery task-loss on deploys lives in the `celery-deploy-safety` skill; SQLite blue-green specifics in `sqlite-production`; prod DB container detection in `prod-db-sync`.
 
+## 0. Which Coolify account? Scope first (house rule, 2026-08-28)
+
+**Coolify accounts are per scope, and so are their tokens, deploy keys and
+GitHub Apps.** Before any write (`POST /servers`, `POST /projects`,
+`POST /applications/*`), establish the scope of the server AND the app
+from hq `docs/projects.md` / `docs/servers/` and use that scope's account:
+
+| Scope | Coolify account | API token | Deploy key file (shared/ansible) |
+|---|---|---|---|
+| enantena / enacast | Enantena's Coolify Cloud team | `homelab/secrets/coolify.env` (`COOLIFY_API_TOKEN`) | `coolify/coolify-enantena.pub` |
+| oriolj (personal) | Oriol's personal Coolify (manages jluv-apps-1) | `homelab/secrets/coolify-oriolj.env` (`COOLIFY_ORIOLJ_API_TOKEN`, `COOLIFY_ORIOLJ_API_URL` if self-hosted) — to be created | `coolify/coolify-oriolj.pub` — to be created |
+| smartupsoft | its own | not in hq yet | — |
+
+- A personal server or a personal project **never** goes into the Enantena
+  team, and vice-versa. The token at hand is not the token to use.
+- If the scope's credentials are not in `homelab/secrets/`, **stop and add
+  the ask to the project's `USER_TODO.md`** — do not "just use" another
+  scope's account to make progress.
+- Read-only `GET`s against any account, to learn what exists, are fine.
+- The GitHub Apps in §1c (`coolify-enacast`, `coolify-enantena-3`,
+  `coolify-ena-oriolj`) are all installed in the **Enantena** team; a
+  personal-account deploy needs the App installed there too.
+- Near-miss that wrote this rule: 2026-08-28, oriolj-nc-1 (personal netcup
+  box) was one `POST /servers` away from the Enantena team because that was
+  the only token hq held, and the ansible baseline had already put
+  Enantena's Coolify key on it (fixed: per-scope keys).
+
 ## 1. Resource type: Dockerfile first (house rule)
 
 **Default to the "Application → Dockerfile" resource type for single-service backends — NOT Docker Compose.** If the project seems to need Compose, ask the user before choosing it.
