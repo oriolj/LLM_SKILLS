@@ -855,6 +855,55 @@ auto-assigned even here) → `POST /deploy`.
   (oliver006/redis_exporter) wants `REDIS_ADDR=redis://<db-uuid>:6379` +
   `REDIS_PASSWORD` split out — it does NOT parse creds from the URL.
 
+## 7d. Migrating resources between Coolify INSTANCES (Cloud ↔ self-hosted) — UNTESTED
+
+⚠️ **Not yet exercised. Everything here is inferred from the verified
+same-instance recreate playbook (§1c) and from how Coolify stores state.
+Before trusting it: take backups of every database and volume, and run it
+end-to-end on a NON-critical project first.** Near-term TODO: script it
+(check whether the community has an export/import tool first — as of
+2026-08 Coolify has no official one; look before writing).
+
+What lives where (the reason a migration is possible at all):
+- **Coolify's own DB** holds only configuration: projects, resources,
+  envs, storages definitions, domains, deploy history. That is what an
+  instance migration moves.
+- **The data lives on the SERVER**: docker volumes (`<resource-uuid>-<name>`
+  for named storage, or the `host_path` you chose), the database
+  containers' volumes, Traefik's `acme.json`. A new Coolify instance that
+  adopts the same server sees the same disk.
+
+Plan, resource by resource:
+1. **Export** from the old instance via API: `GET /applications/{uuid}`,
+   `…/envs`, `…/storages`; for DBs `GET /databases/{uuid}` (image, version,
+   the volume name); the project/environment structure.
+2. **Add the server** to the new instance (same host — it keeps Docker,
+   containers and volumes; Coolify's agent install is idempotent). Do NOT
+   let both instances manage the same server for long: both write
+   Traefik config.
+3. **Recreate each resource** on the new instance with the §1c playbook
+   (GitHub App source, same build settings, envs runtime-only, labels).
+4. **Re-attach data, not recreate it**: the new resource gets a NEW uuid,
+   so a named storage becomes `<new-uuid>-media` — an EMPTY volume. Either
+   use `host_path` binds (uuid-independent; the file tree is just there)
+   or, before the first deploy, `docker volume create <new-uuid>-media`
+   and copy `/var/lib/docker/volumes/<old>/_data/.` into it. Databases:
+   safest is `pg_dump` → restore into the new DB resource; the shortcut
+   of pointing a new Postgres resource at the old volume name is
+   plausible but untested.
+5. **Domains + certs**: attach the same domains; `acme.json` on the host
+   keeps the certificates, so no reissue — but the router names change
+   with the uuid (file-provider configs referencing
+   `https-0-<uuid>@docker` must be updated).
+6. **Cut over** with `force_domain_override` overlap as in §1c, verify,
+   then delete the old resources on the old instance with
+   `delete_volumes=false` (the volumes are now the new instance's data)
+   and `delete_connected_networks=false`.
+7. Chase the uuid everywhere (§1c step 9) and re-prove push-to-deploy.
+
+Backups are not optional here: a wrong `delete_volumes` default on step 6
+is unrecoverable.
+
 ## 8. Failure → cause → fix
 
 | Symptom | Likely cause | Fix |

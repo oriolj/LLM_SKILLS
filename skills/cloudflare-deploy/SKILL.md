@@ -21,6 +21,15 @@ with the EnaChat comercial Astro site → Cloudflare Pages.
   Other accounts get their own `<name>.env` with their own prefix.
 - wrangler auth is pure env: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`
   exported from that file. No `wrangler login`, no OAuth state on disk.
+- **Do not declare a token dead from `GET /user/tokens/verify`.** For an
+  ACCOUNT-owned token that endpoint answers `1000 Invalid API Token` even
+  while the token works — it is a user-scope endpoint. And the API can
+  answer a transient `10000 Authentication error` on a real call. On
+  2026-08-28 both happened together and the token was written off as
+  revoked, which held up six Pages uploads for hours; a retry later
+  succeeded with the SAME token. Test the capability you need (`GET
+  /accounts/{id}/pages/projects`), retry once after a minute, and only
+  then ask for a new token.
 
 ## 1. Pages deploy (direct upload — the default)
 
