@@ -29,6 +29,12 @@ from hq `docs/projects.md` / `docs/servers/` and use that scope's account:
 - The GitHub Apps in §1c (`coolify-enacast`, `coolify-enantena-3`,
   `coolify-ena-oriolj`) are all installed in the **Enantena** team; a
   personal-account deploy needs the App installed there too.
+- Personal team facts (2026-08-28): server `oriolj-apps-1` (= hq
+  jluv-apps-1) `fso0kwogs0k4ggog4k8ccwkg` and `oriolj-nc-1`
+  `q2xtgyscjn56fja6zsz0xkqg`; Coolify key `coolify-jluv`
+  `m08wosks0ko88kockoc88gw8` (deployed to personal boxes as
+  `coolify-oriolj.pub`); GitHub Apps `oriolj-coolify` (personal repos,
+  `bogg84o0g0ow4swk8048s0ww`) and `jluv-smallbets-gh-coolify`.
 - Near-miss that wrote this rule: 2026-08-28, oriolj-nc-1 (personal netcup
   box) was one `POST /servers` away from the Enantena team because that was
   the only token hq held, and the ansible baseline had already put
@@ -415,12 +421,28 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
 
 - **Adding a server by API**: `POST /servers` (name, ip, port, user,
   `private_key_uuid`, `instant_validate`) after installing that key's pubkey
-  on the box. Validation is `POST /servers/{uuid}/validate` (GET 405s) and
-  it does NOT install prerequisites: it fails naming them one at a time —
-  `jq` (plus curl/wget/git/openssl), then **Docker Engine**. Its error text
-  mentions a validate-with-install endpoint; installing docker yourself
-  works but violates the Coolify-owns-docker rule — prefer the install
-  variant when scripting.
+  on the box (the team's public key is readable: `GET /security/keys/{uuid}`
+  → `public_key`). Plain `POST /servers/{uuid}/validate` (GET 405s) does
+  NOT install prerequisites — it stops at "Docker Engine is not installed.
+  Please install Docker manually". **The install variant is
+  `POST /servers/{uuid}/validate` with body `{"install": true}`**
+  ("Validation and installation started.") — it installs jq/curl/git/…
+  and Docker itself; `settings.is_usable` flips to true in ~40 s while
+  `validation_logs` keeps the stale text for a while (verified 2026-08-28,
+  oriolj-nc-1, Debian 13). That is the Coolify-owns-Docker path — never
+  install Docker yourself on a Coolify box.
+- `GET /github-apps/{uuid}/repositories` is **not an API route** on Coolify
+  Cloud (returns the dashboard HTML). Don't probe repo visibility that way:
+  just `POST /applications/private-github-app`; it errors if the App
+  cannot see the repo.
+- `/servers/{uuid}/cloudflare-tunnel`, `…/enable`, `…/disable` only store the
+  flag / restore `ip_previous`; they deploy and remove nothing. The tunnel
+  itself is created on the Cloudflare side (`cloudflare-deploy` skill).
+- **Tokens**: Coolify Cloud API tokens are `<id>|<48 chars>` (the tail is a
+  checksum). A token that answers 401 "Unauthenticated" on every route with
+  the right prefix is almost always a **mangled paste** (47 chars) — count
+  before debugging anything else. Tokens can be issued with a 30-day expiry
+  (Oriol's personal team does: renew monthly, see hq secrets registry).
 - **App from a private repo without a GitHub App** (the fallback — §1c
   is the default):
   `POST /applications/private-deploy-key` with `private_key_uuid` (add that

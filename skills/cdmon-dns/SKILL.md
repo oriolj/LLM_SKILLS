@@ -128,6 +128,23 @@ undo, and no record history.
   committed copy; grep/cut to read, never `source`). Regenerating the key
   in the CDmon panel invalidates the old one.
 
+## Domain list (read-only) — and the SECOND CDmon account
+
+```bash
+curl -s -X POST "$API/domains/list" -H "apikey: $KEY" \
+  -H "Accept: application/json" -H "Content-Type: application/json" -d '{"data": {}}'
+# -> {"status":"ok","data":{"msg":"Domain list for client enantena","result":[{"domain":…},…]}}
+```
+61 domains in the **enantena** account on 2026-08-28 (`docs/domains.md` in
+hq has the full owner/registrar/DNS table). **A second CDmon account
+exists** that this key cannot see: `oriolj.com` (personal — registrar
+CDmon but live DNS on **Route 53**), plus the CDmon-hosted zones
+`humans2agents.com`, `rutakas.com`, `fichachat.com`, `smartupsoft.com`,
+`xescomerce.com`, `construcat.cat`. Its key (when issued) is
+`hq/homelab/secrets/cdmon-oriolj.env` → `CDMON_ORIOLJ_API_KEY`. **Oriol's
+rule (2026-08-28): no domain work for personal products until that key
+exists** — never reach for the enantena key for a personal zone.
+
 ## DNS endpoints (types supported: A, CNAME, TXT)
 
 ```bash

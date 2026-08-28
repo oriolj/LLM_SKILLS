@@ -31,6 +31,46 @@ with the EnaChat comercial Astro site → Cloudflare Pages.
   /accounts/{id}/pages/projects`), retry once after a minute, and only
   then ask for a new token.
 
+## 0b. Accounts are per scope — and the personal account (2026-08-28)
+
+- EnaCast → `cloudflare-enacast.env` (`ENACAST_` prefix). **Personal
+  (oriolj) → `cloudflare-oriolj.env` (`ORIOLJ_` prefix)**: an *Account API
+  token* (`cfat_…`, broad Write, **IP-restricted** to the workstation's
+  egress IP, **rotated every 30 days** by Oriol → 401/403 on a token that
+  worked = expired or wrong IP, ask, never retry around it), account id,
+  `ORIOLJ_CLOUDFLARE_ZONE_ORIOLJOPS_COM`, tunnel ids, and the R2 S3 key
+  pair + endpoint issued together with it. Verify a token with
+  `GET /accounts/{acc}/tokens/verify`. Zone `orioljops.com` is the personal
+  ops domain (tunnels, server names, internal APIs; the counterpart of
+  enacasthq.com). Never use one scope's token for another scope's zone.
+
+## 0c. Cloudflare Tunnel for Coolify SSH — entirely by API
+
+Done for oriolj-nc-1 on 2026-08-28; no dashboard clicks:
+
+```bash
+CF=https://api.cloudflare.com/client/v4; H=(-H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -A 'Mozilla/5.0')
+TID=$(curl -s "${H[@]}" -X POST $CF/accounts/$ACC/cfd_tunnel -d '{"name":"<host>","config_src":"cloudflare"}' | jq -r .result.id)
+curl -s "${H[@]}" -X PUT $CF/accounts/$ACC/cfd_tunnel/$TID/configurations \
+  -d '{"config":{"ingress":[{"hostname":"<host>.<zone>","service":"ssh://localhost:1922"},{"service":"http_status:404"}]}}'
+curl -s "${H[@]}" -X POST $CF/zones/$ZONE/dns_records \
+  -d "{\"type\":\"CNAME\",\"name\":\"<host>\",\"content\":\"$TID.cfargotunnel.com\",\"proxied\":true,\"ttl\":1}"
+curl -s "${H[@]}" $CF/accounts/$ACC/cfd_tunnel/$TID/token | jq -r .result   # -> CLOUDFLARED_TOKEN_<HOST> in hq cloudflared.env
+curl -s "${H[@]}" $CF/accounts/$ACC/cfd_tunnel/$TID | jq '.result.status, (.result.connections|length)'   # healthy, 4
+```
+
+- The hostname is a **proxied CNAME** to `<tunnel-id>.cfargotunnel.com`;
+  the same name is what Coolify's server `ip` field gets afterwards. No A
+  record for the machine — the public IP lives in hq docs only.
+- Observed: the DNS-record POST with a `comment` field came back with
+  `result: null`; the same body without `comment` succeeded. Keep record
+  creation minimal, add comments in a second PATCH if wanted.
+- The daemon goes on the box via hq `shared/ansible` (`cloudflared` group,
+  `make apply TAGS=cloudflared HOST=<host>`), never `docker run`.
+- Public-lookup helpers that work from the workstation: `rdap.org` needs
+  `curl -L` (302 to the registry's RDAP; `.es` has no RDAP data) and NS
+  lookups via Python `dns.resolver` (no `dig`/`resolvectl` on the box).
+
 ## 1. Pages deploy (direct upload — the default)
 
 No git integration needed; deploy the built `dist/` from wherever the build
