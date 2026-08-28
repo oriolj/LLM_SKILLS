@@ -928,6 +928,21 @@ auto-assigned even here) → `POST /deploy`.
 - `GET /deployments/applications/{uuid}` returns
   `{"deployments": [...]}` (a wrapper object, newest first) — not a bare
   array.
+- **Switching an app's domain from `http://` to `https://<x>.sslip.io` is a
+  real TLS path**: Coolify regenerates the router labels with
+  `tls.certresolver=letsencrypt` and Traefik gets a Let's Encrypt cert for
+  the sslip name (~1 min). The RUNNING container keeps the old labels until
+  a `POST /deploy?…&force=true` — until then https answers with
+  `TRAEFIK DEFAULT CERT`. Use this to scrape `/metrics` over TLS when no
+  real domain exists yet (Licita Radar, 2026-08-28).
+- **Coolify UI health check for a scheduler/worker**: give the process an
+  HTTP listener it already has (supercronic `-prometheus-listen-address`,
+  celery-exporter, …), PATCH `health_check_enabled/path/port` to it and
+  redeploy — no more "UI check OFF" exceptions for non-web resources.
+- The DOCKER-USER tailnet-only guard is now on TWO hosts by hand
+  (coolify-ovh-vps-1, oriolj-nc-1: `/usr/local/sbin/docker-user-tailnet-only.sh`
+  + oneshot unit, ports listed inside the script) — folding it into a
+  shared/ansible role with a per-host port list is overdue.
 - postgres-exporter (quay.io/prometheuscommunity/postgres-exporter) wants
   `DATA_SOURCE_NAME=postgres://…@<db-uuid>:5432/<db>?sslmode=disable`
   (from the DB resource's `internal_db_url`); redis_exporter

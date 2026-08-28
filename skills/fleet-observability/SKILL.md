@@ -280,6 +280,22 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   inside prometheus.yml). ⚠️ `promtool check config` STATS every
   credentials_file — the validate gate must mount a dummy `/run/secrets`
   or it fails on the missing file.
+- **supercronic schedulers (Go/Django cron containers)**: `supercronic
+  -prometheus-listen-address 0.0.0.0:9746 <crontab>` exposes
+  `supercronic_executions`, `supercronic_successful_executions`,
+  `supercronic_currently_running` and
+  `supercronic_cron_execution_time_seconds_{bucket,count,sum}` (labels
+  `command`, `position`, `schedule`; verified v0.2.34, 2026-08-28). Failures
+  = `executions − successful_executions` (there is no separate failed
+  counter to alert on). Two birds: that listener is also what Coolify's UI
+  health check probes (`GET /metrics` on 9746), so a scheduler resource no
+  longer needs the UI check OFF. Publish the port for the hub scrape only
+  behind the DOCKER-USER tailnet guard (Licita Radar, `oriolj-nc-1`).
+- **Second reference implementation** (personal scope, 2026-08-28):
+  `oriolj/public_contract_scanner` — `backend/config/prom.py` + `METRICS.md`
+  (catalogue-first: every metric documented in the repo, hub jobs
+  `licita-radar-app|scheduler|postgres`, dashboards `licita-radar*.json`,
+  alert group `hq;licita-radar`). Copy that shape for the next Django app.
 - **Celery**: don't hand-roll — run the maintained standalone
   `celery-exporter` as one more compose service pointed at the broker,
   labeled with `oj.metrics.port`. Task counts/latency/queue depth per task
@@ -351,6 +367,19 @@ after startup while Grafana reads alerting provisioning ONLY at startup, so
 any new provisioning file needs one extra restart to take effect. Verify
 with the unauthenticated `/metrics`: `grafana_alerting_rule_group_rules`
 lists every live group.
+
+**Alert provisioning files DID load on a plain Coolify redeploy** (2026-08-28,
+`licita-radar.yml`: `grafana_alerting_rule_group_rules{rule_group="hq;licita-radar"} 7`
+right after the deploy, no extra restart) — the "one extra restart" note
+below is the failure mode to check for, not a certainty. Verify with the
+`/metrics` counter every time; `grafana_stat_totals_dashboard` counts the
+file-provisioned dashboards the same way when the HTTP API login is not
+available.
+
+**hq-monitoring's `make validate` creates a dummy for EVERY
+`credentials_file` referenced in prometheus.yml** (grep-driven since
+2026-08-28) — adding a token-gated job needs no Makefile edit, only the
+compose `secrets:` entry + the `smoke.sh` canary export.
 
 **Dashboard iteration needs NO deploys.** The dashboard file provider
 WATCHES its directory (`updateIntervalSeconds`), unlike alerting/datasource
