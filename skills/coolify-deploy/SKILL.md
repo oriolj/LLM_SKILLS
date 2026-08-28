@@ -260,6 +260,23 @@ referenced variable — and the seeded VALUES are traps:
   runtime-only var is invisible to interpolation and fails the deploy with
   "required variable X is missing a value".
 
+### Before the first deploy: inventory, classify, and plan to back up
+
+- **Grep the settings/config for every env name the code reads** and
+  classify each: generated (SECRET_KEY, SESSION_SECRET, METRICS_TOKEN,
+  admin path), infra (magic DB/Redis vars), **external account** (Resend
+  key + verified sending domain, OAuth client id/secret + redirect URIs,
+  AI keys, payment provider merchant/test creds, R2 enabled on the
+  account), build-time (`PUBLIC_*`). External accounts need a human and a
+  deadline — decide what the app does without each one BEFORE boot, not
+  when it refuses to start (2026-08-28: console email ×3, payments 501).
+- **Generated secrets live only in Coolify's database.** On Coolify Cloud
+  that database is not yours. Back them up the same day: hq's
+  `homelab/tools/coolify-env-backup.sh` dumps every resource's runtime
+  envs + DB credentials into an age-encrypted file; re-run on every env
+  change. Without it, losing the instance means dead sessions/signed
+  tokens and DB volumes you cannot open.
+
 ### The empty-string trap (bites every Django project)
 
 **Coolify injects declared-but-unset vars as empty strings**, and `python-decouple` / `django-environ` `default=` only applies when the var is **absent**, not empty. This silently wipes `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL`, Sentry env, S3 config. Same trap from the compose side: `${VAR:-}` sets an empty string. Defenses:
