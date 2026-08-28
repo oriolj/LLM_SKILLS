@@ -403,6 +403,13 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   probe (absent in distroless) and rolled back three consecutive deploys
   with "New container is not healthy" (EnaInbox, 2026-08-28). The image
   HEALTHCHECK gates blue-green on its own.
+- **But the END GOAL is Coolify's check ON for every resource** (house
+  rule, Oriol 2026-08-28): OFF is a documented, temporary exception, never
+  the default for workers/schedulers. Each product's deploy doc lists the
+  resources with the UI check off and how to turn it on (probe binary or
+  a tiny HTTP `/healthz` in the worker image on an exposed port; a
+  sidecar; for distroless, a static-linked `healthcheck` binary Coolify
+  can exec). Track it as an open item until the list is empty.
 
 ## 5b. Field notes from a full API-only onboarding (server -> app, 2026-08-25)
 
