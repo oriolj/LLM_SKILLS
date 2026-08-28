@@ -837,6 +837,12 @@ api.resend.com; curl's default UA happens to pass).
   so the container sees the inner value. Anything reading `real_value`
   (scripts, copy-paste from the UI) must strip the quotes or auth fails with
   the "same" password.
+- **`custom_labels`: GET returns plaintext, PATCH expects plaintext and
+  base64-encodes it itself.** Sending base64 double-encodes and corrupts
+  every Traefik label (llm-index-watcher, 2026-08-28 — reverted). Deployment
+  rows carry `commit` and `is_webhook`.
+- `POST /s3-storages` `description` is validated like `POST /projects` —
+  ASCII punctuation only (a `:` or `*` fails with "format is invalid").
 - App settings like `is_preserve_repository_enabled` PATCH directly on
   `/applications/{uuid}` even though GET nests them under `settings`.
 - **Replacing Coolify's tunnel connector, zero-downtime**: Coolify Cloud's
