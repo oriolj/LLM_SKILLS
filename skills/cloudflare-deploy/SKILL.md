@@ -71,6 +71,38 @@ curl -s "${H[@]}" $CF/accounts/$ACC/cfd_tunnel/$TID | jq '.result.status, (.resu
   `curl -L` (302 to the registry's RDAP; `.es` has no RDAP data) and NS
   lookups via Python `dns.resolver` (no `dig`/`resolvectl` on the box).
 
+## 0d. R2 for Coolify backups — three traps, all hit on 2026-08-28
+
+1. **`10042 Please enable R2 through the Cloudflare Dashboard`** on
+   `POST /accounts/{acc}/r2/buckets` — R2 needs a one-time dashboard
+   enablement per account (USER_TODO). Right after enabling, the S3
+   endpoint `https://<acc>.r2.cloudflarestorage.com` answers **TLS alert
+   handshake failure** from everywhere for ~2–3 minutes (certificate
+   provisioning), then HTTP 400 (= TLS fine, unsigned request). Poll; don't
+   conclude "R2 not enabled" from a handshake failure alone.
+2. **The R2 S3 key pair shown when creating an API token inherits that
+   token's conditions** — IP filter and expiry included. Those creds work
+   from the workstation and get `AccessDenied` from the server / Coolify
+   Cloud. For anything that uploads from elsewhere, mint a dedicated
+   bucket-scoped token by API:
+   `POST /accounts/{acc}/tokens` with `policies: [{effect: allow,
+   permission_groups: [{id: 2efd5506f9c8494dacb1fa10a3e7d5b6 /* Bucket Item Write */},
+   {id: 6a018a9f2fc74eb6b293b0c548f38b39 /* Bucket Item Read */}],
+   resources: {"com.cloudflare.edge.r2.bucket.<acc>_default_<bucket>": "*"}}]`
+   → S3 **access key id = the token's `id`**, **secret = SHA-256 hex of the
+   token `value`**. Ids of the groups: `GET /accounts/{acc}/tokens/permission_groups`.
+3. A freshly minted token answers `Unauthorized` for a few seconds — retry
+   once before debugging.
+
+Coolify side: `POST /s3-storages` (`endpoint` = the account endpoint,
+`region: auto`, `bucket`, key/secret above; `description` ASCII only),
+`POST /s3-storages/{uuid}/validate` must say `valid: true`, then
+`POST /databases/{uuid}/backups` (`frequency` cron, `save_s3`,
+`s3_storage_uuid`, retention fields, `backup_now`) and read
+`…/backups/{uuid}/executions` — `status: success` with an S3 warning in
+`message` means the DUMP succeeded and the UPLOAD failed; only an
+execution without that warning, plus the object in the bucket, counts.
+
 ## 1. Pages deploy (direct upload — the default)
 
 No git integration needed; deploy the built `dist/` from wherever the build
