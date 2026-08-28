@@ -504,7 +504,14 @@ API notes:
   unsupported, as this skill previously did.)
 - `GET /deployments/applications/{uuid}` is the per-resource queue and the
   one to trust; `GET /deployments` (global) can read empty while a resource
-  is jammed, and `GET /deployments/{uuid}` returned an empty body.
+  is jammed.
+- **`GET /deployments/{uuid}` is unreliable on Coolify Cloud: it 404s
+  ("Deployment not found.") for a deployment that exists and is RUNNING**,
+  and has also returned an empty body. Never treat that 404 as "the deploy
+  failed" — code that polls a deployment to completion must fall back to
+  the per-application queue and keep polling on 404/empty. (EnaChat's
+  provisioning task did treat it as fatal and stamped `error` on a live
+  client domain; fixed in enasuite `db154f2`.)
 - **The published spec is the source of truth**: `app.coolify.io/openapi.json`
   302s, but the real file is
   `raw.githubusercontent.com/coollabsio/coolify/main/openapi.json`. Grep it

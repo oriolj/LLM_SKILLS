@@ -15,6 +15,7 @@ resolves from it.
 |---|---|---|---|
 | `enacast.com` | CDmon | **CDmon** (ns1-3.cdmon.net) | this API |
 | `enacast.chat` | CDmon | **Cloudflare** (zone `78798ebd9e4d55ea03c5ac24e3d4537d`) | the Cloudflare API — see `cloudflare-deploy` |
+| `santjust.chat` | CDmon | **CDmon** | this API — one apex `A @ → 141.95.29.64` (EnaChat client custom domain, live 2026-08-25; apex cannot be a CNAME) |
 
 `enacast.chat` was registered 2026-08-26 and is the product's main domain; its
 nameservers point at Cloudflare so the apex can serve Cloudflare Pages and so
@@ -158,8 +159,10 @@ curl -s -X POST "$API/dnsrecords/create" -H "apikey: $KEY" \
 
 - Radio-client websites: dozens of `<radio>` CNAMEs → Vercel
   (`*.vercel-dns-016.com`); apex + `www` → 91.134.113.207.
-- `chatapp` → coolify-ovh-vps-1.enacast.com (EnaChat app);
-  `chat` → enachat-website.pages.dev (comercial site, Cloudflare Pages).
+- `chatapp` → coolify-ovh-vps-1.enacast.com (EnaChat app — old host, kept
+  indefinitely: installed embeds hardcode it);
+  `chat` → enachat-website.pages.dev (old comercial URL; Pages 301s it to
+  `enacast.chat`, the main domain since 2026-08-26 — keep the record).
 - Company mail: Google MX on `@` + Mailgun/SES/Resend TXT+DKIM — mail
   breaks if these are touched.
 - Planned (see enachat/plans/custom-domains.md): wildcards

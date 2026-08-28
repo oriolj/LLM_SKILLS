@@ -45,8 +45,11 @@ wrangler pages deploy dist --project-name=<project> --branch=master --commit-dir
 - The project is live at `https://<project>.pages.dev` after the first
   deploy; each deploy also gets an immutable `<hash>.<project>.pages.dev`.
 - **Set Astro's `site:` to the real public URL** (e.g.
-  `https://chat.enacast.com`) before building — canonical URLs and
-  sitemaps bake it in at build time.
+  `https://enacast.chat`) before building — canonical URLs and sitemaps
+  bake it in at build time. When the public URL moves (chat.enacast.com →
+  enacast.chat did), this is the first thing to change, and the old host
+  gets a 301 from Pages (`functions/_middleware.js`) rather than being
+  dropped — installed links keep working.
 
 ## 1b. Gate the dist BEFORE uploading, smoke-test the live URL AFTER
 
