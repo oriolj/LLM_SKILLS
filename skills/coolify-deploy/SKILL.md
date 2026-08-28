@@ -80,31 +80,91 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "User-Agent: $UA" \
 
 Note `git_repository` is `owner/repo` for the App variant, not the ssh URL.
 
-**Switching an existing deploy-key app to the App — in place, probably.**
-`PATCH /applications/{uuid}` accepts `github_app_uuid` (+ `git_repository`
-as `owner/repo`), so a migration without recreating the resource looks
-possible — this skill previously said it was not; that was an unverified
-assumption. Not yet exercised on a live app as of 2026-08-28. When doing
-it:
+### Migrating an existing deploy-key app to the App (done live, EnaChat, 2026-08-28)
 
-- **Worker-type resource first** (no domains, no traffic), then the web.
-- Send ONLY the source fields in the PATCH — `domains` replaces on PATCH
-  (§5c), so never include it here.
-- Read back `source_type` (`App\Models\GithubApp`) and `source_id`, then
-  prove it with a push: a deployment row with `is_webhook: true`.
-- Have the rollback ready: `private_key_uuid` is NOT in the PATCH schema,
-  so reverting to a deploy key may need the UI.
+**It cannot be switched in place.** The OpenAPI spec lists `github_app_uuid`
+on `PATCH /applications/{uuid}`, but the validator rejects it:
+`{"errors":{"github_app_uuid":["This field is not allowed."]}}`. The spec
+lies here — a migration is **recreate + cut over**. Done for EnaChat's web
+and worker with **zero failed requests** (30/30 `200` per host during and
+after the swap). The playbook, every step verified:
 
-If in-place fails, the fallback is recreating the resource (new uuid, new
-container names, history lost, domains + envs re-entered) — do that
-deliberately, never as a side effect.
+1. **Capture the old resource** — `GET /applications/{uuid}` (build
+   settings, `custom_labels`) and `GET …/envs` (values + `is_literal` +
+   `is_buildtime` flags). Note `environment_uuid` (`GET /projects/{uuid}`
+   → `environments[]`) and `destination_uuid` (`.destination.uuid` on the
+   app JSON).
+2. **Create the new one** with `POST /applications/private-github-app`
+   (`github_app_uuid`, `git_repository: "owner/repo"`, same
+   `base_directory` / `dockerfile_location` / `ports_exposes`,
+   `instant_deploy: false`, `include_source_commit_in_build: true`,
+   `stop_grace_period`). Use a temporary name (`<name>-gh`) — names are
+   unique; rename after the old one is deleted.
+3. **Strip the auto-assigned sslip domain** immediately
+   (`PATCH domains: ""`) — a worker must have none, and the web gets its
+   real domains at cutover, not now.
+4. **Copy envs with `PATCH …/envs/bulk`.** Two traps:
+   - **bulk creates every row with `is_buildtime: true`** (secrets into
+     build args). `is_buildtime` is NOT in the spec but IS accepted on the
+     single and bulk PATCH — send `is_buildtime: false` explicitly, and
+     re-send the original `is_literal` (a single PATCH resets it to false).
+   - Coolify mirrors each row as a preview row; 18 vars read back as 36.
+5. **`custom_labels` is dropped on create** — PATCH it afterwards. Send
+   ONLY your own labels (`oj.*`); the Traefik/Caddy labels are generated
+   by Coolify from the domains.
+6. **First build of the new app with no domains** (`POST /deploy`) so it
+   is healthy before any traffic can reach it. For a web app, test it
+   directly on the container IP with `Host:` headers per domain.
+7. **Cutover**: `PATCH domains: "<full list>", force_domain_override:
+   true` on the NEW app. Without the flag Coolify refuses: "Domain
+   conflicts detected … already in use by application '<old>'". The
+   overlap is deliberate and safe when both run the same commit —
+   Traefik round-robins across them for a few seconds.
+   - **Regenerating the domains OVERWRITES `custom_labels`** with the
+     generated Traefik+Caddy block and **wipes your `oj.*` lines**. Read
+     it back, append your labels to the generated block, PATCH it back.
+   - The API returns `custom_labels` **either base64 or plain text** —
+     decode defensively (try b64, fall back to raw).
+   - Redeploy the new app with `&force=true` so its container carries the
+     routers (labels apply at container creation). Verify on the host:
+     `docker inspect <c> --format '{{json .Config.Labels}}'` — 4 https
+     routers + your labels.
+   - **TLS needs no reissue**: Traefik's `acme.json` stores certs by host,
+     so the moved hosts keep their certificates. `ssl_verify=0`
+     throughout.
+8. **Delete the old resource**: `DELETE /applications/{uuid}?
+   delete_connected_networks=false&delete_volumes=true&docker_cleanup=true`
+   — **`delete_connected_networks` defaults to TRUE**; on the shared
+   `coolify` network that would be a disaster. Its container stops within
+   ~10 s, its routers vanish, the new app is sole server. Then rename the
+   new app to the old name.
+9. **Chase the uuid.** Recreating means a NEW resource uuid, and things
+   key on it: the app's own `COOLIFY_APP_UUID` env (EnaChat's worker
+   PATCHes the web's domains by uuid — it pointed at a deleted resource
+   until repointed + restarted), Traefik's stable service name
+   `https-0-<uuid>@docker` in any file-provider config, runbook lines
+   like `docker ps --filter name=<uuid>`. Grep every repo for the old
+   uuid. The old sslip hostname survives as a plain domain string.
+10. **Remove the deploy-key era manual webhooks** from the repo
+    (`gh api -X DELETE repos/<o>/<r>/hooks/<id>`) once no deploy-key app
+    sources it — otherwise every push fires them into the void.
+11. **Prove it**: push a commit; every App-sourced app on that repo shows
+    a row `status=finished, is_webhook=true` within seconds (EnaChat: the
+    deployment row appeared **5 s** after the push, for all resources).
 
-API quirk (2026-08-28): `GET /github-apps/{uuid}/repositories` and
-`…/branches` return **500 "Server Error" for every App** in the account
-while 12 apps are happily App-sourced from the same Apps — it is the
-listing endpoint that is broken, not the integration. Don't read a 500
-there as "the App can't see the repo"; check the GitHub side
-(`gh api orgs/<org>/installations`) instead.
+API notes learned on the way:
+- `GET /deployments/applications/{uuid}` returns **`{"count", "deployments": [...]}`** — not a bare list, not `data`. Parsing the wrong key
+  reads as "no deployments" while the deploy has already finished.
+- `is_auto_deploy_enabled` reads back `null` for every app, including the
+  ones that demonstrably auto-deploy — the field is not serialised; don't
+  diagnose from it.
+- `GET /github-apps/{uuid}/repositories` and `…/branches` return **500**
+  for every App while 12 apps deploy fine from them — the listing
+  endpoint is broken, not the integration. Check the GitHub side
+  (`gh api orgs/<org>/installations`) instead.
+- Coolify reports `running:healthy` for an app the moment its container
+  exists, even before its first deployment row — the status comes from
+  the container, not the deploy history.
 
 The acceptance test in §1b still applies — the App wiring is automatic, but
 "automatic" is a claim until a push shows `is_webhook: true`.
