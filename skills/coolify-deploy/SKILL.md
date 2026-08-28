@@ -856,6 +856,17 @@ api.resend.com; curl's default UA happens to pass).
   three resources `running:healthy` with the UI check ON.
 - `POST /s3-storages` `description` is validated like `POST /projects` —
   ASCII punctuation only (a `:` or `*` fails with "format is invalid").
+- **`PATCH /applications/{uuid}/envs` (and `/envs/bulk`) can 500 for a
+  given key even with the value unchanged** (hq-monitoring `LOKI_WRITERS`,
+  2026-08-28). Workaround that works: `DELETE /applications/{uuid}/envs/{env_uuid}`
+  then `POST /applications/{uuid}/envs` with the full new value — prove
+  POST first with a throwaway key, keep the old value in hand to restore.
+  Field names on write are `is_buildtime` / `is_literal` / `is_preview`
+  (`is_build_time` → "This field is not allowed"). A response that is the
+  dashboard HTML instead of JSON = send `Accept: application/json`.
+- A multi-line env value does not survive Coolify's `.env` round-trip —
+  design secrets-from-env files to accept one-line separators (the
+  loki-gateway takes comma-separated `user:password` since `6d0c380`).
 - App settings like `is_preserve_repository_enabled` PATCH directly on
   `/applications/{uuid}` even though GET nests them under `settings`.
 - **Replacing Coolify's tunnel connector, zero-downtime**: Coolify Cloud's
