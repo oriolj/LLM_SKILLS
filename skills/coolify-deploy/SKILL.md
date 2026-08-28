@@ -29,9 +29,68 @@ Rolling/blue-green preconditions (official): passing health check, default conta
 
 **Every Coolify app gets working push-to-deploy at creation time — verify it, never assume it.** `git push` deploying is the contract; "click Deploy in the UI" is never an acceptable steady state (Oriol, 2026-08-25, after enachat shipped days of pushes nobody deployed).
 
+- **Default source for every NEW app: the GitHub App** (§1c) — push-to-deploy comes wired, no manual webhook, PR previews. Deploy keys are the fallback, not the default.
 - GitHub-App-sourced apps have it out of the box. **Deploy-key apps do NOT** — wire the per-app repo webhook the moment the app is created (mechanics + diagnostics in §5c item 7: `manual_webhook_secret_github`, one webhook per app, the `/hooks/<id>/tests` synthetic-push trigger).
 - **Acceptance test before calling the setup done**: push (or fire the hook's `/tests` endpoint) and confirm a deployment row with `is_webhook: true` appears in `GET /deployments/applications/{uuid}`.
-- When onboarding can be interactive, prefer the GitHub App source precisely because it makes this rule free.
+
+## 1c. Source the app from the GitHub App, not a deploy key (house rule, 2026-08-28)
+
+Coolify can pull a private repo two ways. They are not equivalent, and the
+difference is the whole push-to-deploy story:
+
+| | GitHub App source | Deploy-key source |
+|---|---|---|
+| Push-to-deploy | wired automatically by Coolify | **you** register a repo webhook per app, by hand (§5c item 7) |
+| Repo/branch pickers in the UI | yes | no (paste the ssh URL) |
+| PR preview deployments | yes | no |
+| Per-app secret to manage | none | `manual_webhook_secret_github` |
+| Fully headless creation | needs the App installed once on the org (interactive) | yes |
+
+**Rule: new apps are sourced from the GitHub App.** Deploy keys only for a
+repo where installing the App is undesirable, or for a truly headless
+onboarding — and then you own the webhook wiring at creation time.
+
+Creation is one API call, same fields as the deploy-key variant except the
+source: `POST /applications/private-github-app` with `github_app_uuid`
+instead of `private_key_uuid`. Find the App first:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" -H "User-Agent: $UA" "$API/github-apps"
+# -> uuid, name, organization, installation_id per registered App.
+# Estate (2026-08-28): coolify-enacast (EnaCast org, all repos),
+#   coolify-enantena-3 (Enantena), coolify-ena-oriolj (personal).
+curl -s ... "$API/github-apps/<uuid>/repositories"            # what it can see
+curl -s ... "$API/github-apps/<uuid>/repositories/<owner>/<repo>/branches"
+```
+
+Then:
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "User-Agent: $UA" \
+  -H "Content-Type: application/json" "$API/applications/private-github-app" -d '{
+  "project_uuid": "...", "server_uuid": "...", "environment_name": "production",
+  "environment_uuid": "...", "github_app_uuid": "<from /github-apps>",
+  "git_repository": "EnaCast/enasuite", "git_branch": "master",
+  "build_pack": "dockerfile", "base_directory": "/enainbox",
+  "dockerfile_location": "/backend/Dockerfile",
+  "ports_exposes": "8000", "instant_deploy": false,
+  "is_auto_deploy_enabled": true, "include_source_commit_in_build": true
+}'
+```
+
+Note `git_repository` is `owner/repo` for the App variant, not the ssh URL.
+
+⚠️ **The source cannot be switched on an existing app.** `source_type` /
+`private_key_id` are not PATCHable in a way that migrates an app; moving a
+deploy-key app to the App means **recreating the resource** (new uuid, new
+container names, deployment history lost, domains and envs re-entered).
+So: leave a working deploy-key app alone unless you specifically want PR
+previews on it — and if you do, recreate it deliberately, not as a side
+effect of something else. EnaChat's two resources are deploy-key sourced
+and stay that way for now.
+
+The acceptance test in §1b still applies — the App wiring is automatic, but
+"automatic" is a claim until a push shows `is_webhook: true`.
 
 ## 2. Networking / Traefik
 
@@ -194,7 +253,8 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   mentions a validate-with-install endpoint; installing docker yourself
   works but violates the Coolify-owns-docker rule — prefer the install
   variant when scripting.
-- **App from a private repo without a GitHub App**:
+- **App from a private repo without a GitHub App** (the fallback — §1c
+  is the default):
   `POST /applications/private-deploy-key` with `private_key_uuid` (add that
   key read-only via `gh repo deploy-key add`), `build_pack: dockerfile`,
   `base_directory: /<subdir>`, and `dockerfile_location` **relative to the
@@ -292,10 +352,9 @@ downtime; the sequence and traps:
      POST repos/<org>/<repo>/hooks/<id>/tests` delivers a synthetic push event
      for the latest commit — Coolify accepts it (200) and deploys the pending
      HEAD. Check results with `gh api …/hooks/<id>/deliveries`.
-   - **Prefer the GitHub App integration for new apps** when someone can do
-     the one-time interactive install: source webhooks come wired for every
-     app automatically (plus PR preview deploys), and none of this section is
-     needed. Deploy keys remain the right choice only for fully-headless/API
+   - **New apps are GitHub-App-sourced by rule (§1c)**: source webhooks come
+     wired for every app automatically (plus PR preview deploys), and none of
+     this section is needed. Deploy keys remain the right choice only for fully-headless/API
      onboarding or repos where installing the App is undesirable — accept the
      manual webhook wiring as part of that trade, and do it at creation time,
      not after the first "why didn't it deploy".
