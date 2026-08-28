@@ -17,7 +17,7 @@ Field-tested rules for deploying to Coolify. Every rule here has caused a real o
 - Migration is asymmetric: Dockerfile → Compose later is trivial (point at the compose file, redeploy). Compose → Dockerfile means **re-creating the resource and losing its deployment history**. Start Dockerfile.
 - Dockerfile-mode cost: `stop_grace_period`, restart policy, healthcheck, env defaults move to the Coolify UI or Dockerfile directives (`HEALTHCHECK`, `STOPSIGNAL`). The UI has its own "Stop Grace Period" field — that one IS honored.
 - Local dev may still use Compose while prod is a Dockerfile resource — they don't have to match.
-- Static Astro/SPA sites: use Coolify's **static resource** (base directory + publish `dist/`), no Dockerfile needed.
+- **Static Astro/SPA/docs sites do NOT go on Coolify at all** — they go to **Cloudflare Pages** (`cloudflare-deploy` skill; house rule, Oriol 2026-08-28, superseding the earlier "Coolify static resource" advice). Coolify is for things that run a process: backends, workers, databases, exporters.
 
 Rolling/blue-green preconditions (official): passing health check, default container names, **no host port mappings**, not available for Compose resources. Attached volumes do NOT disable it — both containers mount the volume during the overlap.
 
