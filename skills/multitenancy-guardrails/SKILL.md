@@ -87,7 +87,7 @@ The browser's `Host` never reaches Django: SSR fetches and the same-origin `/api
 
 - The Next **server** forwards the browser's Host as `X-Forwarded-Host` together with `X-Tenant-Proxy-Secret` (server-only env, never `NEXT_PUBLIC_`); Django honours the pair only when the secret matches (`hmac.compare_digest`), otherwise it falls back to its own `Host` — never to the header.
 - The proxy route **strips** incoming `x-forwarded-host`, `x-tenant-proxy-secret`, `cookie`, `authorization` from browser requests before adding its own hop, and drops upstream `Set-Cookie` — otherwise the hop is forgeable from the browser.
-- The middleware resolves the tenant from Host once and passes it to server components via a response header (`x-tenant-host`) read with `headers()`; a direct hit on a locale the tenant did not enable must 404 in the layout.
+- Server components derive the tenant **from the request `Host` themselves** (`tenantHostFrom(headers().get("host"))`) — do not pass it through a middleware-set header: reviewers flag that pattern as fragile (Next.js `headers()` documents request headers; whether middleware response headers show up is version-dependent), and deriving from Host has no dependency to defend. The middleware only owns locale routing. A direct hit on a locale the tenant did not enable must 404 in the layout.
 - Test both paths in Django: `APIClient(HTTP_HOST="<slug>.<base>")` and `APIClient(HTTP_HOST="api…", HTTP_X_FORWARDED_HOST=…, HTTP_X_TENANT_PROXY_SECRET=…)`; and a header without the secret ⇒ no tenant.
 
 ### Go (stdlib/chi + pgx/sqlc)
@@ -106,6 +106,14 @@ func (s *Store) TicketForTenant(ctx context.Context, tenantID, id uuid.UUID) (*T
 - Uploads: run the ownership guard BEFORE reading the request body (don't waste/accept a 100MB body for a 404), then `http.MaxBytesReader`.
 - Objects referenced by other objects (a QR pointing at a POI, a ticket merged into another): guard BOTH sides — the object being edited and the target it points to must be same-tenant.
 - NULL `tenant_id` on a user = platform admin is an acceptable minimal model — but pick the FK's `ON DELETE` deliberately: `SET NULL` silently **escalates a scoped user to platform admin** when their tenant is deleted (real finding); `CASCADE` (remove user with tenant) is usually what you mean.
+
+### Adding tenancy to an existing single-tenant app (backfill migrations)
+
+Two traps from HistoricalArchives → EnaArchive (2026-08-29), both caught by an adversarial review, both invisible to the normal test suite:
+
+- **Never scope superusers in the backfill.** "Every user without a tenant gets tenant X" also scopes the platform administrator; once the tenancy layer reads `client set ⇒ scoped staff`, the admin is confined to one tenant. Exclude `is_superuser=True` in the forward migration and ship a corrective data migration for databases that already ran it. Test on legacy-shaped data (a staff user + a superuser, both without tenant).
+- **A reverse migration that deletes the tenant cascades the data** once the tenant FKs have become `NOT NULL`. Make the reverse a documented no-op (rollback = restore a backup) rather than `Client.objects.filter(slug=…).delete()`.
+- Paid AI endpoints behind `AllowAny` (RAG, embeddings) need a per-IP+tenant throttle **and** a per-tenant daily budget (atomic `cache.add`/`incr`) → 429 before any model call; a test must prove the throttled request never reaches the model.
 
 ### Postgres
 

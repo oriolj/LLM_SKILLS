@@ -196,6 +196,8 @@ pydantic_ai.models.ALLOW_MODEL_REQUESTS = False   # hard guarantee
 
 ## Cost & rate-limit discipline (batch pipelines)
 
+Anonymous/public endpoints that call a model (citizen RAG, "ask the archive") are a spend vector before they are a feature: per-IP+tenant `AnonRateThrottle` **and** a per-tenant daily budget counter (`cache.add` + `incr`, 429 beyond it), settings-driven (`RAG_ANON_RATE`, `RAG_DAILY_BUDGET_PER_TENANT`), tested so the throttled request never reaches the model (EnaArchive 2026-08-29).
+
 - **LLM only where it adds value.** Deterministic prefilter first (SQL/FTS/rules) → LLM judges only the small candidate set. The whole pipeline must work with zero API keys; LLM layers go behind env flags (`LLM_SCORING_ENABLED=1`).
 - **Cap calls per run** (`--max-llm-calls`, default ~200) and only score NEW items (unique-constraint idempotency) — reruns must be free.
 - **Free-tier Gemini dies fast** (~5-10 RPM for generation): expect mid-batch 429s and transient TLS `ConnectError`s. Wrap each call in try/except, log, continue; never let one failure kill the batch. Use a paid key before enabling scoring in production.
