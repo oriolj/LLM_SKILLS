@@ -30,12 +30,12 @@ Audits that only check CRUD screens miss where real leaks live. Walk ALL of thes
 | **Emails / notifications** | Notification fan-out queries missing the tenant join; templates interpolating another tenant's data via shared context |
 | **Search / RAG retrieval / embeddings** | Vector or FTS query without the tenant filter — retrieval-augmented answers are a *high-bandwidth* cross-tenant leak; filter at query time, not post-filter after top-k |
 | **Cache keys** | `cache.get(f"config:{slug}")` where slug is client-controlled, or keys missing the tenant component entirely — tenant A gets tenant B's cached page |
-| **Rate-limit keys** | Keyed only per-IP or only per-user: one tenant can exhaust another's quota, or per-tenant limits don't exist |
+| **Rate-limit keys** | Keyed only per-IP or only per-user: one tenant can exhaust another's quota, or per-tenant limits don't exist. Behind a proxy (Traefik, a Next.js `/api` hop) a per-IP key without DRF `NUM_PROXIES` (or the Go equivalent) is either one shared key for everybody or a spoofable `X-Forwarded-For` — set `NUM_PROXIES` to the number of trusted hops and make the hop forward exactly one entry (2026-08-29, EnaArchive) |
 | **Storage paths** | Uploads under user-controlled names/paths; missing tenant prefix means listing or guessing crosses tenants |
 | **Magic links / tokens / reference codes** | Token lookup not joined to tenant; token from tenant A working on tenant B's subdomain |
 | **Merge / bulk / admin operations** | Merging or bulk-updating rows accepts IDs from mixed tenants; re-parenting rows silently moves them across tenants |
 | **Embeds / widgets / public APIs** | Widget API key of tenant A accepted while serving tenant B's content; CORS + key checks not bound together |
-| **Admin panels** (Django admin etc.) | Registered models expose all tenants to any staff-flagged user; API keys/secrets visible cross-tenant |
+| **Admin panels** (Django admin etc.) | Registered models expose all tenants to any staff-flagged user; API keys/secrets visible cross-tenant. Subtler: the **changelist filter sidebar** — `list_filter = ("client", …)` and every transitive `route__client` / `place__client` filter render the full tenant list (names + ids) to scoped staff, and a `client` column confirms it; hide them in `get_list_filter` / `get_list_display` for scoped users (only the platform admin keeps them) |
 
 ## Enforcement patterns
 
@@ -162,7 +162,7 @@ E2e variant: log in as the scoped user in the browser and probe 2–3 of the abo
 - [ ] Cross-tenant = 404 everywhere
 - [ ] Exports, files, stats, fragments, jobs, emails, search, cache keys, rate-limit keys, storage paths, tokens, bulk ops audited (table above)
 - [ ] Two-tenant seed + isolation tests updated for every new endpoint
-- [ ] Admin surfaces scoped or superuser-only
+- [ ] Admin surfaces scoped or superuser-only — including `list_filter` entries ending in `client` and the `client` column (a scoped user's changelist must not name other tenants; probe it in the isolation suite)
 
 ## Reference
 

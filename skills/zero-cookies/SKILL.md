@@ -98,6 +98,13 @@ Django only emits cookies when something asks for them — know the askers:
 5. Staff paths (`/admin/`, backoffice logins) legitimately use session+CSRF —
    scope cookie flags there (`SESSION_COOKIE_SECURE`, `HttpOnly`, `SameSite`)
    and don't let shared middleware leak them onto public prefixes.
+6. **DRF's `BrowsableAPIRenderer`** (in `DEFAULT_RENDERER_CLASSES` by
+   default) renders HTML *with a CSRF form* for any `Accept: text/html`
+   request to the API host — a `csrftoken` cookie on a public API. Ship
+   `["rest_framework.renderers.JSONRenderer"]` only and let the dev settings
+   module append the browsable one. Do it in the right module: an
+   `if DEBUG else` in `base.py` resolves before `production.py` sets
+   `DEBUG = False` (see the coolify-deploy skill, «settings module ordering»).
 
 ## Next.js: where cookies sneak onto public routes
 

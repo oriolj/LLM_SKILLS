@@ -293,6 +293,27 @@ referenced variable — and the seeded VALUES are traps:
   runtime-only var is invisible to interpolation and fails the deploy with
   "required variable X is missing a value".
 
+### Django split settings: base.py must be production-safe (2026-08-29)
+
+`production.py` does `from .base import *` and *then* `DEBUG = False`, so
+every `x if DEBUG else y` in `base.py` has already resolved with base's
+default — on EnaArchive that would have shipped the browsable API (a
+`csrftoken` cookie on the API host), `ALLOW_PRIVATE_TARGETS=1` (SSRF guard
+off), eager Celery (AI pipeline inline in gunicorn) and the literal
+`dev-tenant-proxy-secret`, with no test able to notice. Rules:
+
+- `base.py` holds the production values and `DEBUG = False`;
+  `development.py` opts into DEBUG, the browsable renderer, dev secrets,
+  private URL targets, eager Celery — *after* its import.
+- `production.py` raises `ImproperlyConfigured` when `SECRET_KEY` or any
+  shared-secret setting is empty / starts with `dev-` / is the build
+  placeholder; the image's `collectstatic` step sets a phase env var
+  (`DJANGO_SETTINGS_PHASE=build`) to skip that check.
+- One test imports `config.settings.production` with the env patched and
+  `sys.modules` cleared and asserts the fail-closed values; another asserts
+  `development` still opts in. `grep -n "if DEBUG else" config/settings/base.py`
+  must come back empty in review.
+
 ### Before the first deploy: inventory, classify, and plan to back up
 
 - **Grep the settings/config for every env name the code reads** and
