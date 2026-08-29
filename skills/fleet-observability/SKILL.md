@@ -23,6 +23,17 @@ short hostnames, never raw `100.x` IPs, in every URL** — homepage links,
 inventory. The one place an IP is still required is a **compose port bind**
 (`${TAILNET_IP}:3000:3000` — bind addresses must be literal IPs).
 
+
+> **Scope boundary — host monitoring is Beszel, not this stack** (Oriol,
+> 2026-08-29). Host up/down, CPU/RAM/disk/network and container stats
+> for every server in every scope come from the one Beszel hub
+> (`hq/shared/docs/beszel.md`, agents via the `shared/ansible`
+> `beszel_agent` role). This skill covers logs (Loki) and application
+> metrics (Prometheus/Grafana) on monitor-1-nc. Don't add a second
+> host-metrics pipeline, and don't reach for Checkmate/Uptime Kuma —
+> Checkmate was retired 2026-08-29, Uptime Kuma is being folded into
+> Beszel.
+
 ## 1. Architecture (one agent, both signals)
 
 ```
