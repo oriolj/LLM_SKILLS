@@ -1044,3 +1044,15 @@ is unrecoverable.
 - Secrets: every credential is a Coolify magic var or UI env var — never committed, not even encrypted, in repos Coolify pulls. Strictest pattern: compose `secrets:` sourced from env so containers read `/run/secrets/*` files (`__FILE` vars) instead of container env (docker inspect exposes `Config.Env`; needs compose ≥ 2.23.1). Private repos deploy via Coolify's read-only deploy key.
 - DNS: create records **grey-cloud/DNS-only first** so Traefik completes the Let's Encrypt HTTP-01 challenge; enable the Cloudflare proxy per-record afterwards. **Add domains, don't replace** — keep the default `<uuid>.<ip>.sslip.io` FQDN alongside custom domains (links already shipped). Behind Traefik, Django needs `SECURE_PROXY_SSL_HEADER` (trust `X-Forwarded-Proto`), `SECURE_SSL_REDIRECT = False`, and `CSRF_TRUSTED_ORIGINS`.
 - Scheduling: Coolify has per-resource **scheduled tasks** (good for periodic management commands) and UI-configured DB backups with retention/S3. In-container cron without Celery = **supercronic**, never crond. With Celery, celery-beat — and apply the `celery-deploy-safety` skill in full, plus the sizing rules (`--concurrency=2`, gunicorn max-requests, no Flower in prod).
+
+## Replacing a live resource (compose → Dockerfile, repo move, product merge): the DATABASE moves too
+
+Learned 2026-08-29 (EnaArchive: HistoricalArchives' compose stack replaced by Dockerfile resources; an adversarial review caught that the runbook only moved the media bucket). A new Postgres resource starts **empty** — a cut-over that only re-points DNS strands the live data in the retired stack. Always:
+
+1. **Rehearse on a copy**: `pg_dump -Fc` the old DB → restore into a scratch container of the target image (pgvector etc.) → run the new code's `migrate` + `check` → compare row counts per model (and any data-migration side effects — e.g. a tenant backfill that had scoped the superuser) → spot-check that stored media keys resolve on the target bucket.
+2. **Freeze writes** on the old stack (worker to 0, announce the window).
+3. Copy media (`rclone copy`), then **dump → restore** into the new DB and repeat the count comparison; smoke the new stack on its own hosts (`/healthz`, admin login, a tenant page with a `Host` override, the permanent-URL redirects) **before** DNS.
+4. **Reversible DNS cut-over** (low TTL beforehand); rollback = point back, the old stack is untouched as of the freeze.
+5. **Keep the old DB stopped-not-deleted** for a backup cycle; verify the first scheduled R2 backup execution of the new DB.
+
+Write these steps into the product's `docs/first-deploy.md` and put the rehearsal as the FIRST cut-over item in `USER_TODO.md` — the resource creation must not come before it.
