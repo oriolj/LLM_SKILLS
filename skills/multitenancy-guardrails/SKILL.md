@@ -55,7 +55,7 @@ class TenantQuerySet(models.QuerySet):
 - Middleware resolving tenant from subdomain/header sets `request.tenant` after validating it against the DB — downstream code never re-parses the host. A `with_tenant`-style view decorator that resolves membership and injects the tenant kills the copy-pasted prologue that eventually forgets the None-guard (real bug class).
 - **HTMX fragment endpoints inherit no scoping from their parent page** — every inline-edit/row-refresh/dropdown endpoint gets the same `get_scoped` treatment as the full view.
 - Exports and file responses (`FileResponse`, DOCX/CSV builders) fetch their objects through the scoped helper too — download endpoints are the most-forgotten surface.
-- Django admin on tenant-owned models: superuser-only or scope `get_queryset()`; never expose API keys/secrets in `list_display` (any staff-flagged user would see all tenants' keys).
+- Django admin on tenant-owned models: superuser-only or scope `get_queryset()`; never expose API keys/secrets in `list_display` (any staff-flagged user would see all tenants' keys). Two admin-specific traps: (1) Django's default for an id outside `get_queryset()` is a **302 + "doesn't exist" message**, which confirms the id exists elsewhere — override `_get_obj_does_not_exist_redirect` to raise `Http404`; (2) FK/M2M dropdowns and autocompletes are NOT scoped by `get_queryset()` — scope them in `formfield_for_foreignkey/manytomany` (inlines too), and remember a superuser's autocomplete legitimately crosses tenants, so model `clean()` must still refuse a cross-tenant target (an e2e test picked the wrong town's "Pont Vell" this way).
 - Celery tasks take object IDs and RE-verify tenant on execution (the queue is a trust boundary; a task enqueued for tenant A must not act on a row that has since moved or been re-parented).
 - `select_related`/`prefetch_related` don't change scoping, but a `.get(pk=...)` inside a loop over prefetch results does — grep for raw `objects.get(` in views/services as a review habit.
 
@@ -77,6 +77,18 @@ class TicketViewSet(ModelViewSet):
 - django-filter/search/ordering operate on the scoped queryset only (pass `self.get_queryset()` as base, which is the default — don't override `filter_queryset` with a raw manager).
 - Header tenancy (the `X-Client-Slug` pattern): middleware validates slug against the DB and attaches the tenant; if the API is key-authenticated, the key row itself carries the tenant FK — derive tenant from the key, never from a slug the client also sends (or you get confused-deputy mismatches).
 - Throttle scopes: include the tenant in the throttle cache key (`f"{tenant.pk}:{ident}"`) so one tenant can't starve another and per-tenant plans are enforceable.
+- **No tenant ⇒ EMPTY, never "all".** The inherited HistoricalArchives API (2026-08-29) returned every tenant's rows when the tenant header was absent — "unfiltered when absent" reads like a convenience and is a full data leak. `get_queryset` returns `.none()` without a tenant; `perform_create` raises.
+- **One registry, one scoping function.** Keep a `{model_label: lookup}` map (`"client"`, `"place__client"`, `"route__client"`, `"pk"` for the tenant model itself) and a single `scope_queryset(qs, tenant_pk, lookup=None)` used by the DRF mixin, the related field AND the admin mixin. Add a test that walks every model with a FK path to the tenant model and fails if it is missing from the registry — the next forgotten model fails CI, not prod.
+- **Public-vs-staff fields are a second axis.** A world-readable API (`IsAuthenticatedOrReadOnly`) also leaks *within* the tenant: curatorial notes, AI prompts/metadata, uploader/creator ids, pipeline errors. A `StaffFieldsMixin` with `staff_only_fields` that `get_fields()` drops unless `request.user.is_staff` (nested serializers inherit the context) — and an anonymous-GET test asserting the keys are absent.
+
+### Next.js (or any SSR frontend) in front of a Django API
+
+The browser's `Host` never reaches Django: SSR fetches and the same-origin `/api/...` proxy originate from the Next server. Do NOT let the frontend send a tenant slug it derived itself (client-asserted). Pattern that held up (EnaArchive, 2026-08-29):
+
+- The Next **server** forwards the browser's Host as `X-Forwarded-Host` together with `X-Tenant-Proxy-Secret` (server-only env, never `NEXT_PUBLIC_`); Django honours the pair only when the secret matches (`hmac.compare_digest`), otherwise it falls back to its own `Host` — never to the header.
+- The proxy route **strips** incoming `x-forwarded-host`, `x-tenant-proxy-secret`, `cookie`, `authorization` from browser requests before adding its own hop, and drops upstream `Set-Cookie` — otherwise the hop is forgeable from the browser.
+- The middleware resolves the tenant from Host once and passes it to server components via a response header (`x-tenant-host`) read with `headers()`; a direct hit on a locale the tenant did not enable must 404 in the layout.
+- Test both paths in Django: `APIClient(HTTP_HOST="<slug>.<base>")` and `APIClient(HTTP_HOST="api…", HTTP_X_FORWARDED_HOST=…, HTTP_X_TENANT_PROXY_SECRET=…)`; and a header without the secret ⇒ no tenant.
 
 ### Go (stdlib/chi + pgx/sqlc)
 

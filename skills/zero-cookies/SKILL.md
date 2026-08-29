@@ -99,6 +99,27 @@ Django only emits cookies when something asks for them — know the askers:
    scope cookie flags there (`SESSION_COOKIE_SECURE`, `HttpOnly`, `SameSite`)
    and don't let shared middleware leak them onto public prefixes.
 
+## Next.js: where cookies sneak onto public routes
+
+1. **`NEXT_LOCALE`**: next-intl v4's `createMiddleware` sets it on every
+   locale switch unless `localeCookie: false` (and `localeDetection: false`
+   to stop the Accept-Language redirect). A site that "has no cookies"
+   only until someone switches language is the classic regression.
+2. **The `/api/...` proxy route**: if it forwards the upstream response
+   headers verbatim, Django's `Set-Cookie` (session/CSRF from an admin
+   login on the same API host) reaches the browser — delete `set-cookie`
+   from proxied responses, and delete `cookie`/`authorization` from the
+   requests it forwards.
+3. **Google Fonts `<link>`** in the root layout → self-host with
+   `@fontsource/<font>/<weight>.css` imports.
+4. Plausible via `next-plausible`'s `withPlausibleProxy()` is cookieless and
+   first-party-proxied — fine.
+5. Gate it: a `make check-cookies` grep over `frontend/src` for
+   `cookies(`, `document.cookie`, `localStorage`, `sessionStorage`
+   (excluding the api routes), and a Playwright assertion
+   `expect(await context.cookies()).toHaveLength(0)` at the end of the
+   full citizen journey.
+
 ## Third-party sources of cookies (swap, don't consent)
 
 | Instead of | Use |

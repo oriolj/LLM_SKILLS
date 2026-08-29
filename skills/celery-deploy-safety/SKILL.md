@@ -56,6 +56,8 @@ CELERY_WORKER_MAX_MEMORY_PER_CHILD = 1_000_000  # KB! ≈ (RAM/concurrency)×0.7
 
 **Precondition: every task must be safe to run twice.** Audit each task: internal tasks scoped to a DB row that records its own state are usually fine (a re-run converges; worst case one duplicate LLM/API call). Tasks that send email, charge cards, or post to external APIs need an idempotency key FIRST — don't flip acks_late on blindly.
 
+**The inherited-pipeline trap (EnaArchive, caught by an adversarial review 2026-08-29):** enabling the trio globally on a codebase you didn't write turns every "create N child rows" stage into a time bomb — a magazine pipeline that `save()`d one `MagazinePage` per PDF page under a `(magazine, page_number)` unique constraint fails permanently on the first page when the task is redelivered after a partial commit or after completing (worker killed before the ack). Rule: each stage **replaces its own output** (delete the stage's rows for that parent first, or upsert), never appends; and add a test that runs every stage twice and asserts the row count is unchanged. Do this audit in the same change that enables acks_late.
+
 Notes:
 - Redis broker `visibility_timeout` defaults to 1h — fine while task `time_limit` < 1h; long tasks need it raised or they double-run.
 - `MAX_MEMORY_PER_CHILD` is checked **between** tasks; a single 10 GB allocation still OOMs — cap at the call site (streaming reads, size guards).

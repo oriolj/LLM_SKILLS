@@ -90,6 +90,7 @@ def score_match(profile, tender): ...
 - **NEVER pass Django ORM objects through a capturing `@observe`.** The serializer recurses into model `_state`/related managers and allocates GBs → worker OOM (SIGKILL) before the function body runs. Use `capture_input=False, capture_output=False` and attach sanitized data inside via `start_as_current_generation(input=...)` / `generation.update(output=...)`.
 - **`langfuse.openai.OpenAI` wrapper buffers streamed responses** to write the trace — defeats client-side byte caps. Use the native client + explicit `start_as_current_generation` spans when you need streaming size limits.
 - Without keys, `@observe` logs a one-time "client will be disabled" warning and continues — harmless, don't chase it.
+- **Inherited code defaults to capturing everything.** A codebase merged in on 2026-08-29 had `@observe(name=...)` on functions taking image bytes and citizen questions, plus `start_as_current_observation(..., input=prompt)` — the full RAG prompt (question + archive text) went to Langfuse. Rule: every `@observe` carries `capture_input=False, capture_output=False`; generation spans record `model`, `usage_details`, `cost_details` only. Guard it with a static test that regex-scans the codebase for `@observe(` without both flags and for `input=`/`output=` inside `start_as_current_observation(` (`apps/clients/tests/test_langfuse_privacy.py` in enaarchive is the template).
 
 ## Cost attribution — tag every trace with a tenant
 
