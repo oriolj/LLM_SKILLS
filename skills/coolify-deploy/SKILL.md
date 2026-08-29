@@ -247,6 +247,27 @@ only an `in_progress` row that never finishes is the jam from §6b.
 - App must listen on **0.0.0.0**, not localhost.
 - **502 on a small VPS is usually missing swap, not config.** `free -m` first; add a swapfile + `vm.swappiness=10`, persist in fstab/sysctl.d.
 
+### Traefik rewrites `X-Forwarded-Host` — never carry app data in it
+
+Coolify's Traefik overwrites `X-Forwarded-*` from untrusted clients with
+the request's own values. An app that passes the TENANT host from a
+frontend proxy to the backend in `X-Forwarded-Host` works perfectly when
+you curl the container IP and returns **empty data through the proxy**
+(EnaArchive, 2026-08-29: 76 places direct, 0 via Traefik — every tenant
+site blank). Use a custom header (`X-Tenant-Host`) for app-level data,
+strip it at the edge, and **smoke-test through Traefik, never only
+against the container IP**.
+
+### Django + the Coolify UI health check — three things or it rolls back
+
+The injected probe hits `http://localhost:8000/healthz` from inside the
+container: `localhost`/`127.0.0.1` must be in `ALLOWED_HOSTS`, `/healthz`
+must be in `SECURE_REDIRECT_EXEMPT` (or `SECURE_SSL_REDIRECT` 301s it),
+and `python:*-slim` images need `curl` installed (no curl/wget → the
+probe itself fails). Migrate-on-boot runs BEFORE the probe, so a
+rolled-back first deploy has already migrated the DB — restore data
+first, then deploy.
+
 ## 3. Env vars
 
 Compose substitution syntax (what the UI does with each):
