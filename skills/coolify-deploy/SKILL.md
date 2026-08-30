@@ -707,6 +707,125 @@ Three mechanisms, layered by tenant need:
   any embed can exist, i.e. indefinitely. A 301 does not save you: the widget
   also makes API calls to `data-backend`.
 
+## 5d. Compose stack WITH its database inside → Dockerfile apps + DB resources (EnaCast AI, 2026-08-30)
+
+§5c covers a stateless compose app. This is the harder shape: one Compose
+resource running web + N workers + Postgres + Redis, where the 34 GB
+Postgres volume belongs to the compose resource, and the goal is blue-green
+for the app containers AND a Coolify-managed DB (so scheduled S3 backups
+apply). Facts below are verified on Coolify Cloud v4.1.2 / API + source
+unless marked ⚠️; the cut-over itself is documented in the last bullet.
+
+**Design that works (one image, four resources, two DB resources):**
+
+- **`start_command` is IGNORED for the Dockerfile buildpack** — it is only
+  passed to Nixpacks/Railpack (`ApplicationDeploymentJob`). The OpenAPI spec
+  lists it on the create/PATCH body, which is a trap. To run several
+  processes from one Dockerfile: `CMD ["/run-role"]` that `case`s on an env
+  var (`CONTAINER_ROLE=web|celeryworker|update_channels|…`, every branch
+  `exec`s so the process is PID 1), and each Coolify app sets that one env.
+  Compose files that still pass `command:` override the CMD, so local dev
+  keeps working. (Alternative: `--entrypoint` in Custom Docker Options is
+  mapped; `--network` is NOT.)
+- **One role-aware image `HEALTHCHECK`** gates the rolling update for all
+  four: read `/proc/1/cmdline` — `*gunicorn*` → `curl -fsS
+  http://127.0.0.1:5000/<health-path>`, `*celery*` / `*manage.py*` → exit 0
+  (alive = healthy; never `celery inspect ping`). `--start-period` must
+  exceed the slowest boot (collectstatic + compilemessages + migrate in
+  `/start`): 90 s here. Coolify's poll: sleep `health_check_start_period`,
+  then `docker inspect` health up to `health_check_retries` times 1 s apart —
+  `starting` counts as not healthy, so raise retries (10) on the web app.
+- **Do not mix a Dockerfile `HEALTHCHECK` with the UI probe expecting it to
+  override**: when the Dockerfile has one, Coolify sets
+  `custom_healthcheck_found=true`, copies its numbers into the UI fields and
+  never injects its own curl (open bug coollabsio/coolify#10974). With a
+  Dockerfile HEALTHCHECK the UI toggle only decides whether Coolify *waits*
+  for health; the check itself is the image's. UI check disabled + no image
+  HEALTHCHECK = "rolling update" with the old container stopped the moment
+  the new one *starts* (boot time = downtime, ~8 s / ~80 failed requests at
+  10 rps measured by learnwithhasan.com).
+- **Django must let the loopback probe through**: `localhost` + `127.0.0.1`
+  in `ALLOWED_HOSTS` (the existing `_REQUIRED_ALLOWED_HOSTS` list, not the
+  env var) and `SECURE_REDIRECT_EXEMPT = [r"^private_api/health/?$"]` — with
+  `SECURE_SSL_REDIRECT=True` the http probe 301s, and `curl -f` in the old
+  compose healthcheck was silently *passing on that 301* for months.
+- **Rolling-update disqualifiers (code)**: `ports_mappings`, consistent
+  container name, `custom_internal_name`, `--ip/--ip6` in run options,
+  Swarm. Nothing else — a disabled health check does not force stop-first.
+- **`stop_grace_period` (≥ v4.1.0)** is honored on Dockerfile apps both as
+  compose `stop_grace_period` and as `docker stop --timeout` during the swap;
+  set per role (web 30, celery ≥ longest task, sweep 10).
+- **Workers**: `ports_exposes` is optional since v4.1.2, but the API still
+  auto-assigns an sslip domain — `PATCH {domains: ""}` right after create.
+  `connect_to_docker_network` stays **false** for Dockerfile apps and DB
+  resources: they already sit on the destination network (`coolify`); the
+  old compose stack lived on its own `<app-uuid>` network, which is why the
+  compose services could not have reached a DB resource by uuid hostname.
+- **Env copy**: `GET /applications/{old}/envs` → keep the production rows
+  (`is_preview: false`), drop `SERVICE_*` magic vars (compose-only; Dockerfile
+  apps get `COOLIFY_FQDN`/`COOLIFY_URL` instead), rewrite `POSTGRES_HOST` to
+  the DB resource uuid and `REDIS_URL` to the resource's `internal_db_url`
+  (`redis://default:<pw>@<uuid>:6379/0`), add `CONTAINER_ROLE`, and send
+  everything with `is_buildtime: false` (compose rows come back with
+  `is_buildtime: true` for every var). 43 vars → `PATCH …/envs/bulk` once
+  per app.
+- **Postgres DB resource adopting the existing data**: create it with the
+  SAME `postgres_user` / `postgres_password` / `postgres_db` as the old
+  stack (the image ignores those envs on a non-empty data dir, but Coolify's
+  healthcheck `psql -U <user> -d <db>`, its `internal_db_url` and backups use
+  them). Image `postgres:14` for a PG 14 data dir (same major, both Debian
+  glibc — collation-safe). Volume is `postgres-data-<db-uuid>` mounted at
+  `/var/lib/postgresql/data` (image < 18), owner uid 999 = the same uid the
+  old compose postgres wrote with, so no chown. The old compose volume is
+  `<app-uuid>_<slugified-volume-name>`. With the DB bigger than the free
+  disk (34 GB vs 24 GB free) a copy is impossible — the plan is a same-
+  filesystem **rename** of `_data` (instant) while both postgres containers
+  are stopped, with a full `pg_dump` taken locally first (`make db-dump-prod
+  PROD_DUMP_FULL=1` — the default lite mode NULLs the heavy columns and is
+  NOT a backup).
+- **Redis DB resource**: `redis_conf` must be base64; with a conf file
+  Coolify does NOT append `--appendonly yes` — put `appendonly yes` /
+  `appendfsync everysec` in the conf yourself (verified: container came up
+  `redis-server /usr/local/etc/redis/redis.conf`). Password lands in
+  `internal_db_url` as user `default`.
+- **Protect the detached volume during the cut-over**: `POST
+  /applications/{old}/stop?docker_cleanup=false` (default true) and check
+  `GET /servers/{uuid}` → `settings.delete_unused_volumes: false` BEFORE
+  stopping the old stack. `DELETE /applications/{old}` defaults ALL of
+  `delete_volumes`, `delete_connected_networks`, `docker_cleanup`,
+  `delete_configurations` to **true** — pass `delete_volumes=false&
+  delete_connected_networks=false` explicitly.
+- **Coolify stops a DB resource with `docker stop --timeout=10` + `rm -f`**
+  — a 34 GB Postgres with dirty buffers can need longer and will crash-
+  recover on the next start. `CHECKPOINT;` right before any Coolify-driven
+  stop/restart of a big Postgres resource.
+- **Push hygiene during the migration**: `PATCH {is_auto_deploy_enabled:
+  false}` on the old compose resource before pushing the image changes (a
+  compose redeploy is stop→start = downtime for nothing), and set
+  `watch_paths` on every other resource sourcing the same repo (the GPU
+  worker at `/worker` got `worker/**`) so a `backend/` commit doesn't
+  restart it.
+- **Traefik still has a sub-second gap** between the old container stop
+  and the docker-provider refresh (a few 502s at high rps). Zero-error
+  recipe from the community: a `retry` middleware label on the router plus a
+  `serversTransport` with `dialTimeout: 1s` in the proxy's dynamic config
+  (not expressible as labels in Traefik v3). Not applied here yet.
+- **Cut-over order** (web first, workers only after the real data is in
+  place — a sync worker on an EMPTY database could push garbage to the
+  upstream platform): build+health the web app with NO domain against the
+  (empty, freshly-initialised) DB resource → `CHECKPOINT` + stop old stack
+  (`docker_cleanup=false`) → stop the new Postgres resource → on the host
+  swap `_data` dirs (`mv` the empty one aside, `mv` the old stack's in) →
+  start Postgres → restart web → `PATCH domains` (all four hosts, `https://…`,
+  `force_domain_override: true`) + `POST /deploy?…&force=true` → verify
+  `Host:` per domain, admin login, TLS reused from `acme.json` → deploy the
+  three workers → prove blue-green with a no-op push while `curl`-looping the
+  site → keep the old compose resource STOPPED (auto-deploy off) as the
+  rollback for a backup cycle, then delete with `delete_volumes=false` →
+  schedule the DB backup (`POST /databases/{uuid}/backups`, `pg_dump -Fc`
+  per DB, `timeout` up to 36000 s — size it for 34 GB, `save_s3` +
+  `s3_storage_uuid`).
+
 ## 6. Deploy speed and signal handling
 
 - **Compose buildpack stops containers sequentially with `docker stop -t 30` and IGNORES `stop_grace_period`** (upstream coolify#5975). Still set `stop_grace_period` (honored elsewhere), but the real lever is making SIGTERM work:
