@@ -443,6 +443,15 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
 - Depth is a trade-off, state it: shallow `/healthz` keeps blue-green from failing on a transiently-unreachable external DB; a DB-touching check is right when the app is useless without its DB and you want the deploy gate to catch bad DB config.
 - **Exempt `/healthz` from any auth** you add, or both the blue-green gate and Docker HEALTHCHECK break.
 - Celery: never `celery -A config inspect ping` as a healthcheck (boots all of Django, ~265 MB + 100% CPU, thousands of times/day). Use `grep -q celery /proc/1/cmdline` (requires `exec` so celery is PID 1), or for threads-pool wedge detection the Django-free broker-only form: `celery -b $REDIS_URL inspect ping -d celery@$(hostname)`.
+- **Compose buildpack: a service with NO `healthcheck:` gets Coolify's
+  injected loopback probe** — which lands on the ALLOWED_HOSTS trap above
+  (SpineGuard, unhealthy for 16 days: probe on `127.0.0.1:8000` → 400
+  DisallowedHost). Django compose services need loopback in ALLOWED_HOSTS
+  **in settings** (not only env), `SECURE_REDIRECT_EXEMPT` for the health
+  path when `SECURE_SSL_REDIRECT=True` (the probe speaks plain http), and
+  an explicit compose healthcheck. Image without curl/wget: python is
+  enough — `python -c "import urllib.request,sys; sys.exit(0 if
+  urllib.request.urlopen('http://127.0.0.1:8000/<path>', timeout=5).status==200 else 1)"`.
 - UI healthcheck for Dockerfile resources: GET /healthz, expected 200, initial delay 10–15 s (5 s causes false Bad Gateway right after deploy), interval 30 s, retries 3.
 - **Distroless / no-shell images: turn the UI healthcheck OFF**
   (`PATCH {health_check_enabled: false}`) and rely on the image's own
