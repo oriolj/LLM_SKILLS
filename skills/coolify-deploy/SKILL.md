@@ -818,11 +818,19 @@ unless marked ⚠️; the cut-over itself is documented in the last bullet.
   `/var/lib/postgresql/data` (image < 18), owner uid 999 = the same uid the
   old compose postgres wrote with, so no chown. The old compose volume is
   `<app-uuid>_<slugified-volume-name>`. With the DB bigger than the free
-  disk (34 GB vs 24 GB free) a copy is impossible — the plan is a same-
-  filesystem **rename** of `_data` (instant) while both postgres containers
-  are stopped, with a full `pg_dump` taken locally first (`make db-dump-prod
+  disk (34 GB vs 24 GB free) a copy is impossible — do a same-filesystem
+  **rename** of `_data` (instant) while both postgres containers are
+  stopped, with a full `pg_dump` taken locally first (`make db-dump-prod
   PROD_DUMP_FULL=1` — the default lite mode NULLs the heavy columns and is
-  NOT a backup).
+  NOT a backup; the full dump of 33 GB took ~2h15m over ssh, 20 GB gz).
+  **VERIFIED live 2026-08-30 (EnaCast AI)**: swap script with
+  preconditions (both containers stopped, same st_dev, PG_VERSION present,
+  stale `postmaster.pid` removed), postgres healthy on the moved data in
+  **9 seconds**, row-count fingerprint matched (take one BEFORE: exact
+  counts of 2-3 key tables + `max(id) FROM django_migrations`). Whole
+  cutover ≈ 6 min of downtime — the force-redeploy that carries the
+  domains REBUILDS first (~4 min); pre-warming that build before the stop
+  would cut it to ~2.
 - **pgvector again, pg14 this time**: the first web build failed with
   `could not open extension control file …/postgresql/14/extension/vector.control`
   — the old compose stack built its Postgres `FROM pgvector/pgvector:pg14`
@@ -861,6 +869,21 @@ unless marked ⚠️; the cut-over itself is documented in the last bullet.
   recipe from the community: a `retry` middleware label on the router plus a
   `serversTransport` with `dialTimeout: 1s` in the proxy's dynamic config
   (not expressible as labels in Traefik v3). Not applied here yet.
+- **More verified outcomes (2026-08-30, EnaCast AI)**:
+  - Blue-green proof: webhook rolling deploy served **306/306 200s** at
+    1 rps through the swap; deploy log prints `Rolling update started/…`.
+  - `watch_paths` proof needs a commit that TOUCHES the watched glob — a
+    repo-root docs commit correctly deploys nothing (don't mistake that
+    for broken push-to-deploy, and don't use it as the blue-green test).
+  - Transient deploy failure `Conflict. The container name
+    "/<deployment-uuid>" is already in use` (the coolify-helper name
+    collided) — nothing wrong with the app; just re-trigger the deploy.
+  - `POST /databases/{uuid}/backups` works as documented: `frequency`
+    (cron), `save_s3` + `s3_storage_uuid`, `databases_to_backup`,
+    `timeout`, `database_backup_retention_amount_{locally,s3}` → 201.
+  - `PATCH /applications/{uuid}/envs` succeeded on the very key
+    (`LOKI_WRITERS`) that 500'd on 2026-08-28 — try PATCH first, keep the
+    DELETE+POST fallback.
 - **Cut-over order** (web first, workers only after the real data is in
   place — a sync worker on an EMPTY database could push garbage to the
   upstream platform): build+health the web app with NO domain against the

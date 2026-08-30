@@ -321,6 +321,18 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   health check probes (`GET /metrics` on 9746), so a scheduler resource no
   longer needs the UI check OFF. Publish the port for the hub scrape only
   behind the DOCKER-USER tailnet guard (Licita Radar, `oriolj-nc-1`).
+- **Third reference implementation** (enantena scope, 2026-08-30):
+  **EnaCast/enacast-ai** — `backend/config/prom.py` + `METRICS.md`; hub
+  jobs `enacast-ai-{app,postgres,redis}`, dashboard `enacast-ai`, alert
+  group `hq;enacast-ai`. Two traps it added: **uuid4-PK models break
+  `Count("id")`** (house rule says uuid PKs — always `Count("pk")` in
+  collectors), and a **23 GB table must be counted from
+  `pg_class.reltuples`** (raw cursor), never `count(*)`, in a per-scrape
+  collector. Shape the collector's counts as SEPARATE small aggregates so
+  they ride the model's partial indexes — one combined aggregate seqscans
+  and detoasts jsonb per row. Its gunicorn conf is `gunicorn_conf.py`,
+  NOT `gunicorn.conf.py` — `--config python:gunicorn.conf` would import
+  from the installed gunicorn PACKAGE.
 - **Second reference implementation** (personal scope, 2026-08-28):
   `oriolj/public_contract_scanner` — `backend/config/prom.py` + `METRICS.md`
   (catalogue-first: every metric documented in the repo, hub jobs
@@ -385,6 +397,13 @@ facts (monitor-1-nc, 2026-08-25):
   And the stack debugs itself — query `{compose_service="grafana"} |~
   "(?i)smtp|notify"` in Loki for the actual dial error instead of hunting
   for docker logs.
+
+**Hub redeploys page their own "Alloy not shipping" alert** — the hub is
+a Compose resource (stop→start), every deploy flattens its own Alloy's
+`loki_write_sent_entries_total`, and back-to-back deploys exceed the
+rule's `for: 15m`. That is why `hq-alloy-not-shipping` is severity
+**warning** (downgraded 2026-08-30 after 4 deploys in 25 min paged
+priority-1) — batch hub pushes, and don't re-promote it to critical.
 
 **Pushover for paging** (email is an inbox nobody stares at): two contact
 points routed by the `severity` label — warning → priority 0, critical →
@@ -483,6 +502,8 @@ Non-negotiables, wired to the rest of the estate's rules:
    tailnet or a public ingest endpoint exists is deployment-specific —
    confirm before wiring an SDK that would silently fail to deliver
    events (SDKs swallow transport errors by design).
+
+- DOCKER-USER tailnet-only guard hosts as of 2026-08-30: coolify-ovh-vps-1, oriolj-nc-1, enacast-ai-fsn1-1 (script + oneshot unit per `coolify-deploy` §7c).
 
 ## 6. `make logs` — prod/beta logs from the dev machine
 
