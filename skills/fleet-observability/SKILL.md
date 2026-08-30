@@ -34,6 +34,22 @@ inventory. The one place an IP is still required is a **compose port bind**
 > Checkmate was retired 2026-08-29, Uptime Kuma is being folded into
 > Beszel.
 
+## Loki 429s that are NOT rate limits — the active-stream ceiling
+
+`429` with body `maximum active stream limit exceeded when trying to create
+stream {...}` is **`limits_config.max_global_streams_per_user`** (default
+5000), not ingestion rate. Symptom pattern: existing hosts keep writing
+fine while EVERY stream from a newly enrolled host is rejected — looks
+like broken auth/agent, is neither (auth failures are 401 from the
+gateway). Fix: raise the limit in `loki-config.yaml` (hq-monitoring; 20000
+since 2026-08-30) — and mind the cause: on Coolify hosts the `container`
+label carries per-deploy name suffixes, so every redeploy mints new
+streams and the ceiling fills with very few hosts. Prefer stable labels
+(`coolify_app`, `service`) over raw container names. Alloy retries 429s
+with backoff (`loki_write_request_duration_seconds_count{status_code=...}`
+on :12345 tells the truth); after fixing the limit, restart Alloy to
+re-ship promptly instead of waiting out the backoff.
+
 ## 1. Architecture (one agent, both signals)
 
 ```
