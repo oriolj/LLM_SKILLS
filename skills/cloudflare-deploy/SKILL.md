@@ -170,7 +170,12 @@ Rules, in order of how much they save you:
 2. **Gate the artifact.** A ~60-line script that greps `dist/` for
    `localhost`, `127.0.0.1`, `0.0.0.0`, `[::1]`, `192.168.*` and
    `src|href="http://`, plus "every HTML page has an https canonical".
-   Reference implementation: `enachat/comercial-website/scripts/check-dist.mjs`
+   Reference implementation: enasuite root `scripts/check-dist.mjs` — ONE copy
+   for all ten sites, wired as `"postbuild": "node ../../scripts/check-dist.mjs"`
+   in every site's package.json; the `make website-*` / `docs-*` recipes are
+   likewise one shared `mk/sites.mk` (per product: `WEBSITE_URL`, `DOCS_URL`,
+   `WEBSITE_ENV`, `WEBSITE_SITEMAP`). Ten byte-identical copies had already
+   started drifting after three days (2026-08-30) — never re-copy them.
    in the enasuite monorepo.
 3. **Make deploy depend on the gate** so it cannot be skipped under time
    pressure — `make website-deploy` = build → check → upload → verify.
