@@ -468,6 +468,37 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   sidecar; for distroless, a static-linked `healthcheck` binary Coolify
   can exec). Track it as an open item until the list is empty.
 
+## 5a. postgres:18 in compose — the volume-layout trap (TimeTracker forensics, 2026-08-30)
+
+- The postgres **18** docker image moved PGDATA to `/var/lib/postgresql/18/docker`,
+  declares `VOLUME /var/lib/postgresql`, and ships a compat symlink
+  `data -> .` there. A compose mount at the legacy
+  `…/postgresql/data` target resolves THROUGH that symlink to the parent —
+  so old stacks silently ran with the volume at `/var/lib/postgresql` and
+  the cluster at `<volume>/18/docker`.
+- **Newer 18 image revisions add a guard that refuses the legacy `/data`
+  mount** — a stack that ran for months dies on the next image pull with
+  "dependency postgres failed to start … unhealthy", and the deploy log
+  never shows postgres's stderr. Do NOT "fix" it with
+  `PGDATA=/var/lib/postgresql/data`: that points postgres at the volume
+  ROOT (via the symlink), which is not a cluster — equally fatal.
+- **Correct fix, data-preserving**: mount the named volume at
+  `/var/lib/postgresql` (the parent), no PGDATA, keep `postgres:18-*`.
+  Verify the layout first (below) — a volume that really holds the cluster
+  at its root (old-layout) instead wants `PGDATA=/var/lib/postgresql/data`.
+- **Reading a crashed compose container without SSH** (no exec API):
+  a temporary "diagnostic deploy" — neutralise the sick service
+  (`entrypoint: ["sleep","3600"]`, healthcheck `["CMD","true"]`,
+  `restart: "no"`), drop `depends_on`, and have the WEB service mount the
+  data volume ro and print `stat`/`ls -lan`/`PG_VERSION` (as `user: "0:0"`
+  — the cluster dir is 0700) before its normal start. `GET
+  /applications/{uuid}/logs` answers only while the app is `running` and
+  returns the web container's logs. Revert in the fix commit.
+- Compose-buildpack apps default to **no `restart:` policy** — a crashed
+  container stays down forever (TimeTracker: dead May→Aug unnoticed).
+  `restart: unless-stopped` on every service, always. And set
+  `watch_paths` even on compose apps: every deploy is an outage there.
+
 ## 5b. Field notes from a full API-only onboarding (server -> app, 2026-08-25)
 
 - **Adding a server by API**: `POST /servers` (name, ip, port, user,
