@@ -783,6 +783,17 @@ unless marked ⚠️; the cut-over itself is documented in the last bullet.
   are stopped, with a full `pg_dump` taken locally first (`make db-dump-prod
   PROD_DUMP_FULL=1` — the default lite mode NULLs the heavy columns and is
   NOT a backup).
+- **pgvector again, pg14 this time**: the first web build failed with
+  `could not open extension control file …/postgresql/14/extension/vector.control`
+  — the old compose stack built its Postgres `FROM pgvector/pgvector:pg14`
+  and the new DB resource had plain `postgres:14`. Read the old stack's
+  postgres Dockerfile BEFORE creating the DB resource; `PATCH /databases/{uuid}
+  {"image": "pgvector/pgvector:pg14"}` + restart fixes it while the volume is
+  empty. The deploy log itself only says `Healthcheck logs: /bin/sh: 1: wget:
+  not found` (Coolify's `curl || wget` probe firing while gunicorn never
+  started) — the real error is further up in the container output, so grep
+  the deployment `logs` for `Traceback`/`OperationalError` before believing
+  the curl/wget warning.
 - **Redis DB resource**: `redis_conf` must be base64; with a conf file
   Coolify does NOT append `--appendonly yes` — put `appendonly yes` /
   `appendfsync everysec` in the conf yourself (verified: container came up
