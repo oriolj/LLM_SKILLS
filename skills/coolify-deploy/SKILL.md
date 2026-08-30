@@ -1079,6 +1079,31 @@ api.resend.com; curl's default UA happens to pass).
 - A multi-line env value does not survive Coolify's `.env` round-trip —
   design secrets-from-env files to accept one-line separators (the
   loki-gateway takes comma-separated `user:password` since `6d0c380`).
+- **Create apps with `is_auto_deploy_enabled: false` until their envs are
+  set.** With auto-deploy on, an app whose `watch_paths` matches a commit
+  pushed seconds later deploys BEFORE your env POSTs land — the containers
+  boot with half an environment (Panotxa 2026-08-30: beat exited, web
+  unhealthy, and the racing deploy could have migrated an empty DB before
+  the data restore). Order: create (auto-deploy off) → set envs → restore
+  data if migrating → enable auto-deploy + force deploy.
+- **A `domains` PATCH regenerates `custom_labels` and silently drops any
+  appended `oj.*` lines** (same as base_directory changes). Always: PATCH
+  domains first, THEN re-append the oj labels (base64), then one force
+  redeploy applies both.
+- **https on the sslip hostname**: the assigned fqdn is `http://…`; PATCH
+  `domains` to the `https://…sslip.io` form + force redeploy and Traefik
+  gets a Let's Encrypt cert for it (verified on three products).
+- A freshly created database resource can report `exited:unhealthy` for the
+  first ~30 s while it pulls/boots — `POST /databases/{uuid}/start` answers
+  "already running"; re-GET before concluding anything.
+- **Migrating a DB between Coolify servers with no SSH**: schedule a backup
+  → R2 on the source (`backup_now`), download the `pg-dump-*.dmp` (custom
+  format) with the R2 creds, `PATCH {is_public: true, public_port: N}` the
+  EMPTY target DB, `pg_restore --no-owner --no-privileges --clean
+  --if-exists` from the workstation, then `PATCH {is_public: false}` and
+  prove the port is closed. Restore BEFORE the app's first migrate-on-boot
+  deploy, or migrate stamps an empty schema first (the restore's --clean
+  recovers it, but don't rely on it).
 - App settings like `is_preserve_repository_enabled` PATCH directly on
   `/applications/{uuid}` even though GET nests them under `settings`.
 - **Replacing Coolify's tunnel connector, zero-downtime**: Coolify Cloud's
