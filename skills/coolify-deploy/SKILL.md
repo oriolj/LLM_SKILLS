@@ -1409,15 +1409,24 @@ source DB invisibly (Panotxa: 3 meals / 5 dishes / 4 habit updates in the
 FIRST day, from the two real users' phones). "Keep the old stack running"
 without a write-freeze is how user data quietly forks. The fix that
 worked:
-- **Turn the source into a 308 redirector** (env-gated middleware in the
-  shared codebase, activated only on the legacy resource): 308 — never
-  301/302 — preserves POST bodies and uploads through the WebView fetch;
-  answer OPTIONS locally (CORS preflights must not be redirected); keep
-  `/health*` local (Coolify health checks). Auth tokens keep working
-  because the DB rows and `SECRET_KEY` moved with the migration. Caveat:
-  OkHttp-based native code (widgets/wear) does NOT follow 307/308 on
-  POST — only the WebView traffic transparently survives; stragglers need
-  an updated build.
+- **Turn the source into a transparent REVERSE PROXY, not a redirector.**
+  The first Panotxa attempt used a 308 and it FAILED for every
+  authenticated call: 🔴 **curl AND Chromium (the Capacitor WebView)
+  strip the `Authorization` header when following a cross-origin
+  redirect** (fetch-spec behavior; verified live — `curl -L` → 401 at the
+  new origin, `curl --location-trusted` → 200). An old build behind a 308
+  gets force-logged-out, and re-login is useless (the next authed call
+  loses the header again). OkHttp-based native code (widgets/wear) is
+  worse: it doesn't follow 307/308 on POST at all. The working shape: an
+  env-gated middleware on the legacy resource that FORWARDS every request
+  server-side (httpx, streamed) to the new origin with headers+body
+  intact — the client never sees a redirect, so nothing is stripped.
+  Keep `/health*` local (Coolify health checks); strip hop-by-hop headers
+  both ways and `content-encoding`/`content-length` from the response
+  (httpx auto-decompresses). Auth tokens work at the target because the
+  DB rows and `SECRET_KEY` moved with the migration. A 308 remains fine
+  for purely BROWSER-facing hosts (share pages) where landing on the
+  canonical URL is a feature and requests are unauthenticated GETs.
 - **Reconcile before or as you freeze**: if the TARGET has zero writes
   since the migration dump (check!), the cleanest merge is a fresh full
   dump of the frozen source restored over the target
