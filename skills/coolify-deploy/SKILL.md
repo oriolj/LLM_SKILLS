@@ -1275,9 +1275,13 @@ auto-assigned even here) → `POST /deploy`.
   docker-bridge gateway as the client (same finding as the enacast-ai
   `/metrics` router); public-interface clients keep their real IP and
   can be 403'd even with valid basic-auth credentials.
-- postgres-exporter (quay.io/prometheuscommunity/postgres-exporter) wants
-  `DATA_SOURCE_NAME=postgres://…@<db-uuid>:5432/<db>?sslmode=disable`
-  (from the DB resource's `internal_db_url`); redis_exporter
+- postgres-exporter (quay.io/prometheuscommunity/postgres-exporter): use the
+  SPLIT vars, never a `DATA_SOURCE_NAME` URI — a generated/rotated password
+  with URI-reserved chars (`/ ? # %`) silently breaks URI parsing and takes
+  the exporter offline. `DATA_SOURCE_URI=<db-uuid>:5432/<db>?sslmode=disable`
+  (no credentials) + `DATA_SOURCE_USER` + `DATA_SOURCE_PASS` (taken raw;
+  verified live 2026-08-31 with password `p/a?s#w%rd` → `pg_up 1` on
+  v0.15.0); redis_exporter
   (oliver006/redis_exporter) wants `REDIS_ADDR=redis://<db-uuid>:6379` +
   `REDIS_PASSWORD` split out — it does NOT parse creds from the URL.
 
