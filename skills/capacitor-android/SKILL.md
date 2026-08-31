@@ -103,3 +103,19 @@ Build it in this order:
 - Debug and release builds have different signatures — a device can hold
   one or the other, not both signature-variants of the same appId; expect
   an uninstall when switching lanes.
+- **On a machine that hasn't built for a while, run `npm install` before
+  the make lane.** Repos that patch plugins with patch-package apply the
+  patch in `postinstall` — a `node_modules` predating the patch fails
+  `npm run build` with type errors ON THE PATCHED API (NutriLens
+  2026-08-31: `TS2345: '"dietaryEnergyConsumed"' is not assignable to
+  'HealthDataType'` — looked like app code, was a stale unpatched plugin).
+  A type error mentioning a capability the repo's `patches/` add = stale
+  node_modules, not a code bug.
+- **A stale `android/` from before an appId rename breaks the sync
+  scripts, not gradle**: scripts that patch the generated tree by package
+  path fail with e.g. `MainActivity.java not found (appId/namespace
+  changed?)` (NutriLens: July-era `android/` with the pre-rename package
+  vs `com.panotxa.app`). The dir is disposable by convention — the fix is
+  always `rm -rf android && make android-add` (or `npx cap add android`),
+  never hand-renaming packages inside the generated tree. A fully
+  regenerated project rebuilds from scratch in under a minute.
