@@ -884,6 +884,23 @@ unless marked ⚠️; the cut-over itself is documented in the last bullet.
   - `PATCH /applications/{uuid}/envs` succeeded on the very key
     (`LOKI_WRITERS`) that 500'd on 2026-08-28 — try PATCH first, keep the
     DELETE+POST fallback.
+- **Day-2 findings (2026-08-31)**:
+  - **Scheduled DB backups stage LOCALLY before S3** — a 33 GB DB dumps a
+    ~20 GB `.dmp` under `/data/coolify/backups/...`; on a 75 GB disk the
+    first nightly run filled the disk to 100 % and every build then died
+    with apt `GPG error: … invalid signature` (the disk-full symptom —
+    check `df` before debugging keys). Fix: the retention trio
+    (`amount|days|max_storage` per side) — ALL-ZERO means keep forever;
+    `retention_max_storage_locally: 1` (GB) deletes even the newest local
+    dump after a successful run (upload included), emulating the UI-only
+    `disable_local_backup` toggle the API 422s on. Failed runs keep their
+    local file (cleanup only touches status=success). Verify the S3
+    object itself (`GET /s3-storages/{uuid}` returns the key/secret —
+    boto3 list works) — the execution row alone doesn't show the upload.
+  - **Per-commit image accumulation**: N Dockerfile apps on one repo keep
+    N tagged images per commit; two pushes in one evening ≈ 8 GB extra.
+    `docker image prune` + drop old commit tags when the disk is tight,
+    and mind `docker_images_to_keep`.
 - **Cut-over order** (web first, workers only after the real data is in
   place — a sync worker on an EMPTY database could push garbage to the
   upstream platform): build+health the web app with NO domain against the

@@ -298,6 +298,26 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     bounded-tens; the app version rides a labeled gauge
     (`app_info{version="<sha>"} 1`) because Info doesn't exist in
     multiproc.
+- **Tailnet-only `/metrics` on a Coolify Dockerfile app (the hardened
+  variant — EnaCast AI, 2026-08-31, verified end to end).** Add to the
+  app's `custom_labels` a dedicated router + allowlist referencing the
+  GENERATED service name:
+  `traefik.http.routers.metrics-<uuid>.rule=Path(\`/metrics\`)` with
+  `priority=1000` (Path rules are short — default length-based priority
+  loses to the site's Host rule), `entryPoints=https`, `tls=true`,
+  `tls.certresolver=letsencrypt`, `service=https-0-<uuid>`, and a
+  middleware `ipallowlist.sourcerange=100.64.0.0/10,172.16.0.0/12,127.0.0.1/32`.
+  Three non-obvious facts: (1) **tailscaled MASQUERADEs tailnet traffic it
+  forwards into the docker bridge**, so Traefik sees every tailnet client
+  as the bridge gateway (172.x) — without the RFC-1918 range the allowlist
+  blocks the tailnet too, while real internet clients always keep their
+  public source IP (403); (2) the hub then scrapes
+  `https://<host-tailnet-ip>:443` with `tls_config.server_name: <domain>`
+  (SNI serves the right cert; the router matches by Path, so the IP Host
+  header is fine for Traefik) — but **Django needs the tailnet IP in
+  ALLOWED_HOSTS** or the scrape 400s DisallowedHost; (3) test all four
+  paths after: public+token→403, site→200, tailnet+token→200, tailnet
+  bare→401.
 - **Coolify Dockerfile apps: the token-gated public-origin scrape path.**
   Publishing the app port as a host port would **disable blue-green**, and
   the Coolify API rejects IP-qualified `ports_mappings` anyway
@@ -397,6 +417,13 @@ facts (monitor-1-nc, 2026-08-25):
   And the stack debugs itself — query `{compose_service="grafana"} |~
   "(?i)smtp|notify"` in Loki for the actual dial error instead of hunting
   for docker logs.
+
+**The hub host runs the SAME per-host agent since 2026-08-31** — alloy +
+socket-proxy left the hq-monitoring compose and monitor-1-nc joined the
+`observability` group, precisely so hub redeploys stop interrupting log
+shipping (the agent WALs through the gateway outage). The `alloy`
+Prometheus job scrapes all agents' tailnet :12345; `hq-alloy-not-shipping`
+is per-host (`sum by (host)`).
 
 **Hub redeploys page their own "Alloy not shipping" alert** — the hub is
 a Compose resource (stop→start), every deploy flattens its own Alloy's
