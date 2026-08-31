@@ -1409,28 +1409,45 @@ source DB invisibly (Panotxa: 3 meals / 5 dishes / 4 habit updates in the
 FIRST day, from the two real users' phones). "Keep the old stack running"
 without a write-freeze is how user data quietly forks. The fix that
 worked:
-- **Turn the source into a transparent REVERSE PROXY, not a redirector.**
-  The first Panotxa attempt used a 308 and it FAILED for every
-  authenticated call: 🔴 **curl AND Chromium (the Capacitor WebView)
-  strip the `Authorization` header when following a cross-origin
-  redirect** (fetch-spec behavior; verified live — `curl -L` → 401 at the
-  new origin, `curl --location-trusted` → 200). An old build behind a 308
-  gets force-logged-out, and re-login is useless (the next authed call
-  loses the header again). OkHttp-based native code (widgets/wear) is
-  worse: it doesn't follow 307/308 on POST at all. The working shape: an
-  env-gated middleware on the legacy resource that FORWARDS every request
-  server-side (httpx, streamed) to the new origin with headers+body
-  intact — the client never sees a redirect, so nothing is stripped.
-  Keep `/health*` local (Coolify health checks); strip hop-by-hop headers
-  both ways and `content-encoding`/`content-length` from the response
-  (httpx auto-decompresses). 🔴 **Also strip the client's
-  `Accept-Encoding` from the forwarded request**: the WebView advertises
-  `br`/`zstd`, the upstream (Traefik compress) honors it, and httpx can
-  only decode gzip/deflate — every response big enough to compress then
-  DIES mid-stream (curl shows `http=000`), which presented as "the old
-  APK shows 0 meals on every day, but small screens work" (Panotxa,
-  2026-08-31, second proxy bug in one afternoon). Let httpx negotiate
-  its own encoding and return decoded bytes. Auth tokens work at the target because the
+- **Forward the legacy host with a TRAEFIK PASS-THROUGH — never an
+  app-level redirect or app-level proxy.** The final, verified mechanism
+  (Panotxa, after two same-day reverted attempts): drop a dynamic-config
+  file into the old box's Coolify proxy dir
+  (`/data/coolify/proxy/dynamic/legacy-<p>.yaml`, hot-reloaded):
+  ```yaml
+  http:
+    routers:
+      legacy-<p>:
+        rule: "Host(`<old-host>`)"
+        entryPoints: [https]
+        tls: {certresolver: letsencrypt}
+        priority: 1000
+        service: legacy-<p>
+    services:
+      legacy-<p>:
+        loadBalancer:
+          passHostHeader: false   # upstream Traefik must route by the NEW Host
+          servers:
+            - url: "https://api.<newdomain>"
+  ```
+  Then STOP every app container on the old box — the pass-through needs
+  none of them, it is a byte pipe: auth headers, compression, streaming,
+  uploads all traverse untouched. (The existing LE cert for the old host
+  survives in acme.json.) Verify with the CLIENT's exact header profile:
+  token + `Accept-Encoding: gzip, deflate, br, zstd` + CORS preflights.
+  The two app-level attempts and why they failed — keep as traps, don't
+  retry them:
+  1. 🔴 **308 redirect**: curl AND Chromium (the Capacitor WebView) strip
+     the `Authorization` header on cross-origin redirects (`curl -L` →
+     401, `curl --location-trusted` → 200) — old builds get
+     force-logged-out and re-login is useless. OkHttp native code doesn't
+     follow 307/308 on POST at all.
+  2. 🔴 **Django/httpx streamed proxy**: forwarding the client's
+     `Accept-Encoding` (`br`/`zstd` from the WebView) makes the upstream
+     compress with codecs httpx can't decode — every response big enough
+     to compress dies mid-stream (`http=000`), presenting as "0 meals on
+     every day, but small screens work". Even fixed, an app proxy
+     re-implements what Traefik does for free, one bug at a time. Auth tokens work at the target because the
   DB rows and `SECRET_KEY` moved with the migration. A 308 remains fine
   for purely BROWSER-facing hosts (share pages) where landing on the
   canonical URL is a feature and requests are unauthenticated GETs.
