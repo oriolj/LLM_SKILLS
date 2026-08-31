@@ -1441,7 +1441,16 @@ worked:
      the `Authorization` header on cross-origin redirects (`curl -L` →
      401, `curl --location-trusted` → 200) — old builds get
      force-logged-out and re-login is useless. OkHttp native code doesn't
-     follow 307/308 on POST at all.
+     follow 307/308 on POST at all. **And the damage is STICKY**: 308s
+     are cacheable, so every URL a client fetched while the redirect was
+     live keeps replaying it FROM THE HTTP CACHE after the server-side
+     revert — the device never re-contacts the old host for those URLs
+     and no server fix can reach it (Panotxa: the phone stayed broken
+     through two working server fixes; a faithful Playwright repro of the
+     same bundle+token+origin passed everything, proving the poison was
+     client-local). Recovery is per-device: Android "Clear cache" on the
+     app, or a new build. Never serve permanent redirects on an API host,
+     even briefly.
   2. 🔴 **Django/httpx streamed proxy**: forwarding the client's
      `Accept-Encoding` (`br`/`zstd` from the WebView) makes the upstream
      compress with codecs httpx can't decode — every response big enough
