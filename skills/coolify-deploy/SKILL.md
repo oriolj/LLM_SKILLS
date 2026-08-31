@@ -1366,6 +1366,17 @@ is unrecoverable.
 
 ## 7e. Migrating an app between SERVERS (same Coolify) — FIELD-TESTED (Panotxa, 2026-08-30/31)
 
+🔴 **HOUSE RULE (Oriol, 2026-08-31): after a move, the old server must have
+NO way to keep receiving requests against its own data.** On cutover day,
+as part of the cutover — not "later": move/remove every domain from the old
+resource, and either STOP the old app outright (when every client follows
+DNS) or flip it into a pure redirector to the new origin (when clients
+bake the origin — installed apps, hardcoded sslip hosts). Also stop the
+old workers/schedulers the same moment: they write on their own (beat
+jobs) and double-send user-facing email/push. "Keep the old stack running
+untouched as a fallback" is precisely how the Panotxa split-brain happened
+— a live old app with a live old DB silently absorbs writes forever.
+
 Official position ([migrate-apps-different-host](https://coolify.io/docs/knowledge-base/how-to/migrate-apps-different-host)):
 **Coolify has no built-in migration.** The doc's method is redeploy on the
 target + tar Docker volumes through a busybox container + scp + untar into
