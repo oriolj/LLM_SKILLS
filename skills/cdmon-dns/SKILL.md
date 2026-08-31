@@ -136,14 +136,19 @@ curl -s -X POST "$API/domains/list" -H "apikey: $KEY" \
 # -> {"status":"ok","data":{"msg":"Domain list for client enantena","result":[{"domain":…},…]}}
 ```
 61 domains in the **enantena** account on 2026-08-28 (`docs/domains.md` in
-hq has the full owner/registrar/DNS table). **A second CDmon account
-exists** that this key cannot see: `oriolj.com` (personal — registrar
-CDmon but live DNS on **Route 53**), plus the CDmon-hosted zones
-`humans2agents.com`, `rutakas.com`, `fichachat.com`, `smartupsoft.com`,
-`xescomerce.com`, `construcat.cat`. Its key (when issued) is
-`hq/homelab/secrets/cdmon-oriolj.env` → `CDMON_ORIOLJ_API_KEY`. **Oriol's
-rule (2026-08-28): no domain work for personal products until that key
-exists** — never reach for the enantena key for a personal zone.
+hq has the full owner/registrar/DNS table). **The second, PERSONAL CDmon
+account** (client `oriolj88`) has its own key since 2026-08-31:
+`hq/homelab/secrets/cdmon-oriolj.env` → `CDMON_ORIOLJ_API_KEY` — same API,
+same endpoints. It holds 11 zones (probed 2026-08-31, all on live CDmon
+NS): bernatj.com, bikecrm.pt, evpricemap.com, gerardj.com,
+humans2agents.com, humanstoagents.com, panotxa.com, rutacas.com,
+rutakas.com, shoematch.co.uk, smartupsoft.com. NOT in either account:
+`oriolj.com` (its DNS is **Route 53** — IAM key in
+`hq/homelab/secrets/aws-oriolj.env`, zone `ZZZRD7JOM8ZT7`), and
+`fichachat.com` / `xescomerce.com` / `construcat.cat` (third account, or
+not ours). **Accounts follow the scope — pick the key by the zone's
+account, never reach for the enantena key on a personal zone or vice
+versa.**
 
 ## DNS endpoints (types supported: A, CNAME, TXT)
 
