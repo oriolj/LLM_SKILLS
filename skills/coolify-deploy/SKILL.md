@@ -409,8 +409,13 @@ the mounting container breaks, and the final `docker cp` then fails forever
 with `cannot overwrite directory "<file>" with non-directory` (every retry
 hits the same stub, and the failed stop-start can leave services down).
 Unwedge on the server: `rm -rf` the stub under
-`/data/coolify/applications/<uuid>/`, `scp` the real file(s) in, redeploy.
-Files that existed before Preserve Repository's first copy are unaffected.
+`/data/coolify/applications/<uuid>/`, `scp` the real file(s) in (`chmod +x`
+if it is an entrypoint/command script), redeploy. If instead you recover
+with a manual `docker compose up -d`, also `docker compose rm -sf
+<service>` first — the failed container cached the directory mount and
+errors `openat <file>: is a directory` until recreated (hq-monitoring
+init-orgs, 2026-08-31). Files that existed before Preserve Repository's
+first copy are unaffected.
 
 ⚠️ **The preserve-repository copy is ADDITIVE** — it is a `docker cp` with
 no `--delete`, so a file REMOVED from the repo lives on under
