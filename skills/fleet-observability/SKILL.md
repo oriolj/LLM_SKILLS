@@ -377,7 +377,8 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   `panotxa-app`) COMBINED with the bearer token, Celery Redis-counter
   hooks in `config/celery_app.py` beside the existing healthserver hooks,
   and gunicorn gthread multiproc. Its uuid4-PK models make the
-  `Count("pk")` rule non-optional.
+  `Count("pk")` rule non-optional. Also the reference for the **gunicorn
+  in-flight/capacity gauges** (§5d) in `backend/gunicorn.conf.py`.
 - **Celery**: on a compose host, run the maintained standalone
   `celery-exporter` as one more service pointed at the broker, labeled
   with `oj.metrics.port`. **On Coolify Dockerfile apps (worker/beat are
@@ -613,6 +614,62 @@ Mechanics, each learned the hard way on 2026-08-31:
   hardcoded "7 services" and "exactly five rules" went stale silently and
   made smoke fail on a healthy stack; don't reintroduce exact-set
   assertions that every new project must remember to update.
+
+## 5d. The baseline metric set — every project covers these rows (Oriol, 2026-08-31)
+
+Onboarding a project to monitoring is not done when `/metrics` answers — it
+is done when **each piece of the standard stack** has its key metrics on the
+project dashboard. The set (skip rows the project genuinely doesn't have):
+
+| Piece | Must-have metrics | How |
+|---|---|---|
+| **HTTP server (gunicorn)** | request rate by status; latency histogram (p50/p95 panels + 5xx ratio); **in-flight requests vs capacity** (thread/worker-pool saturation) | Histogram via request middleware. In-flight via **gunicorn `pre_request`/`post_request` hooks** in `gunicorn.conf.py` — see the pattern below. Capacity = `workers × threads`, set once in `when_ready`. |
+| **Celery** | queue length (`LLEN`); task outcomes by task/status (`rate()`); avg task duration; worker + beat heartbeat gauges; beat-schedule freshness (age of last start per periodic task) | The Redis signal-hook pattern in §5 (llm-index-watcher/Panotxa `config/celery_app.py` + web-side collector). |
+| **Postgres** | DB size (`pg_database_size_bytes`); backends vs `max_connections`; commit/rollback rate (`pg_stat_database_xact_*` — "queries/s" proxy); rows fetched/returned rate; deadlocks | Standalone `postgres-exporter` (`prometheuscommunity/postgres-exporter`), its own hub job (`<project>-postgres`). Reference: licita-radar, enacast-ai. |
+| **Redis** | memory used vs maxmemory; connected clients; ops/s (`redis_commands_processed_total`); hit ratio (keyspace hits/misses); evicted keys | Standalone `redis-exporter` (`oliver006/redis_exporter`), hub job `<project>-redis`. Reference: enacast-ai. |
+| **App itself** | `<app>_app_info{version="<sha>"} 1` (deploys visible as annotations); the per-scrape business collector (§5); `up` on every job of the project | `config/prom.py` pattern. |
+
+Dashboard convention: one dashboard per project, rows in this order —
+Product/business, pipeline (Celery), HTTP, then the DB/Redis rows as the
+exporters land. Alert-worthy defaults: 5xx ratio, worker/beat dead, queue
+length growing, saturation ratio sustained > ~0.7, disk-backed sizes
+(DB, Redis memory) trending at their limit.
+
+**The gunicorn in-flight pattern** (Panotxa `backend/gunicorn.conf.py`,
+verified 2026-08-31) — request middleware CANNOT measure pool occupancy:
+a `StreamingHttpResponse` (SSE) body runs during WSGI iteration *after*
+the view returned, so middleware logs a ~0 s request while a gthread stays
+parked for the stream's whole lifetime. gunicorn's hooks bracket the full
+response ( `post_request` fires in a `finally` after the body is fully
+sent):
+
+```python
+# gunicorn.conf.py — multiproc mode assumed (PROMETHEUS_MULTIPROC_DIR set)
+from prometheus_client import Gauge
+
+IN_FLIGHT = Gauge("<app>_http_requests_in_flight", "…", multiprocess_mode="livesum")
+CAPACITY = Gauge("<app>_http_capacity", "…", multiprocess_mode="livesum")
+
+def when_ready(server):   # master only — never recycled, so livesum serves it verbatim
+    CAPACITY.set(server.cfg.workers * server.cfg.threads)
+def pre_request(worker, req):
+    IN_FLIGHT.inc()
+def post_request(worker, req, environ, resp):
+    IN_FLIGHT.dec()
+def child_exit(server, worker):  # ALSO required for --max-requests recycling
+    from prometheus_client import multiprocess
+    multiprocess.mark_process_dead(worker.pid)
+```
+
+Why it's safe: the gauges are constructed pre-fork, but `prometheus_client`
+re-keys the mmap file by pid on first use after fork, so each worker
+inc/decs its own file; `livesum` sums live pids, and `mark_process_dead` in
+`child_exit` drops a recycled worker's file — a worker killed mid-request
+cannot leak a phantom in-flight count. Caveat: scraped every 60 s, the
+gauge shows *sustained* pressure reliably, sub-minute bursts can fall
+between samples (pair with a `max_over_time(...[5m])/capacity` panel; the
+latency histogram inflating on cheap endpoints is the corroborating
+signal).
 
 ## 6. `make logs` — prod/beta logs from the dev machine
 
