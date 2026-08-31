@@ -17,11 +17,11 @@ are per-project**. Keys live in `hq/homelab/secrets/healthchecks.env` as
 | `ORIOLJ` | delivered | API-verified, 0 checks (fresh) |
 | `ENANTENA` | delivered | API-verified, 12 checks |
 | bikecrm | ⏳ | Oriol's paste duplicated the enantena key — not stored |
+| smartupsoft | ⏳ | unknown whether the project exists |
 
 Checks in the oriolj project (2026-08-31): `panotxa-orphan-resume`
 (hourly Celery sweep ping) and `talaia-scheduler` (pinged by talaia's most
 frequent suite via `heartbeat_env`).
-| smartupsoft | ⏳ | unknown whether the project exists |
 
 `hcw_` prefix = a project API key (read/write on that project's checks).
 Never mix projects: a check created with the wrong key lands in the wrong
