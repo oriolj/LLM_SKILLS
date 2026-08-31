@@ -16,7 +16,7 @@ resolves from it.
 | `enacast.com` | CDmon | **CDmon** (ns1-3.cdmon.net) | this API |
 | `enacast.chat` | CDmon | **Cloudflare** (zone `78798ebd9e4d55ea03c5ac24e3d4537d`) | the Cloudflare API — see `cloudflare-deploy` |
 | `santjust.chat` | CDmon | **CDmon** | this API — one apex `A @ → 141.95.29.64` (EnaChat client custom domain, live 2026-08-25; apex cannot be a CNAME) |
-| `panotxa.com` | CDmon (personal acct `oriolj88`) | **CDmon**, move to Cloudflare pending | this API (personal key) — live records `api` A, `app`+`www` CNAMEs. A pre-staged Cloudflare zone (heidi/kyle NS) awaits the human NS flip so the apex can serve Pages; ⚠️ **DNSSEC is SIGNED** (RDAP-verified 2026-08-31) — disable before any NS change or api.panotxa.com goes dark |
+| `panotxa.com` | CDmon (personal acct `oriolj88`) | **Cloudflare** (moved 2026-08-31) | the Cloudflare API — CDmon-side records are inert leftovers. The move itself: Oriol disabled DNSSEC in the panel, agent RDAP-verified the DS was gone, then `/dns` with heidi/kyle.ns.cloudflare.com (explicit per-move authorization). Zero downtime because the CF zone mirrored every record first |
 
 `enacast.chat` was registered 2026-08-26 and is the product's main domain; its
 nameservers point at Cloudflare so the apex can serve Cloudflare Pages and so
@@ -59,6 +59,17 @@ publishes one per zone) and add it at the registrar — never leave the old one.
 
 Order that always works: **disable DNSSEC → change NS → re-enable with the new
 provider's DS.**
+
+⚠️ **Re-enabling with an EXTERNAL DS cannot be done through this API**
+(verified 2026-08-31, panotxa.com): the blueprint's `/sendDnsKey` route is
+NOT deployed (`no Route matched with those values`, every casing/spelling),
+and the `/dnskey` route that does answer is a **nameserver-update variant**
+(`Parameter 'ns' not defined` / `Nameservers not updated successfully`) —
+do NOT fuzz it on a live domain. And `/dnssec action=enable` signs with
+CDmon's OWN keys, which is wrong (SERVFAIL) once the DNS is elsewhere.
+External DS after an NS move = **CDmon panel, human click** (give Oriol the
+keytag/algorithm/digest from the new provider). The zone serves unsigned
+until then — harmless.
 
 ## Two limits that decide architecture
 
