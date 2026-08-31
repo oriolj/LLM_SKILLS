@@ -423,7 +423,18 @@ socket-proxy left the hq-monitoring compose and monitor-1-nc joined the
 `observability` group, precisely so hub redeploys stop interrupting log
 shipping (the agent WALs through the gateway outage). The `alloy`
 Prometheus job scrapes all agents' tailnet :12345; `hq-alloy-not-shipping`
-is per-host (`sum by (host)`).
+is per-host (`sum by (host)`). ⚠️ **The hub host pushes to ITSELF and
+needs the literal tailnet IP in its push URL** (inventory host var
+`observability_loki_push_url`, set 2026-08-31): inside its agent
+container the MagicDNS name `monitor-1-nc` does not resolve — every push
+fails `status_code="-1"` in <5 ms with the component still "healthy",
+sources reading normally and zero drops. Remote hosts resolve the name
+fine; only the self-push host hits this. Diagnose with
+`loki_write_request_duration_seconds_count` status codes on :12345, not
+component health. Note the label difference too: the per-host agent ships
+the hub's own containers as `service=` (from the compose-service
+fallback), where the old in-compose Alloy used `compose_service=` —
+update saved queries.
 
 **Hub redeploys page their own "Alloy not shipping" alert** — the hub is
 a Compose resource (stop→start), every deploy flattens its own Alloy's
