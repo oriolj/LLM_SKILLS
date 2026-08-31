@@ -17,18 +17,25 @@ are per-project**. Keys live in `hq/homelab/secrets/healthchecks.env` as
 | `ORIOLJ` | delivered | API-verified, 0 checks (fresh) |
 | `ENANTENA` | delivered | API-verified, 12 checks |
 | bikecrm | ⏳ | Oriol's paste duplicated the enantena key — not stored |
+
+Checks in the oriolj project (2026-08-31): `panotxa-orphan-resume`
+(hourly Celery sweep ping) and `talaia-scheduler` (pinged by talaia's most
+frequent suite via `heartbeat_env`).
 | smartupsoft | ⏳ | unknown whether the project exists |
 
 `hcw_` prefix = a project API key (read/write on that project's checks).
 Never mix projects: a check created with the wrong key lands in the wrong
 realm's dashboard.
 
-🔴 **`POST /checks/` answering bare `403` = the ACCOUNT check limit**
-(free tier: 20 across ALL projects, not per project — hit 2026-08-31 with
-only 13 visible because other projects' checks count too). Budget checks:
-one **dead-man switch per app** (its most frequent beat task pinging on
+🔴 **`POST /checks/` can answer a bare `403` — and it is NOT reliably
+"account limit reached"** (the docs say it is): on 2026-08-31 a BURST of
+creates 403'd from the second call onward with only 13 checks account-wide,
+and single creates succeeded minutes later at a higher count. Treat a 403
+as "back off and retry a single create later" before concluding the
+account is full. Independently of that: budget checks anyway — one
+**dead-man switch per app** (its most frequent scheduled task pinging on
 success) beats one-check-per-job; per-job depth belongs in Grafana
-(task_last_run alerts). Upgrading or pruning is Oriol's call.
+(task_last_run alerts).
 
 ## API (v3, verified)
 
