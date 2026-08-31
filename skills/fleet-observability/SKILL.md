@@ -299,25 +299,38 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     (`app_info{version="<sha>"} 1`) because Info doesn't exist in
     multiproc.
 - **Tailnet-only `/metrics` on a Coolify Dockerfile app (the hardened
-  variant — EnaCast AI, 2026-08-31, verified end to end).** Add to the
-  app's `custom_labels` a dedicated router + allowlist referencing the
-  GENERATED service name:
-  `traefik.http.routers.metrics-<uuid>.rule=Path(\`/metrics\`)` with
-  `priority=1000` (Path rules are short — default length-based priority
-  loses to the site's Host rule), `entryPoints=https`, `tls=true`,
-  `tls.certresolver=letsencrypt`, `service=https-0-<uuid>`, and a
-  middleware `ipallowlist.sourcerange=100.64.0.0/10,172.16.0.0/12,127.0.0.1/32`.
-  Three non-obvious facts: (1) **tailscaled MASQUERADEs tailnet traffic it
-  forwards into the docker bridge**, so Traefik sees every tailnet client
-  as the bridge gateway (172.x) — without the RFC-1918 range the allowlist
-  blocks the tailnet too, while real internet clients always keep their
-  public source IP (403); (2) the hub then scrapes
+  variant — EnaCast AI, 2026-08-31, verified end to end; Panotxa same
+  day).** Add to the app's `custom_labels` a dedicated router + allowlist
+  referencing the GENERATED service name:
+  `traefik.http.routers.metrics-<uuid>.rule=(Host(\`<domain>\`) || Host(\`<host-tailnet-ip>\`)) && Path(\`/metrics\`)`
+  with `priority=1000` (Path rules are short — default length-based
+  priority loses to the site's Host rule), `entryPoints=https`, `tls=true`,
+  `tls.certresolver=letsencrypt`, `service=https-0-<uuid>` (whichever
+  generated service serves the domain), and a middleware
+  `ipallowlist.sourcerange=100.64.0.0/10,172.16.0.0/12,127.0.0.1/32`.
+  🔴 **The Host() clause is NOT optional on a multi-app host.** A bare
+  `` Path(`/metrics`) `` router is GLOBAL to that Traefik: at priority 1000
+  it captures /metrics for EVERY app on the box, so the other apps'
+  token-gated public-origin scrapes suddenly 403 at the allowlist →
+  their `up` goes to 0 → NoData alerts. This took down the
+  llm-index-watcher and licita-radar scrapes on oriolj-nc-1 for ~20 min
+  (liw-worker-dead paged, 2026-08-31). `Host(<tailnet-ip>)` is what lets
+  the hub's scrape match (its Host header is the target IP); Traefik
+  ignores the port when matching Host.
+  Three more non-obvious facts: (1) **tailscaled MASQUERADEs tailnet
+  traffic it forwards into the docker bridge**, so Traefik sees every
+  tailnet client as the bridge gateway (172.x) — without the RFC-1918
+  range the allowlist blocks the tailnet too, while real internet clients
+  always keep their public source IP (403); (2) the hub then scrapes
   `https://<host-tailnet-ip>:443` with `tls_config.server_name: <domain>`
-  (SNI serves the right cert; the router matches by Path, so the IP Host
-  header is fine for Traefik) — but **Django needs the tailnet IP in
+  (SNI serves the right cert) — but **Django needs the tailnet IP in
   ALLOWED_HOSTS** or the scrape 400s DisallowedHost; (3) test all four
   paths after: public+token→403, site→200, tailnet+token→200, tailnet
-  bare→401.
+  bare→401 — plus the OTHER apps' /metrics on the same host still
+  answering their own 401 (not 403). Coolify label changes only apply on
+  the next deploy, and an **empty git commit does NOT trigger a
+  `watch_paths` webhook deploy** — touch a real file under the watched
+  path (or use the deploy API).
 - **Coolify Dockerfile apps: the token-gated public-origin scrape path.**
   Publishing the app port as a host port would **disable blue-green**, and
   the Coolify API rejects IP-qualified `ports_mappings` anyway
@@ -358,6 +371,13 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   (catalogue-first: every metric documented in the repo, hub jobs
   `licita-radar-app|scheduler|postgres`, dashboards `licita-radar*.json`,
   alert group `hq;licita-radar`). Copy that shape for the next Django app.
+- **Fourth reference implementation** (personal scope, 2026-08-31):
+  **Panotxa** (`JLUV-smallbets/NutriLens`) — `backend/config/prom.py` +
+  `backend/METRICS.md`; the hardened tailnet-only scrape (job
+  `panotxa-app`) COMBINED with the bearer token, Celery Redis-counter
+  hooks in `config/celery_app.py` beside the existing healthserver hooks,
+  and gunicorn gthread multiproc. Its uuid4-PK models make the
+  `Count("pk")` rule non-optional.
 - **Celery**: on a compose host, run the maintained standalone
   `celery-exporter` as one more service pointed at the broker, labeled
   with `oj.metrics.port`. **On Coolify Dockerfile apps (worker/beat are
@@ -545,6 +565,54 @@ Non-negotiables, wired to the rest of the estate's rules:
    events (SDKs swallow transport errors by design).
 
 - DOCKER-USER tailnet-only guard hosts as of 2026-08-30: coolify-ovh-vps-1, oriolj-nc-1, enacast-ai-fsn1-1 (script + oneshot unit per `coolify-deploy` §7c).
+
+## 5c. Grafana orgs — one Grafana, four orgs (since 2026-08-31)
+
+Panels are partitioned per SCOPE into Grafana organizations (Oriol's
+standing requirement: the three scopes share one Grafana but never one
+pane of glass):
+
+| Org | Name | Holds |
+|---|---|---|
+| 1 | `hq` | hub-infra dashboards + **ALL alerting** (rules, contact points, notification policies — they exist once, in org 1 only) |
+| 2 | `Personal` | licita-radar, llm-index-watcher, panotxa |
+| 3 | `EnaCast` | enacast-ai, enachat |
+| 4 | `SmartupSoft` | (none yet) |
+
+Mechanics, each learned the hard way on 2026-08-31:
+
+- **Orgs cannot be file-provisioned, and provisioning INTO a missing org
+  is FATAL**: Grafana crash-loops at startup with `[org.notFound] failed
+  to get org by ID`. The fix is the hub compose's **`init-orgs` one-shot
+  service** (`hq-monitoring/grafana/init-orgs.sh`): before the real
+  Grafana starts it boots a throwaway grafana on 127.0.0.1:3999 against
+  the same `/var/lib/grafana` volume with an EMPTY provisioning tree,
+  creates the missing orgs via the API asserting the exact id→name
+  mapping, kills it, then idles healthy (Coolify counts exited containers
+  against stack health, so one-shots must sleep — init-perms pattern).
+  Fresh box, smoke run and prod redeploy all converge with no manual step.
+- **`init-orgs` also re-aligns the admin password with the declared
+  secret on every run** (`grafana cli admin reset-admin-password`).
+  `GF_SECURITY_ADMIN_PASSWORD` only applies on the FIRST boot ever; the
+  live hub's DB password matched neither the secret file nor the recorded
+  env when checked. Declarative config wins: `SERVICE_PASSWORD_GRAFANA`
+  in the hub's Coolify env IS the admin password after every deploy.
+- **Datasources are org-scoped** — the same Prometheus + Loki pair is
+  provisioned once per org **with identical `uid`s** (uids are unique per
+  org), so a dashboard JSON works unchanged in whichever org it lands in.
+- **Dashboards**: `grafana/dashboards/<scope>/<project>/*.json`, one file
+  provider per org (`foldersFromFilesStructure` turns the project subdir
+  into a Grafana folder). Scope dirs: `hq/`, `personal/`, `enacast/`,
+  `smartup/`.
+- **Alerting stays in org 1** — rules query org 1's datasources, contact
+  points/Pushover exist once. Do NOT move alert provisioning into scope
+  orgs (it would need per-org contact-point + policy duplication).
+- **Smoke asserts the whole thing** (`scripts/smoke.sh`): orgs 2–4 exist
+  with the exact names, every org has its 2 datasources. Its service
+  count and alert-rule assertions are DYNAMIC/subset on purpose — the old
+  hardcoded "7 services" and "exactly five rules" went stale silently and
+  made smoke fail on a healthy stack; don't reintroduce exact-set
+  assertions that every new project must remember to update.
 
 ## 6. `make logs` — prod/beta logs from the dev machine
 
