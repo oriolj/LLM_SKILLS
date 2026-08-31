@@ -1423,7 +1423,14 @@ worked:
   intact — the client never sees a redirect, so nothing is stripped.
   Keep `/health*` local (Coolify health checks); strip hop-by-hop headers
   both ways and `content-encoding`/`content-length` from the response
-  (httpx auto-decompresses). Auth tokens work at the target because the
+  (httpx auto-decompresses). 🔴 **Also strip the client's
+  `Accept-Encoding` from the forwarded request**: the WebView advertises
+  `br`/`zstd`, the upstream (Traefik compress) honors it, and httpx can
+  only decode gzip/deflate — every response big enough to compress then
+  DIES mid-stream (curl shows `http=000`), which presented as "the old
+  APK shows 0 meals on every day, but small screens work" (Panotxa,
+  2026-08-31, second proxy bug in one afternoon). Let httpx negotiate
+  its own encoding and return decoded bytes. Auth tokens work at the target because the
   DB rows and `SECRET_KEY` moved with the migration. A 308 remains fine
   for purely BROWSER-facing hosts (share pages) where landing on the
   canonical URL is a feature and requests are unauthenticated GETs.
