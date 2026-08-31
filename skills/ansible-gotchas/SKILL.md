@@ -285,5 +285,11 @@ errors; filters bind tighter than `+`.
 - [ ] Probes are `changed_when: false` + check-mode-safe; setters fire only
       on difference.
 - [ ] Secrets under `no_log: true` and never in env vars for child sudo.
+      Protect the secret **at the point it first enters Ansible state** —
+      the `set_fact`/`slurp`/`register` that reads it — not only the
+      final `template`/`copy`: callbacks, `-v` output and event/log
+      collectors serialize every task result, and a `no_log` on the last
+      task does nothing retroactively (shipped twice in hq's NaN tasks,
+      caught in review 2026-08-31).
 - [ ] Ran the validation ladder; on a fleet, considered the freshest and the
       weirdest machine, not the dev box.
