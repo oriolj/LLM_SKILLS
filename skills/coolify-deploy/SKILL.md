@@ -1364,6 +1364,64 @@ Plan, resource by resource:
 Backups are not optional here: a wrong `delete_volumes` default on step 6
 is unrecoverable.
 
+## 7e. Migrating an app between SERVERS (same Coolify) — FIELD-TESTED (Panotxa, 2026-08-30/31)
+
+Official position ([migrate-apps-different-host](https://coolify.io/docs/knowledge-base/how-to/migrate-apps-different-host)):
+**Coolify has no built-in migration.** The doc's method is redeploy on the
+target + tar Docker volumes through a busybox container + scp + untar into
+the new volume. Use that for OPAQUE volume data. For Postgres, a logical
+dump is strictly better (survives PG version changes, verifiable): the
+house lane below moved Panotxa (7 users, 1.1k meals) with **zero restore
+errors** — and its aftermath produced the one trap that matters.
+
+The lane:
+1. **Backups BEFORE, verified**: scheduled Coolify backup → R2 on the
+   SOURCE db (execution `success` with no S3 warning + the object listed
+   in the bucket — both, always).
+2. **Create the target resources fresh** (§1c playbook: Dockerfile apps +
+   managed DB resources; copy envs — keep `SECRET_KEY` identical so
+   sessions/tokens/signed URLs survive; media on external object storage
+   moves by doing nothing).
+3. **Move the data**: source dump (Coolify backup → R2, or straight
+   `pg_dump -Fc` over ssh) → `pg_restore` into the target DB (temporarily
+   published port, closed + verified after; or over the docker network).
+   Count tables/rows after.
+4. **Cut over DNS** to the target; keep the source stack RUNNING (old
+   share links, old installed builds).
+5. **Backups AFTER**: schedule the target db's backup → R2 and verify one
+   real execution + bucket object before calling it done.
+
+🔴 **The trap: the source keeps eating writes — split-brain is the
+default, not the exception.** Installed native builds bake the API origin
+at build time; they never see the DNS cutover and keep writing to the
+source DB invisibly (Panotxa: 3 meals / 5 dishes / 4 habit updates in the
+FIRST day, from the two real users' phones). "Keep the old stack running"
+without a write-freeze is how user data quietly forks. The fix that
+worked:
+- **Turn the source into a 308 redirector** (env-gated middleware in the
+  shared codebase, activated only on the legacy resource): 308 — never
+  301/302 — preserves POST bodies and uploads through the WebView fetch;
+  answer OPTIONS locally (CORS preflights must not be redirected); keep
+  `/health*` local (Coolify health checks). Auth tokens keep working
+  because the DB rows and `SECRET_KEY` moved with the migration. Caveat:
+  OkHttp-based native code (widgets/wear) does NOT follow 307/308 on
+  POST — only the WebView traffic transparently survives; stragglers need
+  an updated build.
+- **Reconcile before or as you freeze**: if the TARGET has zero writes
+  since the migration dump (check!), the cleanest merge is a fresh full
+  dump of the frozen source restored over the target
+  (`pg_restore --clean --if-exists -1` = single transaction) — no
+  per-table surgery, derived data stays self-consistent. If both sides
+  took writes, you're in per-table conflict-merge land; uuid PKs make
+  `ON CONFLICT DO NOTHING` copies possible, bounded-integer PKs collide.
+- **Sequence**: snapshot source → flip source to redirector → stop source
+  worker/beat (they still WRITE — scheduled jobs, and they'd double-send
+  digests/pushes) → final source dump → restore into target → verify
+  counts → fresh target backup.
+- Retirement horizon: an sslip.io hostname is welded to the source IP, so
+  the redirector must outlive the last installed old build; ship users a
+  new build, then decommission.
+
 ## 8. Failure → cause → fix
 
 | Symptom | Likely cause | Fix |
