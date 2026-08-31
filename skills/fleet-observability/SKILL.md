@@ -432,14 +432,17 @@ rule's `for: 15m`. That is why `hq-alloy-not-shipping` is severity
 **warning** (downgraded 2026-08-30 after 4 deploys in 25 min paged
 priority-1) — batch hub pushes, and don't re-promote it to critical.
 
-**Pushover for paging** (email is an inbox nobody stares at): two contact
-points routed by the `severity` label — warning → priority 0, critical →
-priority 1 with a distinct sound (bypasses quiet hours; priority 2/emergency
-re-alerts until acked and additionally needs `retry`/`expire`). Token + user
-key ride the `/run/secrets` pattern via Grafana's `$__file{...}` provisioning
-interpolation — **verified working** alongside `$__env{...}` (2026-08-25).
-Give critical a much shorter `repeat_interval` (30 m here) than the default
-(24 h) — critical should NAG until someone acts.
+**Pushover for paging** (email is an inbox nobody stares at): **three tiers
+since 2026-08-31** (prose doc: hq `shared/docs/alerting.md`), routed by the
+`severity` label — default/`warning`/unrecognised → email only, repeat 24 h;
+`important` → email + Pushover priority 0, repeat 4 h; `critical` → email +
+Pushover priority **2/emergency** (siren, re-alerts every `retry: 60` s until
+acked, `expire: 1800` = the route's 30 m repeat so emergency cycles never
+overlap), repeat 30 m. `severity: warning` falling to email-only is
+deliberate (pre-tier warning rules were demoted from p0); new phone-worthy
+rules use `important`. Token + user key ride the `/run/secrets` pattern via
+Grafana's `$__file{...}` provisioning interpolation — **verified working**
+alongside `$__env{...}` (2026-08-25).
 
 **Provisioned alert rules do NOT die with their file.** Deleting a
 provisioning yml only stops UPDATES — the rules live on in grafana.db,
