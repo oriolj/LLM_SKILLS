@@ -16,6 +16,21 @@ Everything rides the **tailnet** — joining Tailscale is a hard prerequisite
 for any host before its agent (Prometheus scrapes agents over it; agents push
 logs over it; nothing observability-related touches a public interface).
 
+> 🔴 **Tailscale key expiry on a server silently breaks MORE than the
+> tailnet** (FichaChat box, root-caused 2026-08-31): with
+> `accept-dns=true`, the host's resolv.conf points at MagicDNS
+> (100.100.100.100), and **long-lived containers snapshot that resolver
+> at container start**. When the node key expires, MagicDNS dies — the
+> HOST falls back to provider resolvers and looks healthy, but an old
+> container (Coolify's `coolify-proxy` especially) keeps the dead
+> forward: Traefik's ACME then fails every renewal on
+> `lookup acme-v02.api.letsencrypt.org … server misbehaving` until the
+> certs expire in production. Fix: restart the container; prevent:
+> **disable key expiry on every server node** in the Tailscale admin,
+> and prefer `--accept-dns=false` on servers (they address peers by IP
+> or inventory name, and a server resolving the whole internet through
+> MagicDNS is what creates the trap).
+
 **Addressing rule (Oriol's standing preference): use Tailscale MagicDNS
 short hostnames, never raw `100.x` IPs, in every URL** — homepage links,
 `LOKI_ADDR`, scrape target lists, DSNs, docs (`http://monitor-1-nc:3000`,
