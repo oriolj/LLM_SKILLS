@@ -1275,6 +1275,41 @@ auto-assigned even here) → `POST /deploy`.
   (oliver006/redis_exporter) wants `REDIS_ADDR=redis://<db-uuid>:6379` +
   `REDIS_PASSWORD` split out — it does NOT parse creds from the URL.
 
+### Git-less deploys — when the content must never touch a remote (verified 2026-08-31, cashflow-enantena)
+
+Some apps cannot be git-sourced at all: the source of truth is a repo
+with **no remote by design** (hq — company books, bank data), or the
+served content IS the sensitive data (so a private GitHub repo or a
+registry image with the data baked in re-creates exactly the exposure
+the remote-less repo exists to avoid). The pattern that works, verified
+end-to-end on internal-1:
+
+- **Resource**: a plain docker-image app (this section's API recipe)
+  running a pinned public server image (`nginx:1.29-alpine`). Coolify
+  never sees the content; there is nothing to clone.
+- **Content**: a `host_path` bind (`/srv/<app>-site` →
+  `/usr/share/nginx/html`), filled by a **`make deploy`** target in the
+  source repo — rsync over SSH **of an explicit whitelist** of the files
+  the page actually fetches (`-L` to dereference symlinks into real
+  files). Never `rsync` the whole folder: the raw sources (bank
+  exports, xlsx, secrets) must not ship. Content updates need **no
+  Coolify action** — the bind mount is live; Coolify redeploys only for
+  image or config changes.
+- **Config** (server conf, htpasswd): inline `type: file` storages —
+  remember content changes are DELETE+POST, not PATCH (above).
+- **Access**: these apps are usually private — apply the tailnet-only
+  routing recipe above (shared-Host path prefix, geo gate + basic auth),
+  and TEST the "server is tailnet-only" assumption first: internal-1
+  was assumed closed and answered the whole internet on 80/443.
+- **Push-to-deploy (§1b) explicitly does not apply** — there is no push.
+  Record the exemption in the app's `DEPLOY.md` and give it a substitute
+  contract: `make deploy` IS the deploy, and it must be the final step
+  of whatever workflow refreshes the data (skill/checklist), or the live
+  copy silently goes stale while localhost looks fine.
+- Blue-green is irrelevant for the content path (no container churn);
+  the rare image bump still gets it via the image's own behavior — keep
+  the UI health check ON (`/healthz` exempt from auth and gates).
+
 ## 7d. Migrating resources between Coolify INSTANCES (Cloud ↔ self-hosted) — UNTESTED
 
 ⚠️ **Not yet exercised. Everything here is inferred from the verified
