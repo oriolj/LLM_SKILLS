@@ -1446,6 +1446,7 @@ worked:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| After a server move, some users' new records are "missing" while the app looks healthy | **Split-brain**: the old stack still serves its own DB and installed clients (baked API origin) kept writing there — DNS cutover never reaches them | Freeze the old stack into a reverse proxy (NOT a 308 — redirects strip Authorization), stop its worker/beat, merge the old DB's delta into the new one (full restore if the new DB has zero unique writes), THEN retire. §7e house rule: this check belongs in the cutover itself |
 | 404 on a domain that RESOLVES to the server | Traefik has no router for that Host — the domain isn't on the resource (or it was added without a redeploy) | PATCH `domains` (comma-separated — ADD, keep the sslip one) + update ALLOWED_HOSTS/CSRF/PUBLIC_BASE_URL in the same change + redeploy. 404-vs-502 is the diagnostic: 404 = DNS fine, routing unclaimed; 502 = routed but app dead |
 | 502 after deploy | No swap, OOM during build | `free -m`; add swapfile, persist |
 | 502, no OOM in dmesg | Custom traefik.* labels conflict | Remove all custom labels |

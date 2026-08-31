@@ -94,6 +94,19 @@ Build it in this order:
 
 ## Known gotchas
 
+- **Installed builds bake the API origin forever — every backend server
+  move must budget for them.** The origin constant compiled into the APK
+  never sees a DNS cutover; installed apps keep writing to the old host
+  as long as it answers (the Panotxa split-brain: two phones fed the
+  abandoned DB for a day). Whenever the backend moves: count the
+  installed builds as clients of the OLD origin, keep that origin alive
+  as a transparent reverse proxy to the new one (a 308 logs users out —
+  redirects strip Authorization; details in `coolify-deploy` §7e), ship a
+  new build immediately, and retire the old origin only when every known
+  device runs it. Baking a DOMAIN you control (`api.product.com`) instead
+  of a host-welded name (sslip.io) makes future moves free — prefer it
+  from the first build.
+
 - The OS camera/photo-picker is a separate Android activity and the OS may
   kill the app behind it (`appRestoredResult` recovery is a web-layer
   concern) — don't try to "fix" missing-photo bugs in native config.
