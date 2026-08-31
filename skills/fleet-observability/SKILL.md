@@ -379,6 +379,18 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   and gunicorn gthread multiproc. Its uuid4-PK models make the
   `Count("pk")` rule non-optional. Also the reference for the **gunicorn
   in-flight/capacity gauges** (§5d) in `backend/gunicorn.conf.py`.
+- **Fifth reference (smartupsoft scope, STAGED 2026-08-31 — not yet
+  verified live, check hq USER_TODO before copying):**
+  **FichaChat** (`SmartupSoft/employee_time_control/backend`) —
+  `config/prom.py` + `METRICS.md`, Celery Redis-hook counters in
+  `config/celery.py`, gunicorn gauges in `gunicorn.conf.py`. Its new
+  wrinkle: on a **Coolify Compose resource** the postgres/redis
+  exporters ride the SAME compose as services with ports bound to
+  `${TAILNET_IP:-127.0.0.1}` (Coolify env var = the host's tailnet IP;
+  unset falls back to loopback, never public) — no DOCKER-USER guard
+  and no separate exporter resources needed. Hub jobs
+  `fichachat-{app,postgres,redis}`, dashboard `smartup/fichachat`,
+  alert group `hq;fichachat`.
 - **Celery**: on a compose host, run the maintained standalone
   `celery-exporter` as one more service pointed at the broker, labeled
   with `oj.metrics.port`. **On Coolify Dockerfile apps (worker/beat are
