@@ -271,6 +271,18 @@ enacast.com that's the CDmon API (load the `cdmon-dns` skill; its safety
 rules apply). Cloudflare validates over HTTP once the CNAME resolves and
 issues the cert (CA: Google Trust Services). Until then the domain sits in
 "initializing/pending" — that state is normal, not an error. Check status:
+
+**Apex on an external zone — the pre-staged-zone pattern (panotxa.com,
+2026-08-31).** When the apex must serve Pages but the zone lives at a
+no-ALIAS registrar (CDmon), stage EVERYTHING so the human-only NS flip is
+the single remaining step: create the Cloudflare zone (status `pending` is
+fine), mirror the existing records into it, add proxied `@`/`www` CNAMEs to
+`<project>.pages.dev`, attach both apex and www as Pages custom domains
+(the API accepts them while the zone is pending), AND create the interim
+`www CNAME → <project>.pages.dev` at the external DNS so the site is
+reachable before the move. Check DNSSEC via RDAP before proposing the NS
+change — CDmon-registered domains are signed by default and the flip
+without dropping the DS takes the LIVE api/app subdomains dark too.
 `GET .../domains` on the same endpoint, or `wrangler pages project list`.
 
 - wrangler (as of 4.x) has no `pages domain add` — the API call above is

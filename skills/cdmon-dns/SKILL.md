@@ -16,6 +16,7 @@ resolves from it.
 | `enacast.com` | CDmon | **CDmon** (ns1-3.cdmon.net) | this API |
 | `enacast.chat` | CDmon | **Cloudflare** (zone `78798ebd9e4d55ea03c5ac24e3d4537d`) | the Cloudflare API — see `cloudflare-deploy` |
 | `santjust.chat` | CDmon | **CDmon** | this API — one apex `A @ → 141.95.29.64` (EnaChat client custom domain, live 2026-08-25; apex cannot be a CNAME) |
+| `panotxa.com` | CDmon (personal acct `oriolj88`) | **CDmon**, move to Cloudflare pending | this API (personal key) — live records `api` A, `app`+`www` CNAMEs. A pre-staged Cloudflare zone (heidi/kyle NS) awaits the human NS flip so the apex can serve Pages; ⚠️ **DNSSEC is SIGNED** (RDAP-verified 2026-08-31) — disable before any NS change or api.panotxa.com goes dark |
 
 `enacast.chat` was registered 2026-08-26 and is the product's main domain; its
 nameservers point at Cloudflare so the apex can serve Cloudflare Pages and so
