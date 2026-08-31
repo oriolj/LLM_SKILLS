@@ -127,6 +127,19 @@ const requestNewAccessToken = async (): Promise<string> => {
 };
 ```
 
+**The same trap wears a different costume on magic-link / one-time-token
+pages** (FichaChat, field case 2026-08-31): a check-in page did
+`catch { setMessage("Enlace no válido o expirado") }` around its
+token-status fetch, so EVERY transport failure — including the API's TLS
+cert having silently expired server-side — rendered as "your link
+expired". Users and support then chase link-expiry logic while the real
+fault is the network/TLS/route layer; it hid a month-long cert outage.
+Same rule as above, applied to token flows: only an explicit 4xx
+*response* from the token endpoint may claim the token is invalid/used/
+expired; no response at all gets its own message ("no se pudo conectar,
+inténtalo de nuevo") and ideally a retry. Audit any `catch` on
+one-time-token pages exactly like the refresh interceptor.
+
 And in the interceptor, only `SessionExpiredError` logs out:
 
 ```ts

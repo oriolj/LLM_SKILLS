@@ -1064,6 +1064,7 @@ docker exec -w /app <worker-container> python manage.py migrate <app>
 - `coolify-sentinel` eating CPU on a busy host can be throttled/disabled in Coolify settings.
 - Prod commands not matching the repo = stale deploy or a **UI command override** on the resource — check there before debugging code.
 - After changing env vars in the UI, you must **redeploy** for them to apply.
+- 🔴 **Expired Let's Encrypt cert on a Coolify host → suspect STALE CONTAINER DNS first** (FichaChat outage, root-caused 2026-08-31). `coolify-proxy` runs for months and snapshots the host's resolv.conf at container start; if the host resolved through Tailscale MagicDNS (`100.100.100.100`) back then and the node's key later expired, every ACME renewal fails with `lookup acme-v02.api.letsencrypt.org … on 127.0.0.11:53: server misbehaving` while host DNS looks perfectly healthy and Traefik keeps serving the dead cert past expiry. Diagnose: `docker logs coolify-proxy | grep -i acme` (daily renewal errors = trying-and-failing), compare `/var/lib/docker/containers/<proxy-id>/resolv.conf`'s `ExtServers` against the host's live `/etc/resolv.conf`, and confirm a fresh `docker run --rm --network coolify busybox nslookup acme-v02.api.letsencrypt.org` resolves. Fix: `docker restart coolify-proxy` — it picks up live resolvers and immediately renews everything overdue. Prevent: disable Tailscale key expiry on server nodes and prefer `--accept-dns=false` on servers (full lesson: `fleet-observability` skill).
 
 ## 7b. Coolify Cloud API (debugging deploys without the UI)
 
