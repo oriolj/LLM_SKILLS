@@ -537,9 +537,10 @@ Non-negotiables, wired to the rest of the estate's rules:
 Workstations are on the tailnet; `logcli` + the `reader` cred give real
 tailing. homelab/ansible installs logcli (note: Arch's `extra/logcli`
 lags the hub — pin the release binary matching the hub's Loki minor into
-`~/.local/bin` when it matters). `~/.config/oj-loki/env` is **not yet
-ansible-deployed** (tracked in homelab/docs/TODO_AND_EXPLORE.md); today it
-exists hand-made on one workstation:
+`~/.local/bin` when it matters). `~/.config/oj-loki/env` **is
+ansible-deployed** (homelab/ansible `development` role, `--tags loki-logs`,
+reading `LOKI_READER_PASSWORD` from `homelab/secrets/loki-agents.env`) —
+this note previously said "not yet"; fixed 2026-08-31. The file:
 
 ```bash
 LOKI_ADDR=http://monitor-1-nc:3100
