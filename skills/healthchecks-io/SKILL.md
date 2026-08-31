@@ -23,6 +23,13 @@ are per-project**. Keys live in `hq/homelab/secrets/healthchecks.env` as
 Never mix projects: a check created with the wrong key lands in the wrong
 realm's dashboard.
 
+🔴 **`POST /checks/` answering bare `403` = the ACCOUNT check limit**
+(free tier: 20 across ALL projects, not per project — hit 2026-08-31 with
+only 13 visible because other projects' checks count too). Budget checks:
+one **dead-man switch per app** (its most frequent beat task pinging on
+success) beats one-check-per-job; per-job depth belongs in Grafana
+(task_last_run alerts). Upgrading or pruning is Oriol's call.
+
 ## API (v3, verified)
 
 - `X-Api-Key: <key>` header; base `https://healthchecks.io/api/v3/`.
@@ -46,3 +53,9 @@ realm's dashboard.
 - Every deployed repo's status table has a "Jobs monitored by
   healthchecks.io" row (hq `shared/docs/deploying-a-new-project.md`) —
   wiring a project's heartbeats closes it.
+- **Reference implementation (Panotxa, 2026-08-31)**: env-driven mapping
+  `HEALTHCHECKS_PINGS` (JSON task-path → ping URL, Coolify env on the
+  worker) read by a `task_postrun` success-only hook
+  (`backend/config/celery_app.py::_task_healthchecks_ping`, httpx 5 s,
+  best-effort). Adding a check later = create it via API + extend the env,
+  no deploy.

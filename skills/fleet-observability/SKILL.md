@@ -553,12 +553,13 @@ Non-negotiables, wired to the rest of the estate's rules:
 - The DSN is a credential: **Coolify env var, runtime-only** (or the
   project's secrets mechanism) — never committed.
 
-**Ask the user — do not invent these:**
+**Since 2026-08-31 agents SELF-SERVE GlitchTip** — org API token in
+`hq/homelab/secrets/glitchtip.env`; orgs are per realm (`enacast`,
+`oriolj`). Projects/DSNs via the Sentry-compatible API; org creation is
+closed on the instance (Django-shell recipe) — the `glitchtip` skill owns
+the mechanics. Still confirm with the user only:
 
-1. **The DSN itself.** Projects are created by hand in the GlitchTip UI
-   (per project × env, or one project with environments — the user's
-   choice); an agent cannot self-serve one. Ask for it, or ask the user to
-   create the GlitchTip project and paste the DSN.
+1. ~~The DSN itself~~ — self-serve now (see above).
 2. **Reachability of the DSN host from the app's servers.** The GlitchTip
    UI is tailnet-only today; whether app servers send events over the
    tailnet or a public ingest endpoint exists is deployment-specific —
