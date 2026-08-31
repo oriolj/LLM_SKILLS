@@ -540,7 +540,10 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   (the healthcheck is infrastructure, not a spoofable public Host).
 - **Persistent storage by API**: `POST /applications/{uuid}/storages` with
   `type` ∈ **`persistent`** (volume/bind; add `host_path` for a bind mount)
-  or **`file`** (inline `content` + `fs_path`). The enum is in no doc —
+  or **`file`** (inline `content` + `mount_path` — the container path;
+  `fs_path` in the response is derived, and sending it instead of
+  `mount_path` 422s "mount_path required", verified 2026-08-31). The
+  enum is in no doc —
   when the API rejects guesses, read Coolify's own
   `raw.githubusercontent.com/coollabsio/coolify/main/openapi.json` (grep
   the path's requestBody schema): the source is the spec. Related dead end:
@@ -1222,8 +1225,8 @@ auto-assigned even here) → `POST /deploy`.
   document them in the server's hq doc — Coolify knows nothing about them.
 - **Envs field is `is_buildtime`** — `is_build_time` 422s ("field not
   allowed"). Storage of `type: "file"` on an APPLICATION works like on
-  services (inline `content` + `fs_path`; the server file lands under
-  `/data/coolify/applications/<uuid>/…`) — but do NOT send `name` for
+  services (inline `content` + `mount_path`; the derived `fs_path` lands
+  under `/data/coolify/applications/<uuid>/…`) — but do NOT send `name` for
   type file (422). This is how postgres-exporter gets its
   `PG_EXPORTER_EXTEND_QUERY_PATH` custom-queries yaml with zero repo.
 - `GET /deployments/applications/{uuid}` returns
@@ -1244,6 +1247,28 @@ auto-assigned even here) → `POST /deploy`.
   (coolify-ovh-vps-1, oriolj-nc-1: `/usr/local/sbin/docker-user-tailnet-only.sh`
   + oneshot unit, ports listed inside the script) — folding it into a
   shared/ansible role with a per-host port list is overdue.
+- **File-storage `PATCH` with new `content` answers 200 but never updates
+  the file** (host copy and container both keep the old text through a
+  force redeploy — verified 2026-08-31, cashflow-enantena nginx conf).
+  To change an inline file: `DELETE /applications/{uuid}/storages/{uuid}`
+  + `POST` it again, then force redeploy.
+- **A Coolify domain WITH a path (`http://host/app`) generates a Traefik
+  router that STRIPS the prefix** before proxying (verified 2026-08-31:
+  nginx behind `…/cashflow` received `/`). Serve the app at root and
+  avoid absolute redirects (they escape the prefix — use nginx `index` /
+  relative paths). This is how two resources share one Host (gethomepage
+  at `/`, a second app at `/cashflow` on the same ts.net hostname).
+- **Tailnet-only routing on a Coolify host**: a public DNS name resolving
+  to a CGNAT `100.x` address (sslip.io embedded-IP names, or your own
+  A record) is DROPPED by Tailscale MagicDNS resolvers (rebind
+  filtering; Cloudflare 1.1.1.1 answers it fine — verified 2026-08-31).
+  Don't build a team URL on one. Use the host's ts.net hostname + a path
+  prefix instead, and gate in the app: nginx `geo` on `X-Real-Ip`
+  allowing `100.64.0.0/10` **plus `172.16.0.0/12`** — tailscaled
+  MASQUERADEs inbound tailnet traffic so Traefik often reports the
+  docker-bridge gateway as the client (same finding as the enacast-ai
+  `/metrics` router); public-interface clients keep their real IP and
+  can be 403'd even with valid basic-auth credentials.
 - postgres-exporter (quay.io/prometheuscommunity/postgres-exporter) wants
   `DATA_SOURCE_NAME=postgres://…@<db-uuid>:5432/<db>?sslmode=disable`
   (from the DB resource's `internal_db_url`); redis_exporter
