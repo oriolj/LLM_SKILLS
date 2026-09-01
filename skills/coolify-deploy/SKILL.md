@@ -238,6 +238,17 @@ only an `in_progress` row that never finishes is the jam from §6b.
 ## 2. Networking / Traefik
 
 - **Never add `ports:` or `expose:` for the web interface.** Coolify's Traefik routes over the internal Docker network; host port mappings interfere with routing (and disable blue-green). Set the internal port in the UI's **"Port Exposes"** field instead.
+- 🔴 **Coolify REWRITES compose `ports:` to
+  `${TAILNET_IP:-127.0.0.1}:<host>:<container>`** — a plain `"8611:8080"`
+  in your compose becomes **localhost-only** in the generated
+  `docker-compose.yaml` on the server. Set `TAILNET_IP` as an env var on
+  the resource to bind a real interface (the estate's tailnet IP), which
+  is strictly better than `0.0.0.0` + a firewall rule: the bind IS the
+  access control. ⚠️ **The rewrite can appear between deploys** — talaia's
+  FIRST deploy published `0.0.0.0:9756`, a later redeploy silently moved
+  it to `127.0.0.1`, and the hub's scrape went dark with no other symptom
+  (2026-09-01). After any deploy that touches ports, verify with
+  `docker port <container>`, not with the compose you wrote.
 - Port-map ONLY services needing direct host access (streaming 8000, SFTP 2022). Published ports **bypass ufw** — bind to a specific IP (`"${TAILNET_IP:?}:9090:9090"`), never `0.0.0.0`.
 - **Traefik labels depend on resource type:**
   - Dockerfile app / Compose application buildpack: Coolify auto-generates labels. **Custom `traefik.*` labels conflict** with the auto-generated `loadbalancer.server.port` → Bad Gateway. Remove them all.
