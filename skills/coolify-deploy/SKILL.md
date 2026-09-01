@@ -1153,7 +1153,10 @@ api.resend.com; curl's default UA happens to pass).
   --if-exists` from the workstation, then `PATCH {is_public: false}` and
   prove the port is closed. Restore BEFORE the app's first migrate-on-boot
   deploy, or migrate stamps an empty schema first (the restore's --clean
-  recovers it, but don't rely on it).
+  recovers it, but don't rely on it). **And if the app resources already
+  exist, STOP them for the restore** — a running web/worker/beat re-runs
+  its boot-time `migrate` every time it restarts, against whatever the
+  restore has committed so far (trap below, §7e step 3).
 - App settings like `is_preserve_repository_enabled` PATCH directly on
   `/applications/{uuid}` even though GET nests them under `settings`.
 - **Replacing Coolify's tunnel connector, zero-downtime**: Coolify Cloud's
@@ -1399,10 +1402,34 @@ The lane:
    managed DB resources; copy envs — keep `SECRET_KEY` identical so
    sessions/tokens/signed URLs survive; media on external object storage
    moves by doing nothing).
-3. **Move the data**: source dump (Coolify backup → R2, or straight
-   `pg_dump -Fc` over ssh) → `pg_restore` into the target DB (temporarily
-   published port, closed + verified after; or over the docker network).
-   Count tables/rows after.
+3. **Move the data — with the target app resources STOPPED**: source
+   dump (Coolify backup → R2, or straight `pg_dump -Fc` over ssh) →
+   `pg_restore` into the target DB (temporarily published port, closed +
+   verified after; or over the docker network). Count tables/rows after,
+   run `manage.py showmigrations --list` (zero `[ ]`) and
+   `makemigrations --check --dry-run` ("No changes detected"), THEN start
+   web/worker/beat (UI Stop/Start, or `POST /applications/{uuid}/stop` +
+   `/start`).
+   🔴 **Trap (Panotxa, 2026-08-30): a Django app that migrates on boot
+   races the restore.** The web resource was already deployed (auto-deploy
+   won the race with the env POSTs, see §7b) and its `/start` runs
+   `migrate --noinput` unconditionally; the container restart policy is
+   `unless-stopped`, so every failed boot retried within seconds.
+   `pg_restore --clean --if-exists` WITHOUT `-1` commits object by object,
+   so `migrate` saw the schema before the `django_migrations` rows —
+   `ProgrammingError: column "priority" of relation
+   "django_celery_beat_periodictask" already exists` (20:08:27 UTC, a plan
+   of ~40 long-applied migrations), then `column "email_monthly_digest"
+   … already exists` 5 s later with a shorter plan — and it stamped rows
+   of its own into the table the restore was still loading. It was only
+   harmless because the next day's merge restored the frozen source's
+   final dump in one transaction over everything. `-1` alone is NOT the
+   fix: a single-transaction restore keeps the DB consistent, but a
+   running app still serves and writes (beat jobs, user requests) against
+   the pre-restore data during the window, and those writes vanish at
+   commit. Stop the apps; a `SKIP_MIGRATE`-style env flag is worse (needs
+   a redeploy to take effect, and forgotten = every later deploy skips
+   migrations silently).
 4. **Cut over DNS** to the target; keep the source stack RUNNING (old
    share links, old installed builds).
 5. **Backups AFTER**: schedule the target db's backup → R2 and verify one
@@ -1486,6 +1513,7 @@ worked:
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | After a server move, some users' new records are "missing" while the app looks healthy | **Split-brain**: the old stack still serves its own DB and installed clients (baked API origin) kept writing there — DNS cutover never reaches them | Freeze the old stack into a reverse proxy (NOT a 308 — redirects strip Authorization), stop its worker/beat, merge the old DB's delta into the new one (full restore if the new DB has zero unique writes), THEN retire. §7e house rule: this check belongs in the cutover itself |
+| `ProgrammingError: column "…" of relation "…" already exists` from `manage.py migrate` at boot, right after (or during) a DB restore; the plan lists migrations applied long ago | The app was RUNNING during the restore: `pg_restore --clean` (no `-1`) rebuilt the schema object by object and the boot-time `migrate` (retried by the restart policy) read the schema before `django_migrations` — it may also have inserted rows into the half-loaded table | Stop web/worker/beat before any restore, restore, `showmigrations --list` (zero `[ ]`) + `makemigrations --check`, then start. If it already happened: re-restore the same dump in one transaction (`--clean --if-exists -1`) with the apps stopped, then the same two checks. §7e step 3 |
 | 404 on a domain that RESOLVES to the server | Traefik has no router for that Host — the domain isn't on the resource (or it was added without a redeploy) | PATCH `domains` (comma-separated — ADD, keep the sslip one) + update ALLOWED_HOSTS/CSRF/PUBLIC_BASE_URL in the same change + redeploy. 404-vs-502 is the diagnostic: 404 = DNS fine, routing unclaimed; 502 = routed but app dead |
 | 502 after deploy | No swap, OOM during build | `free -m`; add swapfile, persist |
 | 502, no OOM in dmesg | Custom traefik.* labels conflict | Remove all custom labels |
