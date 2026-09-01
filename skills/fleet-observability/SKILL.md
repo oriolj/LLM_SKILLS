@@ -528,6 +528,23 @@ below is the failure mode to check for, not a certainty. Verify with the
 file-provisioned dashboards the same way when the HTTP API login is not
 available.
 
+🔴 **Onboarding a project's scrape token can take the ENTIRE hub down.**
+A compose `secrets:` entry whose environment variable is unset makes
+`docker compose up` refuse to create ANY container —
+`environment variable "X_METRICS_TOKEN" required by secret "…" is not set` —
+so Prometheus, Grafana and loki-gateway all died estate-wide when a scrape
+token was added to the hub compose before the env var existed (2026-09-01,
+found only because an unrelated check hit a dead hub; nothing paged,
+because the thing that pages was the thing that was down). Rules:
+**set the env var on the hub resource FIRST, then push the compose +
+prometheus.yml change.** An EMPTY value is safe (that one scrape 401s and
+fails closed); an ABSENT one is a full outage. Recovery: setting the var
+via the Coolify API is not enough — Coolify regenerates the server-side
+`.env` only during a DEPLOY, so trigger a deploy, don't just
+`docker compose up` on the host. And when a hub outage is suspected, the
+tell is `docker ps -a` showing services in **Created** (never started),
+with the error only visible from a manual `docker compose up`.
+
 **hq-monitoring's `make validate` creates a dummy for EVERY
 `credentials_file` referenced in prometheus.yml** (grep-driven since
 2026-08-28) — adding a token-gated job needs no Makefile edit, only the
