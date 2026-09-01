@@ -115,6 +115,15 @@ undo, and no record history.
 - **Adding a NEW record (unique host+type) is the safe operation** — it
   cannot clobber anything. Still: `getDnsRecords` FIRST to confirm the
   host doesn't exist, and again AFTER to verify exactly one record changed.
+- **Deletes trip Claude Code's auto-mode permission classifier** — the
+  `dnsrecords/delete` call was blocked on 2026-08-29 and twice on
+  2026-09-01 even with the record confirmed dead. Do not retry in a loop
+  or wrap it to slip past: report it, and Oriol grants the permission for
+  that exact command ("I will give you the delete perm") — it then goes
+  through (`{"status":"ok","data":"Record deleted successfully"}`). Verify
+  afterwards with a resolver that is not the zone itself (DoH:
+  `https://cloudflare-dns.com/dns-query?name=<fqdn>&type=CNAME`,
+  `Status: 3` = NXDOMAIN).
 - **Edit/delete match on `host`+`type` only** — with multiple records on
   the same host+type (MX, NS, TXT sets), an edit/delete may hit more than
   you intend. For those, list first, show Oriol the exact record(s), and
@@ -141,6 +150,15 @@ undo, and no record history.
   in the CDmon panel invalidates the old one.
 
 ## Domain list (read-only) — and the SECOND CDmon account
+
+There is also a **THIRD CDmon account nobody has a key for** (found by
+RDAP 2026-09-01): `construcat.cat`, `xescomerce.com` and `fichachat.com`
+are registered at CDmon (10dencehispahard) and on CDmon nameservers, but
+appear in neither the Enantena list nor the personal `oriolj88` list.
+Probably SmartupSoft's (fichachat is its product). A domain missing from
+both lists is therefore NOT "not ours" — check RDAP
+(`curl -sL -H 'Accept: application/rdap+json' https://rdap.org/domain/<name>`)
+before concluding anything. Open item in hq `USER_TODO.md` → Domains.
 
 ```bash
 curl -s -X POST "$API/domains/list" -H "apikey: $KEY" \
