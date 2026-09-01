@@ -909,14 +909,25 @@ unless marked ⚠️; the cut-over itself is documented in the last bullet.
     ~20 GB `.dmp` under `/data/coolify/backups/...`; on a 75 GB disk the
     first nightly run filled the disk to 100 % and every build then died
     with apt `GPG error: … invalid signature` (the disk-full symptom —
-    check `df` before debugging keys). Fix: the retention trio
-    (`amount|days|max_storage` per side) — ALL-ZERO means keep forever;
-    `retention_max_storage_locally: 1` (GB) deletes even the newest local
-    dump after a successful run (upload included), emulating the UI-only
-    `disable_local_backup` toggle the API 422s on. Failed runs keep their
-    local file (cleanup only touches status=success). Verify the S3
-    object itself (`GET /s3-storages/{uuid}` returns the key/secret —
-    boto3 list works) — the execution row alone doesn't show the upload.
+    check `df` before debugging keys).
+    🔴 **Retention CANNOT fix this, and thinking it can costs a second
+    outage** (this skill said the opposite for a day — corrected
+    2026-09-01 by reading `deleteOldBackupsLocally`): every retention
+    branch operates on `$successfulBackups->skip(1)`, so **the newest
+    successful backup is never deleted** by amount, days OR max_storage.
+    With one nightly dump bigger than the free space, the disk refills
+    every night no matter what retention says. The ONLY switch that stops
+    local staging is **`disable_local_backup`, which is UI-only** — it is
+    absent from both the create and the PATCH schemas (422 "This field is
+    not allowed"), so an agent cannot set it. Options when the dump does
+    not fit: flip that toggle in the UI, shrink the dump, grow the disk,
+    or (with the owner's approval — it deletes backup files) a host timer
+    that removes the local `.dmp` once its S3 upload is confirmed.
+    Failed runs keep their local file (cleanup only touches
+    status=success). Verify the S3 object itself
+    (`GET /s3-storages/{uuid}` returns the key/secret — boto3 list works);
+    the execution row shows `status: success` for the DUMP and does not
+    prove the upload.
   - **Per-commit image accumulation**: N Dockerfile apps on one repo keep
     N tagged images per commit; two pushes in one evening ≈ 8 GB extra.
     `docker image prune` + drop old commit tags when the disk is tight,
