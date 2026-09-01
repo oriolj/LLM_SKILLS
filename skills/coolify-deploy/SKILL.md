@@ -440,6 +440,7 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
 - Bind mount: immediately `chown -R <uid>:<uid> <host-dir>` on the server (UI → Server → Terminal). Verify with the actual image: `docker run --rm -v /srv/app/data:/data <image> <db-touching-subcommand>`.
 - Named volume: Docker copies ownership from the image dir on first init — `RUN mkdir -p /data && chown 65532:65532 /data` in the Dockerfile.
 - Restored-by-hand DB files need the same chown or SQLite fails identically.
+- **`tmpfs:` mounts hit the same wall** (FichaChat outage 2026-09-01): docker mounts tmpfs `root:root`, so a nonroot app cannot create files in it — and `rm -rf` on the mount point itself fails EPERM (crash-loop under `set -e`). For scratch dirs a nonroot service must wipe at boot, use a plain image dir + `find <dir> -mindepth 1 -delete`, not tmpfs.
 - Multi-service stacks: zero-manual-prep via an `init-perms` service — `user: "0:0"`, chowns each data dir to the uid **read from the pinned image** (Prometheus 65534, Loki 10001, Grafana 472 — never guess), `touch /tmp/perms-ok && exec sleep infinity`, healthcheck on the marker file, data services `depends_on: condition: service_healthy`. It must `sleep infinity`, not exit: **Coolify counts exited containers against stack health**, and `exclude_from_hc: true` (Coolify extension) breaks local `docker compose config` validation.
 
 ## 5. Healthchecks

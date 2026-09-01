@@ -280,9 +280,14 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
 - **Django**: `django-prometheus` (request/DB/cache metrics + `/metrics`).
   ⚠️ Under gunicorn (multi-worker) you MUST use multiprocess mode:
   `PROMETHEUS_MULTIPROC_DIR=/tmp/prom` set in the **start script** (not from
-  Python — it must reach child processes), the dir **wiped on container
-  start** (`rm -rf "$PROMETHEUS_MULTIPROC_DIR"; mkdir -p …` before
-  `exec gunicorn`), and know the consequences: counters reset on every
+  Python — it must reach child processes), the dir **emptied on container
+  start** (`mkdir -p "$D"; find "$D" -mindepth 1 -delete` before
+  `exec gunicorn` — 🔴 NOT `rm -rf "$D"`, and NOT a compose `tmpfs:` mount:
+  both took FichaChat down 2026-09-01. rm -rf on a mount point fails EPERM
+  and under `set -e` crash-loops the entrypoint; a docker tmpfs mounts
+  root-owned, so a nonroot app EACCES-fails creating the mmap files. Plain
+  dir + content-wipe is the only shape that works everywhere), and know
+  the consequences: counters reset on every
   deploy (`rate()` handles it), `Gauge` needs an explicit
   `multiprocess_mode`, `Info`/`Enum` don't work, and gunicorn's worker
   recycling (`max-requests`) needs `mark_process_dead(pid)` in a
