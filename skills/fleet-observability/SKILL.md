@@ -460,6 +460,14 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   one and `make smoke` failed for everybody after it
   (`environment variable … required by secret … is not set`), i.e. the
   same absent-var failure that takes the real hub down.
+  And 🔴 **a push to hq-monitoring IS a hub deploy** (GitHub-App source,
+  auto-deploy on push — the deployment shows up in `GET /deployments`
+  within a minute): never push a scrape job whose endpoint is not live
+  yet, or `hq-target-down` pages ~5 min later. Stage the job commented
+  out (secret + dashboard + OK-on-NoData alerts can go first) and
+  uncomment it in a second push once the app answers 401 to a bare
+  request (LeadHunter, 2026-09-02 — caught with a follow-up push before
+  the first scrape).
 - **Celery**: on a compose host, run the maintained standalone
   `celery-exporter` as one more service pointed at the broker, labeled
   with `oj.metrics.port`. **On Coolify Dockerfile apps (worker/beat are
