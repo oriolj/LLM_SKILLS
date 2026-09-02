@@ -13,7 +13,7 @@ description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error
 - **Orgs partition it per realm**: `enacast` (pre-existing) and `oriolj`
   (created 2026-08-31). smartupsoft: create when first needed (recipe
   below). Projects (2026-09-02): `enacast/{enacast-backend, enacast-ai,
-  leadhunter, enacast24h, encasago}`, `oriolj/{talaia, h2a-leadhunter}`.
+  leadhunter, enacast24h, encasago}`, `oriolj/{talaia, h2a-leadhunter, licita-radar}` (licita-radar = id 8, created 2026-09-02 by API, DSN on both Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).
   `enacast/leadhunter` (id 3) is a wrong-realm leftover (H2A-LeadHunter
   is personal) — 0 events ever; deletion is queued as Oriol's decision
   in hq `USER_TODO.md`. **A personal app's project goes in `oriolj`** —

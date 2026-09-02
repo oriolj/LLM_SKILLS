@@ -19,7 +19,7 @@ are per-project**. Keys live in `hq/homelab/secrets/healthchecks.env` as
 | bikecrm | ⏳ | Oriol's paste duplicated the enantena key — not stored |
 | smartupsoft | ⏳ | unknown whether the project exists |
 
-Checks in the oriolj project (2026-09-02, 7): `panotxa-orphan-resume`
+Checks in the oriolj project (2026-09-02, 9): `licita-radar-pipeline` (10-min supercronic pipeline, timeout 600 s / grace 900 s) + `licita-radar-daily-digest` (cron `0 7 * * *` UTC, grace 1 h) — both pinged by the repo's `backend/run-job.sh` wrapper (the supercronic variant below), `panotxa-orphan-resume`
 (hourly Celery sweep ping), `talaia-scheduler` (pinged by talaia's most
 frequent suite via `heartbeat_env`), and H2A-LeadHunter's five
 `h2a-leadhunter-{beat,orphan-research,orphan-scoring,budget-check,contact-cadence}`
@@ -61,9 +61,18 @@ success) beats one-check-per-job; per-job depth belongs in Grafana
   or ping from a `task_postrun` hook filtered to beat-scheduled tasks.
   Ping URLs are env/config (`HEALTHCHECKS_PING_URL_<JOB>`), never
   hardcoded.
-- **supercronic**: append `&& curl -fsS -m 5 https://hc-ping.com/<uuid>`
-  to the crontab line (start/fail variants: `/start` and `/fail`
-  suffixes).
+- **supercronic**: do NOT append `&& curl …` to the crontab line — a
+  failing ping would fail the job (and a `|| curl …/fail` would mask a
+  real failure as success in supercronic's metrics). Wrap the job
+  instead (Licita Radar `backend/run-job.sh`, 2026-09-02): `run-job.sh
+  <CHECK> "<cmd>"` reads `HEALTHCHECKS_PING_URL_<CHECK>`, pings `/start`,
+  runs `sh -c "<cmd>"`, pings the bare URL on success or `/fail` on
+  failure — every ping best-effort (`curl -fsS -m 10 --retry 2 … || true`)
+  — and exits with the COMMAND's status, so `supercronic_executions −
+  supercronic_successful_executions` (and the Grafana failure alert)
+  keep meaning what they mean. Unset URL = no ping (dev/tests). The
+  crontab needs `sh -c` semantics (supercronic runs commands through
+  `$SHELL -c`, default `/bin/sh`) — quote the whole command as one arg.
 - Every deployed repo's status table has a "Jobs monitored by
   healthchecks.io" row (hq `shared/docs/deploying-a-new-project.md`) —
   wiring a project's heartbeats closes it.

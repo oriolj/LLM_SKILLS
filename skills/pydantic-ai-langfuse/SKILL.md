@@ -23,7 +23,7 @@ def build_scoring_agent() -> Agent:          # builder fn, NOT module-level inst
 result = build_scoring_agent().run_sync(prompt).output   # validated MatchScore
 ```
 
-- **Model strings** are `provider:model` from env (e.g. `LLM_MODEL=google:gemini-3.5-flash`, `anthropic:claude-haiku-4-5`). API keys via env: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`.
+- **Model strings** are `provider:model` from env (e.g. `LLM_MODEL=google:gemini-3.8-flash`, `anthropic:claude-haiku-4-5`). API keys via env: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`.
 - **Build agents in a function, not at import time.** Import-time `Agent(...)` couples module import to provider config, breaks in keyless environments (CI), and makes test override painful. A `build_*_agent()` function is trivially monkeypatched in tests.
 - **Build prompts in a separate pure function** (`build_scoring_prompt(profile, item) -> str`) so prompt content is unit-testable with zero LLM calls.
 - **Validators as guardrails**: normalize LLM output in `@field_validator` (dedupe, regex-check codes, strip junk) instead of trusting the model or post-processing at call sites.
