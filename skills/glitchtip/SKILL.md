@@ -13,7 +13,7 @@ description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error
 - **Orgs partition it per realm**: `enacast` (pre-existing) and `oriolj`
   (created 2026-08-31). smartupsoft: create when first needed (recipe
   below). Projects (2026-09-02): `enacast/{enacast-backend, enacast-ai,
-  leadhunter, enacast24h, encasago}`, `oriolj/{talaia, h2a-leadhunter, licita-radar}` (licita-radar = id 8, created 2026-09-02 by API, DSN on both Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).
+  leadhunter, enacast24h, encasago}`, `oriolj/{talaia, h2a-leadhunter, licita-radar, llm-index-watcher}` (licita-radar = id 8 and llm-index-watcher = id 9, both created 2026-09-02 by API, DSNs on their Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).
   `enacast/leadhunter` (id 3) is a wrong-realm leftover (H2A-LeadHunter
   is personal) — 0 events ever; deletion is queued as Oriol's decision
   in hq `USER_TODO.md`. **A personal app's project goes in `oriolj`** —
@@ -50,7 +50,10 @@ on jluv-apps-1 (2026-09-02) `docker exec <app> getent hosts
 infra-monitoring.armadillo-tawny.ts.net` works, so the DSN keeps the
 MagicDNS host. Verify delivery, don't assume: send a probe
 (`docker exec <app> python -c 'import sentry_sdk; sentry_sdk.init(dsn=...);
-sentry_sdk.capture_message("probe"); sentry_sdk.flush()'`) and read
+sentry_sdk.capture_message("probe"); sentry_sdk.flush()'` — or, when the app
+initialises the SDK in settings, `django.setup()` and skip `init`, so the
+probe carries the app's own `release`/`environment`; llm-index-watcher
+2026-09-02) and read
 `GET /api/0/projects/<org>/<project>/issues/` — the probe shows up within
 seconds. Last resort only: GlitchTip's `:8000` is ALSO bound on
 infra-monitoring's public IP (`159.69.48.55`, plain HTTP, no TLS) — an

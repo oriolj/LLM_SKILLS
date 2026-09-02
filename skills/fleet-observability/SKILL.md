@@ -845,7 +845,10 @@ on it. Sections, in this order:
 8. **Change log** — dated, one line per change.
 
 Reference: Panotxa `GRAFANA_AND_METRICS.md` (`JLUV-smallbets/NutriLens`,
-2026-09-02) — copy its shape. `DEPLOY.md`'s Observability status rows and
+2026-09-02) — copy its shape; `oriolj/llm-index-watcher` (same day) adds
+§4b GlitchTip / §4c healthchecks.io sub-sections and a Talaia row in
+"Where everything is", i.e. every out-of-band signal on one page.
+`DEPLOY.md`'s Observability status rows and
 `METRICS.md`'s header link to it, hq `docs/projects.md` names it. A
 dashboard or alert change is not done until this file says what is true
 now.

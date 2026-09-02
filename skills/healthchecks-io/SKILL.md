@@ -19,7 +19,7 @@ are per-project**. Keys live in `hq/homelab/secrets/healthchecks.env` as
 | bikecrm | ⏳ | Oriol's paste duplicated the enantena key — not stored |
 | smartupsoft | ⏳ | unknown whether the project exists |
 
-Checks in the oriolj project (2026-09-02, 9): `licita-radar-pipeline` (10-min supercronic pipeline, timeout 600 s / grace 900 s) + `licita-radar-daily-digest` (cron `0 7 * * *` UTC, grace 1 h) — both pinged by the repo's `backend/run-job.sh` wrapper (the supercronic variant below), `panotxa-orphan-resume`
+Checks in the oriolj project (2026-09-02, 11): `llmwatch-beat` (5 min/grace 15 min, fed by a no-op `beat_heartbeat` Celery task on a 5-min beat schedule — the beat→worker dead-man switch) + `llmwatch-dispatch-daily-batches` (1 h/30 min), `licita-radar-pipeline` (10-min supercronic pipeline, timeout 600 s / grace 900 s) + `licita-radar-daily-digest` (cron `0 7 * * *` UTC, grace 1 h) — both pinged by the repo's `backend/run-job.sh` wrapper (the supercronic variant below), `panotxa-orphan-resume`
 (hourly Celery sweep ping), `talaia-scheduler` (pinged by talaia's most
 frequent suite via `heartbeat_env`), and H2A-LeadHunter's five
 `h2a-leadhunter-{beat,orphan-research,orphan-scoring,budget-check,contact-cadence}`
@@ -92,6 +92,12 @@ success) beats one-check-per-job; per-job depth belongs in Grafana
   check needs a code change to the map (vs Panotxa's JSON env) — the
   trade is grep-able names in code. The worker pings, so on a split web/worker/beat deploy
   the env vars go on the **worker** app.
+- **LLM Index Watcher (2026-09-02)** copies Panotxa's JSON-env shape
+  (`HEALTHCHECKS_PINGS` on `llmwatch-worker`, hook `_task_healthchecks_ping`
+  in `config/celery.py`) and adds the dead-man task itself:
+  `apps.runs.tasks.beat_heartbeat`, a no-op `@shared_task` in
+  `CELERY_BEAT_SCHEDULE` every 300 s. First ping ~4 min after the beat
+  container came up. Tests mock `httpx.get` (`apps/runs/tests/test_ops_hooks.py`).
 - **Reference implementation (Panotxa, 2026-08-31)**: env-driven mapping
   `HEALTHCHECKS_PINGS` (JSON task-path → ping URL, Coolify env on the
   worker) read by a `task_postrun` success-only hook
