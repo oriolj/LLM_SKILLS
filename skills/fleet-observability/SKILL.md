@@ -398,7 +398,14 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   hooks in `config/celery_app.py` beside the existing healthserver hooks,
   and gunicorn gthread multiproc. Its uuid4-PK models make the
   `Count("pk")` rule non-optional. Also the reference for the **gunicorn
-  in-flight/capacity gauges** (§5d) in `backend/gunicorn.conf.py`.
+  in-flight/capacity gauges** (§5d) in `backend/gunicorn.conf.py`, for
+  the repo-root **`GRAFANA_AND_METRICS.md`** (§5e) and for **product
+  quality metrics** (2026-09-02): platform averages of the score users
+  see (`panotxa_meal_quality_avg{window}`, by type, a banded
+  distribution, Momentum/Habit averages over active users) — windowed
+  `_avg` families are emitted only when the window has rows, with an
+  always-present `_count` beside them, so a quality scale never shows a
+  fake 0 and alerts on them must not use NoData.
 - **Fifth reference (smartupsoft scope, STAGED 2026-08-31 — not yet
   verified live, check hq USER_TODO before copying):**
   **FichaChat** (`SmartupSoft/employee_time_control/backend`) —
@@ -720,6 +727,44 @@ gauge shows *sustained* pressure reliably, sub-minute bursts can fall
 between samples (pair with a `max_over_time(...[5m])/capacity` panel; the
 latency histogram inflating on cheap endpoints is the corroborating
 signal).
+
+## 5e. Per-project `GRAFANA_AND_METRICS.md` — the human-facing monitoring doc (Oriol, 2026-09-02)
+
+Every monitored project carries **`GRAFANA_AND_METRICS.md` at the repo
+root** (next to `DEPLOY.md` / `CLAUDE.md`), kept current with every
+dashboard, alert or scrape change. It is the "what do we watch and what
+does it mean" reference — distinct from `METRICS.md`, which stays the
+metric catalogue + access contract next to the code. Oriol's explicit
+preference: the catalogue tells an agent what series exist; this file
+tells a person (or the next session) what Grafana shows and how to act
+on it. Sections, in this order:
+
+1. **Where everything is** — hub host, Grafana URL (MagicDNS name) and
+   login source, the **org** + folder + dashboard uid, the alert group,
+   the Prometheus job, how Loki is reached, and the source file paths in
+   `hq-monitoring`.
+2. **The data path** — one ASCII diagram: what is scraped, what is read
+   from Redis for the unscrapeable containers, how logs flow.
+3. **The dashboard, row by row** — a table per row: panel, what it
+   shows and how to read it, the series behind it. Note blind spots
+   (e.g. SSE time invisible to the latency histogram).
+4. **Alerts** — the severity → contact point/channel/repeat table, then
+   one row per rule: uid, condition, `for`, severity, no-data behaviour,
+   **what it means and the first move**. Include the global
+   `hq-target-down` row and the reason behind each OK-on-NoData.
+5. **Logs** — the Loki selectors and the project's `make logs-prod*`.
+6. **How to change things** — add a metric, change the dashboard
+   (allowUiUpdates: false → JSON is truth), change an alert (startup
+   load, tombstone deletes, verify via Grafana `/metrics`), rotate the
+   token (hub env FIRST), what a Coolify domains change wipes.
+7. **Known gaps** against the baseline set (§5d).
+8. **Change log** — dated, one line per change.
+
+Reference: Panotxa `GRAFANA_AND_METRICS.md` (`JLUV-smallbets/NutriLens`,
+2026-09-02) — copy its shape. `DEPLOY.md`'s Observability status rows and
+`METRICS.md`'s header link to it, hq `docs/projects.md` names it. A
+dashboard or alert change is not done until this file says what is true
+now.
 
 ## 6. `make logs` — prod/beta logs from the dev machine
 
