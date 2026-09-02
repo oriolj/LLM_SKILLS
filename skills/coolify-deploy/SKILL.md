@@ -507,6 +507,37 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   sidecar; for distroless, a static-linked `healthcheck` binary Coolify
   can exec). Track it as an open item until the list is empty.
 
+## 5a0. In-stack Postgres → off-site backups without a data migration (LeadHunter, 2026-09-02)
+
+Coolify's scheduled DB backups (`POST /databases/{uuid}/backups`) exist
+only for standalone database resources. When the DB lives inside a compose
+resource and moving it is not on the table yet, add a **backup sidecar
+service to the same compose** instead of leaving the row red:
+
+- Image: `postgres:<same major as the DB>-alpine` (pg_dump refuses a newer
+  server — the off-the-shelf `postgres-backup-s3` images stopped at 16) +
+  `apk add rclone curl` + pinned `supercronic` (sha256-checked); `USER
+  postgres`; compose `init: true` (supercronic as PID 1 crash-loops),
+  `depends_on: db: condition: service_healthy`, healthcheck `pgrep -x
+  supercronic`, `oj.service=backup`.
+- Script: `pg_dump -Fc | gzip` → `rclone copyto r2:<bucket>/<project>/postgres/<db>_<UTC>.dump.gz`
+  with the remote configured purely from `RCLONE_CONFIG_R2_*` env
+  (`RCLONE_CONFIG=/dev/null` silences the "no config file" notice) →
+  re-read the remote size → `rclone delete --min-age <N>d` → ping
+  healthchecks.io **last**. `set -eu`, refuse a dump under 1 KB.
+- R2: the scope's **bucket-scoped key without IP filter** (personal:
+  `ORIOLJ_R2_BACKUPS_*`, bucket `coolify-backups-oriolj`) — the IP-locked
+  account key is denied from the server. Env rows on the compose resource
+  are **build-time** (compose interpolation, §3).
+- Prove it the same day: `docker exec <backup container> backup`, then
+  restore the object into a scratch DB (`pg_restore --no-owner
+  --no-privileges --exit-on-error`) and count rows. Reference:
+  `humans2agents/agents/leadhunter/backend/compose/production/backup/` +
+  DEPLOY.md «Backups» (first dump 58 MB, restore verified).
+- The data compose's watch path is usually the compose file only, so a
+  change to the sidecar's script/Dockerfile ships on the NEXT compose
+  deploy — say so in the commit.
+
 ## 5a. postgres:18 in compose — the volume-layout trap (TimeTracker forensics, 2026-08-30)
 
 - The postgres **18** docker image moved PGDATA to `/var/lib/postgresql/18/docker`,
