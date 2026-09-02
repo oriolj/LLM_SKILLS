@@ -47,6 +47,25 @@ local env files under `.envs/.local/`, prod values ONLY in Coolify
   so `--access-logfile -` produces NOTHING and you debug production
   blind (found 2026-08-31 on Panotxa, mid-incident, with zero request
   visibility — the cookiecutter's production.py shipped `True`).
+- 🔴 **Redefine the `django` logger in production, or Django e-mails
+  every 500 to `ADMINS`.** `DEFAULT_LOGGING` is applied BEFORE your
+  dict and gives `django` a `mail_admins` handler (AdminEmailHandler,
+  ERROR, active when `DEBUG=False`); with `disable_existing_loggers:
+  False` it survives unless you override the logger:
+  ```python
+  "django": {"level": "INFO", "handlers": ["console"], "propagate": False},
+  ```
+  Errors go to GlitchTip through `sentry_sdk` (the `glitchtip` skill),
+  never to e-mail — Oriol's standing rule (2026-09-02, after EnaCast AI
+  mailed him "[Django] ERROR (EXTERNAL IP)" reports). `propagate: False`
+  also stops root's console handler printing each line twice.
+- 🔴 **Never ship django-silk (or any request-recording profiler) in
+  production.** Silk's per-request garbage collection (INSERT
+  `silk_request`, DELETE past `SILKY_MAX_RECORDED_REQUESTS`) deadlocks
+  Postgres whenever two requests overlap → random `deadlock detected`
+  500s on real traffic (EnaCast AI, 2026-08-25 → 2026-09-02), and it
+  stores every visitor's headers/bodies. Silk lives in `local.py` only;
+  production profiling is Prometheus/Grafana (`fleet-observability`).
 - Apps log to **stdout/stderr only** (the host Alloy agent ships container
   stdout to Loki — `fleet-observability`); never to files in the
   container.
