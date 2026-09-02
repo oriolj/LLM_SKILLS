@@ -963,6 +963,62 @@ unless marked ⚠️; the cut-over itself is documented in the last bullet.
   per DB, `timeout` up to 36000 s — size it for 34 GB, `save_s3` +
   `s3_storage_uuid`).
 
+## 5e. Compose stack → Dockerfile apps with the DATA LEFT IN PLACE (accountant 2026-09-01, LeadHunter 2026-09-02)
+
+The lighter sibling of §5d: when the goal is blue-green for the app
+containers and the database can stay where it is for now, keep the
+compose resource as a **data-only stack** and add three Dockerfile apps
+next to it. Zero data moved, API-only, ~1 min of downtime total. Done
+twice; the operator script is `agents/<product>/scripts/coolify_bluegreen_migrate.py`
+in `oriolj/humans2agents` (status / prepare-compose / create-apps /
+copy-envs / deploy-new / cutover / shrink-compose, idempotent, `--dry-run`).
+
+- **Order**: PATCH `connect_to_docker_network: true` on the compose
+  resource, then push a compose whose data services carry **globally
+  unique names** (`h2a-<product>-db` / `-redis`) with the **same `volumes:`
+  keys** — the Coolify storage names derive from those keys
+  (`<uuid>_production-postgres-data` for `production_postgres_data`), so a
+  renamed key is a fresh empty volume. One stop/start does both. The
+  apps reach the services by **compose service name** on the `coolify`
+  network (`<service>-<uuid>` does NOT resolve; container names carry a
+  per-deploy timestamp). Check the storage names via
+  `GET /applications/{uuid}/storages` before EVERY compose deploy.
+- **Create the apps with auto-deploy OFF**, strip the sslip domain,
+  set UI health (web ON at the health path; worker/beat OFF, the
+  role-aware image HEALTHCHECK gates them), `stop_grace_period` per role,
+  `watch_paths`, `oj.*` labels — then `PATCH …/envs/bulk` with
+  `is_buildtime: false` on every row, then turn auto-deploy on and
+  force-deploy. Envs come from the compose `environment:` block resolved
+  against the old resource's production rows; drop `SOURCE_COMMIT` and
+  any `SENTRY_RELEASE` row (the image bakes both from the build arg; an
+  EMPTY runtime row would blank the baked value), drop `SERVICE_*`.
+  Rows the compose never referenced are still copied (they were set on
+  purpose — e.g. a sibling's `HEALTHCHECKS_PING_URL_*`).
+- **Cutover = domain PATCH + shrink in the SAME step.** With
+  `force_domain_override` the new app gets the host, but Traefik keeps
+  preferring the OLDER router while the compose web service exists —
+  traffic does not move until the shrink push removes that service
+  (verified on both migrations). So: PATCH domains on the new web →
+  re-append the `oj.*` labels (the domain PATCH regenerates
+  `custom_labels`) → force redeploy → clear `docker_compose_domains`
+  (`[{"name":"<service>","domain":""}]`) → narrow the compose resource's
+  `watch_paths` to the compose file → push the data-only compose. The
+  push also webhook-deploys the apps if it touches their paths: that
+  doubles as the `is_webhook: true` proof.
+- **Narrow the compose resource's `watch_paths` BEFORE the first
+  backend push** that follows app creation, or every backend commit keeps
+  stop/starting the database until the shrink.
+- Facts that surprised: the compose buildpack also injects
+  `SOURCE_COMMIT` as a container env (the old stack reported the new
+  release after its redeploy); a just-deployed worker shows
+  `exited:unhealthy` for its first-boot minute and then flips healthy —
+  read the container log before treating it as failed; cookiecutter
+  composes need a parser that understands `django: &django` + `<<:
+  *django` and nested defaults (`${A:-https://s3.${B:-x}.example}`,
+  resolved innermost-first).
+- What stays pending after this lane: Coolify DB backups (still in-stack
+  Postgres) — that is §5d's Phase 2, a real data migration, Oriol's call.
+
 ## 6. Deploy speed and signal handling
 
 - **Compose buildpack stops containers sequentially with `docker stop -t 30` and IGNORES `stop_grace_period`** (upstream coolify#5975). Still set `stop_grace_period` (honored elsewhere), but the real lever is making SIGTERM work:
