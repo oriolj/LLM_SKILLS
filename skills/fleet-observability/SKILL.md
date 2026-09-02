@@ -127,6 +127,11 @@ in Prometheus — which is what makes Grafana's graph↔logs jumps line up.
 
 **Setting oj.* labels on Coolify resources (verified 2026-08-25, EnaChat):**
 
+- **Audit/repair tool**: hq `homelab/tools/coolify-labels.py --scope <s> check`
+  lists every Dockerfile app's `oj.*` lines (exit 4 on MISSING) and
+  `apply --app <uuid> oj.project=… oj.env=… oj.service=…` re-applies them
+  keeping the generated Traefik lines (then restart the app). Run it after
+  any domain change — a domains PATCH wipes the block silently.
 - **Applications (Dockerfile buildpack): the `custom_labels` API field
   works.** It is base64 and PRE-FILLED with Coolify's generated Traefik
   labels — `GET /applications/{uuid}`, decode, **append** the `oj.*` lines,
