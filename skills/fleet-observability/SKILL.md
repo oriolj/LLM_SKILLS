@@ -537,11 +537,13 @@ Pushover priority **2/emergency** (siren, re-alerts every `retry: 60` s until
 acked, `expire: 1800` = the route's 30 m repeat so emergency cycles never
 overlap), repeat 30 m. `severity: warning` falling to email-only is
 deliberate (pre-tier warning rules were demoted from p0); new phone-worthy
-rules use `important`. **Since 2026-09-02 no rule is `critical` at all**
-(Oriol, after two emergency pages in one morning — a deploy-time target
-dip and a DatasourceNoData on a just-introduced series): never write a
-rule with `severity: critical`; the tier stays defined only for a
-deliberate future re-enable. And a query that can legitimately return no
+rules use `important`. **`critical` is opt-in by Oriol only** (2026-09-02, after two
+emergency pages in one morning — a deploy-time target dip and a
+DatasourceNoData on a just-introduced series). His definition: critical =
+*if this fails, my users cannot use the app* — the product down for its
+users, not a worker, backlog, disk trend, exporter or scrape. Never write
+`severity: critical` yourself; he names the rule when he wants one. No
+rule is critical as of that date. And a query that can legitimately return no
 series gets `noDataState: OK` — `hq-target-down` owns scrape loss. Token + user key ride the `/run/secrets` pattern via
 Grafana's `$__file{...}` provisioning interpolation — **verified working**
 alongside `$__env{...}` (2026-08-25).
