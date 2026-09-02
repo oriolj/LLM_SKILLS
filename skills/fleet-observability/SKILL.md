@@ -633,9 +633,18 @@ pane of glass):
 | Org | Name | Holds |
 |---|---|---|
 | 1 | `hq` | hub-infra dashboards + **ALL alerting** (rules, contact points, notification policies — they exist once, in org 1 only) |
-| 2 | `Personal` | licita-radar, llm-index-watcher, panotxa |
-| 3 | `EnaCast` | enacast-ai, enachat |
-| 4 | `SmartupSoft` | (none yet) |
+| 2 | `Personal` | h2a-accountant, licita-radar, llm-index-watcher, panotxa, talaia |
+| 3 | `EnaCast` | enacast24h, enacast-ai, enachat |
+| 4 | `SmartupSoft` | fichachat |
+
+(Table audited against the live API 2026-09-02: every provisioned
+dashboard sits in the org of its project's scope per hq
+`docs/projects.md`; org 1 has NO dashboards yet — hub-infra panels are
+still a gap, only the alert rules live there. **The org is decided by
+the scope in `docs/projects.md`, not by who consumes the dashboard**:
+Talaia tests every scope's apps but is a personal project, so it stays
+in Personal.) Alert rules carry no `__dashboardUid__` annotations on
+purpose — a link from an org-1 rule to a dashboard in org 2–4 would 404.
 
 Mechanics, each learned the hard way on 2026-08-31:
 
