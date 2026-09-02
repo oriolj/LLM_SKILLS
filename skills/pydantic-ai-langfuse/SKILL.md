@@ -39,6 +39,28 @@ result = build_scoring_agent().run_sync(prompt).output   # validated MatchScore
 When touching an unfamiliar pydantic-ai version, introspect before writing code:
 `python -c "import inspect, pydantic_ai; print(pydantic_ai.__version__); print(inspect.signature(pydantic_ai.Agent.__init__))"`
 
+- **`AgentRunResult.usage` is a PROPERTY in 2.x** (`RunUsage`), not a
+  method. `result.usage()` raises `TypeError: 'RunUsage' object is not
+  callable` — and if that line sits AFTER the provider call, the tokens are
+  paid and the row never gets saved (LLM Index Watcher, 2026-09-02: every
+  successful run died there; tests passed because their fake result used a
+  lambda). Write `usage = result.usage() if callable(result.usage) else
+  result.usage`, and put the post-answer bookkeeping inside a try that
+  records the failure — one unexpected exception inside a Celery chord
+  header means the chord callback (scoring) never runs. Token fields are
+  `input_tokens` / `output_tokens` (old `request_tokens` names are gone).
+- **Gemini web-search grounding gives you no source URLs through
+  pydantic-ai 2.8**: the `NativeToolReturnPart.content` for `web_search` is
+  `{"search_suggestions": "<style>…google.com chips…"}` — Google's HTML
+  widget, not `grounding_chunks`. A generic "walk every part for URLs"
+  citation harvester finds only google.com links (skip-listed). Treat
+  Google citations as unavailable until the grounding metadata is surfaced
+  (or call the Gemini API directly for it).
+- **`genai_prices.calc_price` raises `LookupError` for a model it does not
+  know yet** (`gemini-3.8-flash` on 0.0.71) — brand-new defaults price as
+  `None` silently. Keep a settings alias map (unknown id → priced sibling)
+  and log the miss once per process.
+
 ## Langfuse tracing (OTel exporter pattern)
 
 One init function, called once at process start (Django: end of `settings.py` — covers gunicorn, manage.py commands, and cron jobs alike). **No-op without keys** so dev/test never need Langfuse:
