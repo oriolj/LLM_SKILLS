@@ -774,6 +774,19 @@ LogQL crib: `|= "text"` exact, `|~ "regex"`, `| json | status >= 500`,
    (A host whose containers were all recreated recently shows NO burst —
    coolify-ovh-vps-1's first rollout was silent because every container was
    hours old. Absence of the burst is not a mis-wire.)
+   **The same reject recurs on every tailer reconnect** — an Alloy or
+   socket-proxy restart, or the proxy's `proxy_read_timeout` cutting an
+   idle follow-stream. Alloy resumes from a second-granular, inclusive
+   `since`, so Docker replays the last line(s) of that second; for a
+   container quiet >7 d Loki 400-rejects the replay and Alloy counts the
+   WHOLE batch as dropped (`loki_write_dropped_entries_total{reason=
+   "ingester_error"}`) although Loki kept the batch's valid entries. With
+   the old 3600s timeout that was 2 batches/hour/idle container and the
+   "Logs are being dropped" alert flapped hourly (2026-09-02); the proxy
+   now uses `24d` (nginx's ms ceiling) and the rule is shaped as
+   *sustained* (>30 entries in every trailing 10-min window for 30m, per
+   host). Reading that reason: cross-check `loki_discarded_samples_total`
+   by reason — `greater_than_max_sample_age` is replay, not loss.
 7. One host at a time; watch ingest rate, stream count
    (`loki_ingester_memory_streams`), and hub disk before the next.
 
