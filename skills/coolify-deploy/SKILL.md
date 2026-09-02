@@ -570,6 +570,15 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   the path's requestBody schema): the source is the spec. Related dead end:
   `custom_docker_run_options` accepts and STORES `-v host:container` but
   silently never applies it — volumes go through the storages API/UI only.
+- **The auto sslip domain is built from the server's `ip` FIELD — a
+  hostname there yields a name that never resolves.** infra-monitoring is
+  registered as `infra-monitoring.enacast.com`, so its apps get
+  `<uuid>.infra-monitoring.enacast.com.sslip.io` → NXDOMAIN (sslip.io only
+  resolves embedded IPs). EnCaSaGo ran 3 months "healthy" with a dashboard
+  nobody could open, compounded by `ports_exposes` 3000 vs the binary's
+  8080 (502 with a forced `Host`). On such servers give every web app a
+  real domain at creation and curl it through Traefik; `running:healthy`
+  says nothing about routing (verified 2026-09-02).
 - **Coolify auto-assigns an sslip domain to EVERY application** — including
   workers, where `ports_exposes` is a required API field even though nothing
   listens. A Celery worker then gets a public hostname routed at a dead
