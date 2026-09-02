@@ -210,6 +210,26 @@ API notes learned on the way:
 - Coolify reports `running:healthy` for an app the moment its container
   exists, even before its first deployment row — the status comes from
   the container, not the deploy history.
+- **`/deploy` is a POST now** (`GET /deploy?uuid=…` answers 405 "This
+  endpoint has changed to a POST request", 2026-09-02). Same query
+  string (`uuid`, `force=true`).
+- **Dockerfile-app containers are named after the app** (`enacast24h-web`,
+  not `<uuid>-<timestamp>`), so runbooks can `docker exec <app-name>`
+  directly; the "No such container: <name>" lines in a deploy log are
+  Coolify's `docker rm` of that name before the new container starts.
+- **A boot-time one-off longer than the health-check budget** (a full
+  SQLite `VACUUM` in the entrypoint, gated by an env like
+  `VACUUM_ON_BOOT=1`) fits a rolling deploy if you raise
+  `health_check_retries` for that one deploy (Coolify polls
+  retries × interval; a 1.7 GB VACUUM on EnaCast 24H ran inside a
+  40 × 15 s budget with the old container serving throughout), then
+  drop the env and the retries again.
+- **Compose → Dockerfile split without copying data**: bind-mount the
+  compose resource's docker volume dirs (`<docker data root>/volumes/
+  <uuid>_<name>/_data`, and the data root may not be `/var/lib/docker` —
+  storage-1's is `/srv/data/docker`) on the new apps, keep the old
+  resource STOPPED as the rollback, and never delete it with
+  `delete_volumes=true`: those volumes are the live data.
 
 The acceptance test in §1b still applies — the App wiring is automatic, but
 "automatic" is a claim until a push shows `is_webhook: true`.
