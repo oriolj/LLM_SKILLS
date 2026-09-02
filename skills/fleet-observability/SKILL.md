@@ -443,6 +443,22 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   `oriolj/llm-index-watcher`, documented in its `METRICS.md`.
 - **Plain Python** (scripts, daemons): `prometheus_client.start_http_server`
   on the internal port; single-process, so none of the multiproc pain.
+- **Go reference (enantena scope, 2026-09-02): EnaCast/EnCaSaGo** —
+  hand-written exposition in `internal/dashboard/prometheus.go`, catalogue
+  `METRICS.md`, human doc `GRAFANA_AND_METRICS.md`, hub job `encasago-app`
+  with **`basic_auth.password_file`** (the app's whole dashboard incl.
+  `/metrics` sits behind `ENCASAGO_AUTH`; the hub mirrors the password as
+  `ENCASAGO_METRICS_PASSWORD` → `/run/secrets`; hq-monitoring's `make
+  validate` now creates dummies for `password_file` too). Patterns it
+  added: `encasago_build_info{version}` from `SOURCE_COMMIT` via ldflags
+  (`internal/buildinfo`), an **in-process nightly SQLite snapshot** with
+  `encasago_backup_*` gauges + a free-space guard (distroless has no shell,
+  so Coolify scheduled tasks — `docker exec … sh -c` — cannot run there),
+  and the **deploy-reset trap**: a "sustained" classification (streams
+  offline for N consecutive cycles) drops to near zero on every container
+  start and refills within minutes, so a change-vs-floor alert must compare
+  to `quantile_over_time(0.5, …[6h])` (median), never `min_over_time` —
+  the min floor would page after every push.
 - **Go**: `promhttp.Handler()` on the app mux (or a second internal-only
   mux). Instrument the golden signals first: an HTTP middleware
   `HistogramVec` — and keep its labels to `code`/`method`(+coarse `path`
