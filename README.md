@@ -45,22 +45,22 @@ commands/    # Slash commands — invoked explicitly with /<name>
 These files live in this repo as the source of truth. To make them available to Claude Code, symlink them into `~/.claude/`:
 
 ```fish
-ln -s (pwd)/skills/android           ~/.claude/skills/android
-ln -s (pwd)/skills/seo               ~/.claude/skills/seo
-ln -s (pwd)/skills/growth-research   ~/.claude/skills/growth-research
-ln -s (pwd)/skills/find-leads        ~/.claude/skills/find-leads
-ln -s (pwd)/skills/core-web-vitals   ~/.claude/skills/core-web-vitals
-ln -s (pwd)/skills/pwa               ~/.claude/skills/pwa
-ln -s (pwd)/skills/celery-deploy-safety ~/.claude/skills/celery-deploy-safety
-ln -s (pwd)/skills/api-idempotency      ~/.claude/skills/api-idempotency
-ln -s (pwd)/skills/auth-session-resilience ~/.claude/skills/auth-session-resilience
-ln -s (pwd)/skills/capacitor-ios        ~/.claude/skills/capacitor-ios
-ln -s (pwd)/skills/capacitor-android    ~/.claude/skills/capacitor-android
-ln -s (pwd)/skills/sqlite-production    ~/.claude/skills/sqlite-production
-ln -s (pwd)/skills/pydantic-ai-langfuse ~/.claude/skills/pydantic-ai-langfuse
-ln -s (pwd)/skills/eu-law               ~/.claude/skills/eu-law
-ln -s (pwd)/skills/prod-db-sync         ~/.claude/skills/prod-db-sync
-ln -s (pwd)/commands/qa-report.md    ~/.claude/commands/qa-report.md
+# every skill, idempotent — re-run after adding a skill to this repo
+for s in skills/*/
+    set n (basename $s)
+    test -e ~/.claude/skills/$n; or ln -s (pwd)/skills/$n ~/.claude/skills/$n
+end
+for c in commands/*.md
+    test -e ~/.claude/commands/(basename $c); or ln -s (pwd)/$c ~/.claude/commands/(basename $c)
+end
 ```
+
+**A skill that is not linked does not exist for Claude Code**: the `Skill`
+tool answers `Unknown skill: <name>` even when `CLAUDE.md` points at the
+file's path — the path is documentation, the symlink is the registration.
+Found 2026-09-02: `fleet-observability` (and eight others) had been added
+to this repo without a link, so every "load the skill" instruction failed
+on first try. Run the loop above after cloning and after each new skill;
+a new link is only seen by NEW sessions.
 
 (Or copy them if you'd rather not symlink.)
