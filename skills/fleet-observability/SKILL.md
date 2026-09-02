@@ -428,6 +428,38 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   and no separate exporter resources needed. Hub jobs
   `fichachat-{app,postgres,redis}`, dashboard `smartup/fichachat`,
   alert group `hq;fichachat`.
+- **Sixth reference (personal scope, STAGED 2026-09-02 — hub deploy
+  waits for the backend deploy, check hq USER_TODO before copying):**
+  **H2A-LeadHunter** (`oriolj/humans2agents` `agents/leadhunter/backend`)
+  — `config/prom.py` + `METRICS.md` + repo-root `GRAFANA_AND_METRICS.md`;
+  hub job `h2a-leadhunter-app`, dashboard `personal/h2a-leadhunter`,
+  alert group `hq;h2a-leadhunter`. What it added, all **ASGI-specific**
+  (gunicorn + `UvicornWorker`): (1) gunicorn's `pre_request`/`post_request`
+  hooks do NOT fire for UvicornWorker — the in-flight gauge is an ASGI
+  wrapper in `config/asgi.py` (`inc()` / `try … finally dec()` around the
+  Django app, so streamed bodies count for their whole life), and there
+  is no meaningful `http_capacity` (uvicorn has no slot count; sync views
+  run one-at-a-time per worker via asgiref `thread_sensitive`, so
+  in-flight ≈ `WEB_CONCURRENCY` is the saturation signal); `child_exit`
+  still fires for every worker class, so `config/gunicorn_hooks.py` keeps
+  `mark_process_dead`. (2) When the start script is owned by someone
+  else / may forget the export, a **`os.environ.setdefault
+  ("PROMETHEUS_MULTIPROC_DIR", "/tmp/prom")` + `mkdir` in
+  `settings/production.py` is a valid fail-safe** — each worker runs it at
+  settings load, before `config.prom` imports `prometheus_client` —
+  but it must NEVER wipe the dir (every worker executes it and would
+  delete its siblings' files); the boot-time content-wipe stays a
+  start-script job. (3) Cookiecutter-Django's `config/__init__.py` exports
+  the Celery *instance* as `config.celery_app`, so a test that needs the
+  hooks MODULE must `importlib.import_module("config.celery_app")` —
+  `from config import celery_app` hands you the app object. (4) A
+  free-text "source" column is bucketed into a fixed allow-list + `other`
+  before it becomes a label. Hub-side lesson the same day: **every new
+  compose `secrets:` entry needs its canary `export` in
+  `scripts/smoke.sh`** — `enacast24h_metrics_token` was added without
+  one and `make smoke` failed for everybody after it
+  (`environment variable … required by secret … is not set`), i.e. the
+  same absent-var failure that takes the real hub down.
 - **Celery**: on a compose host, run the maintained standalone
   `celery-exporter` as one more service pointed at the broker, labeled
   with `oj.metrics.port`. **On Coolify Dockerfile apps (worker/beat are
