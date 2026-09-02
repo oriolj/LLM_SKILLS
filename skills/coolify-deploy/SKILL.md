@@ -1579,3 +1579,18 @@ Learned 2026-08-29 (EnaArchive: HistoricalArchives' compose stack replaced by Do
 5. **Keep the old DB stopped-not-deleted** for a backup cycle; verify the first scheduled R2 backup execution of the new DB.
 
 Write these steps into the product's `docs/first-deploy.md` and put the rehearsal as the FIRST cut-over item in `USER_TODO.md` — the resource creation must not come before it.
+
+## Deploy days fill small disks — images + build cache (enacast-ai-fsn1-1, 2026-09-02)
+
+Every Dockerfile deploy leaves the superseded image behind and grows the
+BuildKit cache; Coolify's server "Docker cleanup" runs **daily at 00:00 at
+80 %** by default, so three deploys of a four-image project in one
+afternoon (~5 GB per set + 6.8 GB cache) took a 75 GB box with a 34 GB
+Postgres to 100 % and production down (`postmaster.pid: No space left on
+device`). Recovery: `docker builder prune -af` then `docker image prune -af
+--filter until=24h` (keeps today's rollback images). Prevention: set the
+server's cleanup to hourly / 60 % — **UI only**, the `/servers/{uuid}`
+PATCH rejects `docker_cleanup_frequency` / `docker_cleanup_threshold` /
+`force_docker_cleanup` (422) — and check `df` before pushing a multi-app
+project on a box under ~20 GB free. Backup staging (`disable_local_backup`,
+also UI-only) is the other half of the same disk budget.
