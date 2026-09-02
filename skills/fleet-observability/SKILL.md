@@ -385,7 +385,17 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   they ride the model's partial indexes — one combined aggregate seqscans
   and detoasts jsonb per row. Its gunicorn conf is `gunicorn_conf.py`,
   NOT `gunicorn.conf.py` — `--config python:gunicorn.conf` would import
-  from the installed gunicorn PACKAGE.
+  from the installed gunicorn PACKAGE. Third trap (2026-09-02): **a
+  "backlog" gauge must count what the worker is actually OFFERED, not
+  everything unprocessed** — its total carried a permanent residue
+  (disabled channels, retries exhausted, rows claimed by dead worker
+  names) so `oldest age > 24h` fired forever and `backlog > 20 AND 0/h`
+  paged on every lull. Emit the split as a labeled gauge
+  (`…_backlog_by_state{state=eligible|retries_exhausted|channel_disabled}`)
+  plus an eligible-only oldest-age series, computed with the SAME
+  queryset helper the job selector uses, and alert on `eligible` only.
+  Deploy the app before the rule file that references the new series
+  (NoData otherwise). Repo doc: `backend/docs/TRANSCRIPTION_BACKLOG.md`.
 - **Second reference implementation** (personal scope, 2026-08-28):
   `oriolj/public_contract_scanner` — `backend/config/prom.py` + `METRICS.md`
   (catalogue-first: every metric documented in the repo, hub jobs
