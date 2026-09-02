@@ -19,9 +19,16 @@ are per-project**. Keys live in `hq/homelab/secrets/healthchecks.env` as
 | bikecrm | ⏳ | Oriol's paste duplicated the enantena key — not stored |
 | smartupsoft | ⏳ | unknown whether the project exists |
 
-Checks in the oriolj project (2026-08-31): `panotxa-orphan-resume`
-(hourly Celery sweep ping) and `talaia-scheduler` (pinged by talaia's most
-frequent suite via `heartbeat_env`).
+Checks in the oriolj project (2026-09-02, 7): `panotxa-orphan-resume`
+(hourly Celery sweep ping), `talaia-scheduler` (pinged by talaia's most
+frequent suite via `heartbeat_env`), and H2A-LeadHunter's five
+`h2a-leadhunter-{beat,orphan-research,orphan-scoring,budget-check,contact-cadence}`
+(beat 5 min/grace 15 min; hourly sweeps 1 h/30 min; daily 1 d/6 h).
+Five sequential creates 4 s apart all answered 201 that day, so the 403
+burst below is not deterministic — still create one at a time. Body
+fields that work: `name`, `slug`, `tags` (space-separated string),
+`desc`, `timeout`, `grace`, `channels: "*"`, `unique: ["slug"]`
+(re-running the create updates instead of duplicating).
 
 `hcw_` prefix = a project API key (read/write on that project's checks).
 Never mix projects: a check created with the wrong key lands in the wrong
@@ -60,6 +67,17 @@ success) beats one-check-per-job; per-job depth belongs in Grafana
 - Every deployed repo's status table has a "Jobs monitored by
   healthchecks.io" row (hq `shared/docs/deploying-a-new-project.md`) —
   wiring a project's heartbeats closes it.
+- **Per-check env variant (H2A-LeadHunter, 2026-09-02)**: one env var
+  per check, `HEALTHCHECKS_PING_URL_<CHECK>`, read by
+  `backend/leadhunterbackend/common/healthchecks.py`: a static
+  `TASK_CHECKS` task-path→check map + a `task_postrun` SUCCESS-only
+  receiver (`dispatch_uid`, connected from `config/celery_app.py`) and a
+  5-min beat task `healthchecks_beat_heartbeat_task` (its own data
+  migration) for the dead-man switch. Unset/empty env = no-op, so tests
+  and dev never ping; tests mock `httpx.get`. Adding a check needs a code
+  change to the map (vs Panotxa's JSON env) — the trade is grep-able
+  names in code. The worker pings, so on a split web/worker/beat deploy
+  the env vars go on the **worker** app.
 - **Reference implementation (Panotxa, 2026-08-31)**: env-driven mapping
   `HEALTHCHECKS_PINGS` (JSON task-path → ping URL, Coolify env on the
   worker) read by a `task_postrun` success-only hook

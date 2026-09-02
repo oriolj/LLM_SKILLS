@@ -149,7 +149,9 @@ after the swap). The playbook, every step verified:
 4. **Copy envs with `PATCH …/envs/bulk`.** Two traps:
    - **bulk creates every row with `is_buildtime: true`** (secrets into
      build args). `is_buildtime` is NOT in the spec but IS accepted on the
-     single and bulk PATCH — send `is_buildtime: false` explicitly, and
+     single POST/PATCH and bulk PATCH, while the spec's `is_build_time`
+     is REJECTED (`422 "This field is not allowed"`, 2026-09-02) — send
+     `is_buildtime: false` explicitly, and
      re-send the original `is_literal` (a single PATCH resets it to false).
    - Coolify mirrors each row as a preview row; 18 vars read back as 36.
 5. **`custom_labels` is dropped on create** — PATCH it afterwards. Send

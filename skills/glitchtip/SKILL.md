@@ -12,7 +12,12 @@ description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error
   on the `infra-monitoring` host.
 - **Orgs partition it per realm**: `enacast` (pre-existing) and `oriolj`
   (created 2026-08-31). smartupsoft: create when first needed (recipe
-  below).
+  below). Projects (2026-09-02): `enacast/{enacast-backend, enacast-ai,
+  leadhunter, enacast24h, encasago}`, `oriolj/{talaia, h2a-leadhunter}`.
+  `enacast/leadhunter` (id 3) is a wrong-realm leftover (H2A-LeadHunter
+  is personal) — 0 events ever; deletion is queued as Oriol's decision
+  in hq `USER_TODO.md`. **A personal app's project goes in `oriolj`** —
+  check the org before reusing a DSN found on a resource.
 - **One user**: `oriol@smartupsoft.com` (NOT a superuser) — owner of both
   orgs.
 - **Org-level API token**: `hq/homelab/secrets/glitchtip.env`
@@ -35,8 +40,22 @@ with `{"name": "enacast24h", "platform": "python-django"}` → 201 with
 {"public": "http://<key>@infra-monitoring:8000/<id>", ...}}]`. The DSN's host
 is the MagicDNS name: an app container on a host without MagicDNS (or
 whose resolver is not tailscaled's) cannot resolve it — **rewrite the host
-to the hub's tailnet IP** (`100.83.245.69` on 2026-09-02, from `tailscale
-status --json`) before storing it as the app's `SENTRY_DSN`.
+to the hub's tailnet IP** before storing it as the app's `SENTRY_DSN`.
+**The IP depends on which tailnet the app host is on**: `100.83.245.69`
+on the EnaCast tailnet (`armadillo-tawny.ts.net`), `100.82.104.98` on the
+personal tailnet (`ainu-universe.ts.net`, where infra-monitoring is a
+*shared* node — jluv-apps-1 lives there). Test from the host's `tailscale
+status --json`, and prefer the name when the container resolves it:
+on jluv-apps-1 (2026-09-02) `docker exec <app> getent hosts
+infra-monitoring.armadillo-tawny.ts.net` works, so the DSN keeps the
+MagicDNS host. Verify delivery, don't assume: send a probe
+(`docker exec <app> python -c 'import sentry_sdk; sentry_sdk.init(dsn=...);
+sentry_sdk.capture_message("probe"); sentry_sdk.flush()'`) and read
+`GET /api/0/projects/<org>/<project>/issues/` — the probe shows up within
+seconds. Last resort only: GlitchTip's `:8000` is ALSO bound on
+infra-monitoring's public IP (`159.69.48.55`, plain HTTP, no TLS) — an
+ingest path for a host with no tailnet at all, at the price of events in
+clear; hq flags it for closing.
 
 ## 🔴 Org creation via API is CLOSED
 
