@@ -819,6 +819,20 @@ logs-grep:       ## make logs-grep Q="traceback"
 LogQL crib: `|= "text"` exact, `|~ "regex"`, `| json | status >= 500`,
 `| service="celeryworker"` to narrow inside the project stream set.
 
+## 6b. `LOKI_WRITERS` changes need a hub redeploy — and the agent drops what it cannot push (2026-09-02)
+
+The loki-gateway reads `LOKI_WRITERS` at start. A writer line added to the
+hub's Coolify env after the last hub deploy is NOT live: the new host's
+Alloy gets **401 on every push and DROPS those lines**
+(`loki_write_dropped_entries_total{reason="ingester_error"}` climbs,
+`loki_write_sent_entries_total` stays 0; ~870k lines lost on storage-1
+before anyone looked). Order for a new host: env line on the hub →
+**force-redeploy the hub** (`POST /deploy?uuid=<hub>&force=true`) → run
+the play. Verify from the workstation without SSH: the agent's own
+metrics are on the tailnet, `curl http://<host-tailnet-ip>:12345/metrics
+| grep loki_write_` — `status_code="204"` and `sent_entries_total` rising
+is the proof; then `logcli labels host` lists the host.
+
 ## 7. Rollout checklist (per host, in order)
 
 1. Host on the tailnet (`tailscale status`), enrolled in shared/ansible.
