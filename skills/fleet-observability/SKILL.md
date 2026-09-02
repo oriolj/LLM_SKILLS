@@ -441,15 +441,17 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   is no meaningful `http_capacity` (uvicorn has no slot count; sync views
   run one-at-a-time per worker via asgiref `thread_sensitive`, so
   in-flight ≈ `WEB_CONCURRENCY` is the saturation signal); `child_exit`
-  still fires for every worker class, so `config/gunicorn_hooks.py` keeps
-  `mark_process_dead`. (2) When the start script is owned by someone
-  else / may forget the export, a **`os.environ.setdefault
-  ("PROMETHEUS_MULTIPROC_DIR", "/tmp/prom")` + `mkdir` in
-  `settings/production.py` is a valid fail-safe** — each worker runs it at
-  settings load, before `config.prom` imports `prometheus_client` —
-  but it must NEVER wipe the dir (every worker executes it and would
-  delete its siblings' files); the boot-time content-wipe stays a
-  start-script job. (3) Cookiecutter-Django's `config/__init__.py` exports
+  still fires for every worker class. (2) **`gunicorn.conf.py` is the ONE
+  owner of `PROMETHEUS_MULTIPROC_DIR`** (simplify pass, 2026-09-02): an
+  `on_starting(server)` hook runs in the master before any worker forks —
+  `os.environ.setdefault(...)`, `mkdir`, then unlink every file in it
+  (never `rm -rf` the dir) — and `child_exit` calls `mark_process_dead`.
+  Do NOT put the setdefault in `settings/production.py` as a "fail-safe":
+  settings load in the celery worker, beat and every `manage.py` one-off
+  too, which silently puts THOSE processes into multiprocess mode
+  (stray, never-cleaned mmap files under `/tmp/prom`, the in-flight gauge
+  written through the mmap path for nothing). Workers, beat and one-offs
+  never load the gunicorn config, so they stay single-process. (3) Cookiecutter-Django's `config/__init__.py` exports
   the Celery *instance* as `config.celery_app`, so a test that needs the
   hooks MODULE must `importlib.import_module("config.celery_app")` —
   `from config import celery_app` hands you the app object. (4) A

@@ -71,12 +71,17 @@ success) beats one-check-per-job; per-job depth belongs in Grafana
   per check, `HEALTHCHECKS_PING_URL_<CHECK>`, read by
   `backend/leadhunterbackend/common/healthchecks.py`: a static
   `TASK_CHECKS` task-path→check map + a `task_postrun` SUCCESS-only
-  receiver (`dispatch_uid`, connected from `config/celery_app.py`) and a
-  5-min beat task `healthchecks_beat_heartbeat_task` (its own data
-  migration) for the dead-man switch. Unset/empty env = no-op, so tests
-  and dev never ping; tests mock `httpx.get`. Adding a check needs a code
-  change to the map (vs Panotxa's JSON env) — the trade is grep-able
-  names in code. The worker pings, so on a split web/worker/beat deploy
+  receiver (`dispatch_uid`, connected from `config/celery_app.py`). The
+  `BEAT` dead-man switch is an EXISTING 5-min beat task mapped in the same
+  dict (`worker_heartbeat_task`) — never add a second heartbeat task when
+  one already ticks: two PeriodicTask rows for one fact (2026-09-02
+  simplify pass removed exactly that). A `NO_CHECK` frozenset lists the
+  scheduled tasks deliberately without a check, and a `django_db` test
+  asserts every enabled `PeriodicTask` is in one of the two sets, so a new
+  `*_beat_schedule` migration cannot ship unmonitored. Unset/empty env =
+  no-op, so tests and dev never ping; tests mock `httpx.get`. Adding a
+  check needs a code change to the map (vs Panotxa's JSON env) — the
+  trade is grep-able names in code. The worker pings, so on a split web/worker/beat deploy
   the env vars go on the **worker** app.
 - **Reference implementation (Panotxa, 2026-08-31)**: env-driven mapping
   `HEALTHCHECKS_PINGS` (JSON task-path → ping URL, Coolify env on the

@@ -1009,8 +1009,9 @@ copy-envs / deploy-new / cutover / shrink-compose, idempotent, `--dry-run`).
   `watch_paths`, `oj.*` labels — then `PATCH …/envs/bulk` with
   `is_buildtime: false` on every row, then turn auto-deploy on and
   force-deploy. Envs come from the compose `environment:` block resolved
-  against the old resource's production rows; drop `SOURCE_COMMIT` and
-  any `SENTRY_RELEASE` row (the image bakes both from the build arg; an
+  against the old resource's production rows; drop `SOURCE_COMMIT` (the
+  image bakes it from the build arg and settings derive the Sentry
+  release from it — one name, never a second `SENTRY_RELEASE` ENV; an
   EMPTY runtime row would blank the baked value), drop `SERVICE_*`.
   Rows the compose never referenced are still copied (they were set on
   purpose — e.g. a sibling's `HEALTHCHECKS_PING_URL_*`).
