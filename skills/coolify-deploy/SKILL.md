@@ -509,8 +509,12 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   `restart: "no"`), drop `depends_on`, and have the WEB service mount the
   data volume ro and print `stat`/`ls -lan`/`PG_VERSION` (as `user: "0:0"`
   — the cluster dir is 0700) before its normal start. `GET
-  /applications/{uuid}/logs` answers only while the app is `running` and
-  returns the web container's logs. Revert in the fix commit.
+  /applications/{uuid}/logs?lines=N` answers only while the app is
+  `running`; for a compose app it returns the lines of ALL the stack's
+  containers merged (celery_worker included — verified 2026-09-02 on the
+  EnaCast 24H stack, where it surfaced an hourly task crash no SSH-less
+  probe would have found), so grep it for `Task …raised` / `ERROR` before
+  asking anyone to ssh. Revert in the fix commit.
 - Compose-buildpack apps default to **no `restart:` policy** — a crashed
   container stays down forever (TimeTracker: dead May→Aug unnoticed).
   `restart: unless-stopped` on every service, always. And set
