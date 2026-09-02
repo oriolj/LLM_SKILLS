@@ -29,8 +29,14 @@ curl -H "Authorization: Bearer $T" http://infra-monitoring:8000/api/0/organizati
 # create (team-scoped):  POST /api/0/teams/<org>/<team>/projects/  {"name": "..."}
 # a project's DSNs:      GET  /api/0/projects/<org>/<project>/keys/
 ```
-(Project-creation and keys endpoints follow the Sentry API shape but were
-not yet exercised here — verify the first run and update this file.)
+Verified 2026-09-02 (EnaCast 24H): `POST /api/0/teams/enacast/enacast/projects/`
+with `{"name": "enacast24h", "platform": "python-django"}` → 201 with
+`slug`/`id`; `GET /api/0/projects/enacast/enacast24h/keys/` → `[{"dsn":
+{"public": "http://<key>@infra-monitoring:8000/<id>", ...}}]`. The DSN's host
+is the MagicDNS name: an app container on a host without MagicDNS (or
+whose resolver is not tailscaled's) cannot resolve it — **rewrite the host
+to the hub's tailnet IP** (`100.83.245.69` on 2026-09-02, from `tailscale
+status --json`) before storing it as the app's `SENTRY_DSN`.
 
 ## 🔴 Org creation via API is CLOSED
 
