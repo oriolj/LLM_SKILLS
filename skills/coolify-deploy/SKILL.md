@@ -217,10 +217,19 @@ API notes learned on the way:
 - **`/deploy` is a POST now** (`GET /deploy?uuid=…` answers 405 "This
   endpoint has changed to a POST request", 2026-09-02). Same query
   string (`uuid`, `force=true`).
-- **Dockerfile-app containers are named after the app** (`enacast24h-web`,
-  not `<uuid>-<timestamp>`), so runbooks can `docker exec <app-name>`
-  directly; the "No such container: <name>" lines in a deploy log are
-  Coolify's `docker rm` of that name before the new container starts.
+- **Dockerfile-app container names are not uniform** (EnaCast 24H,
+  2026-09-03): the stop→start apps (worker, beat) run as the app name
+  (`enacast24h-worker`), while the rolling web AND a port-less recorder
+  app with its health check OFF run as `<uuid>-<timestamp>`. Runbooks
+  should `docker ps -q --filter name=<uuid>` rather than assume either
+  form; the "No such container: <name>" lines in a deploy log are
+  Coolify's `docker rm` of the app-name container before the new one
+  starts.
+- **Turning the UI health check ON does not make a port-less app roll**
+  (a Celery worker with no domain, 2026-09-03): the deploy stayed
+  stop→start. Rolling updates are for apps that serve a port; for
+  workers, design for the ~1–2 min stop→start (leader/lock handover,
+  supervised long-lived children outside the worker) instead.
 - **A boot-time one-off longer than the health-check budget** (a full
   SQLite `VACUUM` in the entrypoint, gated by an env like
   `VACUUM_ON_BOOT=1`) fits a rolling deploy if you raise
