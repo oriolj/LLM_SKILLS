@@ -55,7 +55,16 @@ initialises the SDK in settings, `django.setup()` and skip `init`, so the
 probe carries the app's own `release`/`environment`; llm-index-watcher
 2026-09-02) and read
 `GET /api/0/projects/<org>/<project>/issues/` — the probe shows up within
-seconds. Last resort only: GlitchTip's `:8000` is ALSO bound on
+seconds. **Reading issues (verified 2026-09-02 on the enacast org):**
+`GET /api/0/projects/<org>/<project>/issues/?sort=-last_seen&limit=15`
+(the Sentry value `sort=date` is REJECTED — allowed: `last_seen`,
+`first_seen`, `count`, `priority`, with `-` for descending; a wrong value
+returns a pydantic `literal_error` JSON, not a list — parse the response
+before indexing), `GET /api/0/issues/<id>/events/latest/` gives the full
+event (`entries[type=exception]` frames with `inApp`, `entries[type=breadcrumbs]`
+with the SQL `category: query` lines that pinpointed django-silk's GC
+deadlock, `tags`, `culprit`). `GET /api/0/organizations/<org>/projects/`
+lists projects with ids/slugs. Last resort only: GlitchTip's `:8000` is ALSO bound on
 infra-monitoring's public IP (`159.69.48.55`, plain HTTP, no TLS) — an
 ingest path for a host with no tailnet at all, at the price of events in
 clear; hq flags it for closing.

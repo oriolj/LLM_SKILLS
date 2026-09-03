@@ -1738,3 +1738,25 @@ PATCH rejects `docker_cleanup_frequency` / `docker_cleanup_threshold` /
 `force_docker_cleanup` (422) — and check `df` before pushing a multi-app
 project on a box under ~20 GB free. Backup staging (`disable_local_backup`,
 also UI-only) is the other half of the same disk budget.
+
+## Scheduled DB backups + deploy status via the API — what is and is not there (enacast-ai, 2026-09-02/03)
+
+- `GET /databases/{uuid}/backups` returns the schedule(s) WITH their last
+  executions: `status`, `filename` (the staged `.dmp` path on the host),
+  `size`, `s3_uploaded`, `local_storage_deleted`. Check `s3_uploaded: true`
+  there before deleting a staged dump by hand.
+- `PATCH /databases/{uuid}/backups/{backup_uuid}` with `{"enabled": false}`
+  pauses a schedule (used to stop a 20 GB nightly staging from filling a
+  75 GB disk); `{"enabled": true}` resumes. **`disable_local_backup` is
+  NOT in the schema** (422) — UI only, like the server's Docker-cleanup
+  settings. Coolify never deletes the newest successful local dump
+  (`skip(1)`), so without that toggle the staging stays until the next run.
+- `GET /deployments` (running) and `GET /deployments/applications/{uuid}`
+  are **unreliable mid-deploy**: both returned `[]` while a deployment was
+  in progress and the container was being recreated. Trust
+  `GET /applications/{uuid}` → `status` (`running:healthy`) plus the app's
+  own `app_info{version}` metric / `docker ps` on the host for "which
+  commit is live", not the deployment list.
+- `watch_paths: backend/**` means a docs-only commit under that path
+  (e.g. `backend/docs/*.md`) builds and deploys the whole set. Batch docs
+  with code, or accept the ~5 GB of images per set on a small disk.
