@@ -167,7 +167,11 @@ after the swap). The playbook, every step verified:
    Traefik round-robins across them for a few seconds.
    - **Regenerating the domains OVERWRITES `custom_labels`** with the
      generated Traefik+Caddy block and **wipes your `oj.*` lines**. Read
-     it back, append your labels to the generated block, PATCH it back.
+     it back, append your labels to the generated block, PATCH it back —
+     hq `homelab/tools/coolify-labels.py --scope <s> check|apply` does
+     exactly that (then RESTART the app: labels are fixed at container
+     create). Run `check` after every domain change and in every audit:
+     on 2026-09-02 three personal apps had none, and nothing had alerted.
    - The API returns `custom_labels` **either base64 or plain text** —
      decode defensively (try b64, fall back to raw).
    - Redeploy the new app with `&force=true` so its container carries the
@@ -479,7 +483,16 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
 ## 5. Healthchecks
 
 - Distroless/minimal images have no curl/wget: bake a `HEALTHCHECK` that execs the app's own binary (`/app healthcheck` hitting `/healthz`). Coolify's "healthcheck needs curl/wget" warning is noise then. **Re-verify the healthcheck binary exists on every image bump** — a check calling a missing binary fails the container forever.
-- Depth is a trade-off, state it: shallow `/healthz` keeps blue-green from failing on a transiently-unreachable external DB; a DB-touching check is right when the app is useless without its DB and you want the deploy gate to catch bad DB config.
+- **House default for a Django web role: a REAL probe** — `SELECT 1` on the
+  default DB + set/get on the default cache, `200 {"status":"ok","checks":
+  {"db":"ok","cache":"ok"},"release":"<sha>"}` or **503** naming the failed
+  check (accountant `config/views.py`; LeadHunter got it 2026-09-02 after
+  its data services were renamed at the split — a constant-`ok` lambda
+  would have passed the blue-green gate with a wrong `DATABASE_URL` and
+  shipped a 500ing container). Shallow `/healthz` is the exception, for an
+  app that must stay up while an EXTERNAL DB flaps; say so in the deploy
+  doc. Name the route (`name="health"`) so the request histogram does not
+  file it under `unnamed`.
 - **Exempt `/healthz` from any auth** you add, or both the blue-green gate and Docker HEALTHCHECK break.
 - Celery: never `celery -A config inspect ping` as a healthcheck (boots all of Django, ~265 MB + 100% CPU, thousands of times/day). Use `grep -q celery /proc/1/cmdline` (requires `exec` so celery is PID 1), or for threads-pool wedge detection the Django-free broker-only form: `celery -b $REDIS_URL inspect ping -d celery@$(hostname)`.
 - **Compose buildpack: a service with NO `healthcheck:` gets Coolify's
@@ -531,7 +544,15 @@ service to the same compose** instead of leaving the row red:
   are **build-time** (compose interpolation, §3).
 - Prove it the same day: `docker exec <backup container> backup`, then
   restore the object into a scratch DB (`pg_restore --no-owner
-  --no-privileges --exit-on-error`) and count rows. Reference:
+  --no-privileges --exit-on-error`) and count rows. Verified shape
+  2026-09-02: 55,791-row table, 58 MB gzip'd custom dump, dump + upload
+  ~10 s, restore into the local compose Postgres ~1 min; the dump runs as
+  the `postgres` user inside the sidecar, so `--no-owner` on restore is
+  what makes it land under any target role.
+- Sizing: supercronic idles at a few MB; the dump streams through gzip to
+  `/tmp` inside the sidecar (no volume needed), so the container needs
+  free space for ONE compressed dump — mind small root disks (§«Deploy
+  days fill small disks»). Reference:
   `humans2agents/agents/leadhunter/backend/compose/production/backup/` +
   DEPLOY.md «Backups» (first dump 58 MB, restore verified).
 - The data compose's watch path is usually the compose file only, so a
@@ -1670,6 +1691,9 @@ worked:
 | 30 s to stop every container | Shell-as-PID-1 / no SIGTERM handler | `exec`, `init: true` |
 | Env var change has no effect | Not redeployed, or var not threaded through compose | Redeploy; declare it in `environment:` |
 | Fresh deploy: DB "uninitialized and password option is not specified" | MariaDB/MySQL service without a root password setting | `MARIADB_RANDOM_ROOT_PASSWORD=yes` — invisible until the volume is empty (disaster recovery) |
+| `make logs` empty for a Dockerfile app that used to ship; `docker inspect` shows no `oj.*` labels | A domain edit (UI or `PATCH domains`) regenerated `custom_labels` and dropped the `oj.*` block — silently, nothing alerts | hq `homelab/tools/coolify-labels.py --scope <s> apply --app <uuid> oj.project=… oj.env=… oj.service=…`, then restart the app; run `check` after every domain change |
+| Deploy doc's Backups rows red because the DB lives inside a compose resource | Coolify scheduled backups need a standalone DB resource; "Phase 2 will fix it" never runs | Backup sidecar in the same compose (§5a0) — dump → R2 daily, healthchecks.io check, restore tested the same day; the standalone move becomes optional |
+| Deploy passes its health gate, then every request 500s (`OperationalError`, `ConnectionError`) | The health endpoint is a constant `{"status":"ok"}` — it proves the process answers, not that `DATABASE_URL`/`REDIS_URL` are right (a renamed data service at a split, a moved DB) | Real probe (§5): `SELECT 1` + cache set/get, 503 naming the failed check; the gate then rolls the deploy back |
 | Deploys on a tunnel-connected server fail intermittently, exit 255 mid-command (`mkdir -p` "fails" with no output) | **First check `journalctl -u ssh | grep -i maxstartups` on the server.** Coolify Cloud opens a FRESH SSH connection per deploy command (no ControlMaster through the cloudflared ProxyCommand) — 1,300–2,200 logins/min during a deploy — and OpenSSH's stock `MaxStartups 10:30:100` drops the 11th+ pre-auth connection: `drop connection #11 from [::1] … Maxstartups`, `additional 209 connections dropped`. A dropped pre-auth connection is exit 255 with no output, at a random step (clone, env write, `docker cp`, `mkdir`). Seen 2026-08-28 on monitor-1-nc, 5 deploys in a row. The other cause, when sshd is silent: cloudflared on QUIC over DEGRADED UDP (strict egress fw, netcup UDP filtering) — connects, then drops mid-transfer | `MaxStartups 100:30:200` in the sshd drop-in (hq `shared/ansible` baseline sets it fleet-wide, `ssh_max_startups`), reload sshd, redeploy. For the QUIC case force `TUNNEL_TRANSPORT_PROTOCOL=http2` (TCP) on the connector. Also: a failed deploy may have ALREADY stopped the old stack (Compose buildpack stops before it starts) — check `docker ps` before assuming the app is still serving |
 
 ## 9. Secrets, domains, scheduling
