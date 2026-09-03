@@ -92,8 +92,8 @@ re-litigating.
   util-linux `script` lends:
 
   ```bash
-  { IFS= read -rsp "age passphrase: " pw </dev/tty; } 2>/dev/null \
-      || { echo "error: no terminal" >&2; exit 1; }; echo >/dev/tty
+  { : </dev/tty; } 2>/dev/null || { echo "error: no terminal" >&2; exit 1; }
+  IFS= read -rsp "age passphrase: " pw </dev/tty; echo >/dev/tty
   run_age() {          # run_age <age args>; passphrase in $pw
       printf '%s\n%s\n' "$pw" "$pw" \
           | SHELL=/bin/bash script -qefc "$(printf '%q ' age "$@")" /dev/null >/dev/null \
@@ -103,7 +103,10 @@ re-litigating.
   run_age -d -o "$out" "$f.enc"       # decrypt (reads pw once, ignores the 2nd line)
   ```
 
-  Details that matter: `printf` is a builtin, so the passphrase never
+  Details that matter: probe `/dev/tty` in its own `2>/dev/null` block
+  and keep the `read` outside it — `read -p` prints its prompt on stderr,
+  so wrapping the read silently hides the prompt and the run looks hung
+  (the first version shipped like that); `printf` is a builtin, so the passphrase never
   appears in an argv or `/proc`; `SHELL=/bin/bash` because `script -c`
   runs the command through `$SHELL` and the `%q` quoting is bash's (the
   owner's login shell is fish); `-e` propagates age's exit code, so a
