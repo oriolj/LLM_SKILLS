@@ -93,6 +93,9 @@ local env files under `.envs/.local/`, prod values ONLY in Coolify
   end-goal is every resource `healthy` in Coolify, not just images.
   Container-level: `grep -q celery /proc/1/cmdline`, NEVER
   `celery inspect ping` (global `CLAUDE.md`).
+  ⚠️ With `init: true`, or celery launched via its python shebang, PID 1 /
+  argv[0] are NOT celery — use the argv[0..1] scan form in the
+  `coolify-deploy` skill §5 (EnaCast prod, 2026-09-03).
 
 ## One image, ROLE-selected process (owned here)
 
