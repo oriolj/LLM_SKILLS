@@ -61,7 +61,8 @@ re-litigating.
   TTY and agent shells have none, so they fail outright, not just
   awkwardly. Ask the owner to run the make target in a real terminal
   (in Claude Code: `! make secrets-encrypt`). **Never ask for the
-  passphrase in chat**, and never try to pipe it in.
+  passphrase in chat**, and never try to pipe it in (the pty trick below
+  is for the owner's own terminal run, not a way around this rule).
 - **Repo-wide secrets dir variant**: for a monorepo, keep secrets in one
   place (e.g. `homelab/secrets/*.env`, gitignored via `secrets/*.env`)
   and loop in the Makefile — targets named `secrets-encrypt` /
@@ -82,6 +83,39 @@ re-litigating.
   ```
 
   (`-a` = ASCII armor, so the committed .enc is text.)
+- **Ask for the passphrase once per run, not once per file.** age reads
+  the passphrase from `/dev/tty` and nothing else — no flag, no env var,
+  no stdin fallback — so the naive loop above prompts for every file
+  (twice each on encrypt). With ~25 secrets that is 50 prompts. The fix
+  (hq, 2026-09-03): `read -rs` it once from `/dev/tty` (+ a confirmation
+  on encrypt), then feed it to each `age` through a pseudo-terminal that
+  util-linux `script` lends:
+
+  ```bash
+  { IFS= read -rsp "age passphrase: " pw </dev/tty; } 2>/dev/null \
+      || { echo "error: no terminal" >&2; exit 1; }; echo >/dev/tty
+  run_age() {          # run_age <age args>; passphrase in $pw
+      printf '%s\n%s\n' "$pw" "$pw" \
+          | SHELL=/bin/bash script -qefc "$(printf '%q ' age "$@")" /dev/null >/dev/null \
+          || { echo "error: age failed on ${@: -1} (wrong passphrase?)" >&2; return 1; }
+  }
+  run_age -p -a -o "$f.enc" "$f"      # encrypt (reads pw twice)
+  run_age -d -o "$out" "$f.enc"       # decrypt (reads pw once, ignores the 2nd line)
+  ```
+
+  Details that matter: `printf` is a builtin, so the passphrase never
+  appears in an argv or `/proc`; `SHELL=/bin/bash` because `script -c`
+  runs the command through `$SHELL` and the `%q` quoting is bash's (the
+  owner's login shell is fish); `-e` propagates age's exit code, so a
+  wrong passphrase still aborts; `>/dev/null` hides the pty output because
+  the passphrase can be echoed there before age switches the tty to
+  no-echo — never print that output on failure, print a fixed message;
+  anything piped to age (a tarball) has to go through a temp file now,
+  since stdin carries the passphrase. `script -V` distinguishes util-linux
+  from BSD `script` (macOS: no `-c`/`-e`) — fall back to plain `age` there.
+  The full version, with the FILE= single-file mode and the vpn tarball,
+  is hq's root `Makefile`. This does NOT let agents run it: there is still
+  no tty in an agent shell, and the read fails with a clear error.
 - **Automation that must deploy the secret elsewhere** (ansible pushing a
   config to remote machines, cron scripts, etc.) can never decrypt
   mid-run. The working pattern: automation reads the **controller's
