@@ -32,6 +32,11 @@ Reference implementations, newest first: `JLUV-smallbets/NutriLens`
 (`backend/`), `oriolj/llm-index-watcher`, `oriolj/public_contract_scanner`
 — copy the shape from the one whose layout matches.
 
+**Tenant-scoped API (per-tenant uniqueness, hidden/draft gates, "which tenant
+does this write target", sub-admin roles) → the `multitenant-drf-api` skill.**
+It carries the four traps that produced ten production bugs in one day
+(2026-09-03) and the regression matrix to write before shipping.
+
 ## Settings layout
 
 `config/settings/{base,local,production,test}.py` + `django-environ`;
