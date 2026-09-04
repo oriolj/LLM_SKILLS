@@ -254,6 +254,15 @@ packages, default shell, no prior run's leftovers. For every task ask:
 
 ## Validation ladder (run in this order, cheapest first)
 
+- **From an agent shell, ansible refuses to start**: `ERROR: Ansible
+  requires blocking IO on stdin/stdout/stderr. Non-blocking file handles
+  detected: <stderr>` (Claude Code's Bash tool hands the process
+  non-blocking pipes; seen 2026-09-04 running the shared/ansible
+  observability play). Give it blocking handles instead of "fixing"
+  ansible: `ansible-playbook … </dev/null 2>&1 | cat` (the `make` targets
+  work the same way: `make dry TAGS=x HOST=y </dev/null 2>&1 | cat`).
+  Output is unchanged, exit code rides `$PIPESTATUS[0]` if you need it.
+
 1. `ansible-playbook site.yml --syntax-check` — parse errors only.
 2. `--list-tasks` / `--list-tags` — did the wiring/tagging land where
    expected?

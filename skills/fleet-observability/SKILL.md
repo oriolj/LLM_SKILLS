@@ -155,16 +155,23 @@ Role drops `/opt/observability/{docker-compose.yml,config.alloy,nginx.conf}`
 and runs `docker compose up -d`. Agent updates = bump the pinned image in
 the role, run the play.
 
-**Status (2026-08-25): the role EXISTS and the first agent is LIVE** on
-coolify-ovh-vps-1 (opt-in `observability` inventory group; monitor-1-nc is
-deliberately excluded — the hub compose runs its own Alloy there). Shipped
-**logs-only**: journald + docker with the full label relabeling, WAL, tailnet
-bind on :12345. Still planned: the metrics pipeline (unix exporter, app
-`/metrics` discovery, central Prometheus target) and the rest of the fleet.
-Per new host: generate a password, add `agent-<host>:<pw>` to the hub app's
-`LOKI_WRITERS` Coolify env + redeploy the hub, add
-`LOKI_AGENT_PASSWORD_<HOST>` to `homelab/secrets/loki-agents.env`, put the
-host in `observability`, run `--tags observability`.
+**Status (2026-09-04): the role is LIVE on seven hosts** — `logcli labels
+host` lists coolify-ovh-vps-1, oriolj-nc-1, enacast-ai-fsn1-1,
+monitor-1-nc (the hub runs the same agent since 2026-08-31), storage-1,
+infra-monitoring and **v5** (THE EnaCast production backend, onboarded
+2026-09-04 the day after an outage investigation had to read its logs
+with `docker logs` over ssh); smartup-nbg1-1 and jluv-apps-1 are staged.
+The role is still **logs-only** (journald + docker with the full label
+relabeling, WAL, tailnet bind on :12345); the hub's `alloy` Prometheus job
+scrapes each agent's SELF-metrics, and host metrics are Beszel's job (scope
+boundary above) — do not read "host metrics scraped" as a promise of
+`node_*` series. Still planned: `oj.metrics.port` app discovery.
+Per new host, in this order (§6b has the traps): generate a password
+(alnum only — no `:` or `,`), add `LOKI_AGENT_PASSWORD_<HOST>` to
+`homelab/secrets/loki-agents.env`, rebuild the hub app's `LOKI_WRITERS`
+(one comma-joined line) + force-redeploy the hub, prove the writer with the
+empty-push probe, put the host in `observability`, run
+`--tags observability`, add the `alloy` scrape target, verify.
 
 The agent is a **pair**: `alloy` + `socket-proxy`, because the Docker socket
 is host-root and `:ro` does not restrict the API. The proxy is plain nginx
@@ -926,9 +933,45 @@ metrics are on the tailnet, `curl http://<host-tailnet-ip>:12345/metrics
 | grep loki_write_` — `status_code="204"` and `sent_entries_total` rising
 is the proof; then `logcli labels host` lists the host.
 
+🔴 **`LOKI_WRITERS` must be ONE comma-joined line, and never append to
+it through a KEY=VALUE file reader without checking for a newline first**
+(v5 onboarding, 2026-09-04). The gateway's `10-gen-htpasswd.sh` accepts
+both `,` and `\n` as separators, which let a `\n` live inside the stored
+value unnoticed; hq's `coolify-env-set.py --from-file` (a plain KEY=VALUE
+parser) stopped at that newline and the hub deployed with the tail of the
+list — two writers, including the one being added — missing. Caught within
+minutes because the verification below runs BEFORE the host's play; the
+dropped writer happened to be a not-yet-enrolled host, so nothing was lost.
+The safe recipe:
+
+1. `GET /applications/<hub>/envs`, take the `is_preview=false` row, split
+   its value on BOTH `,` and `\n`, and list the user names (never the
+   passwords).
+2. Rebuild the WHOLE value from `homelab/secrets/loki-agents.env` — it is
+   the source of truth for every writer password — as
+   `agent-a:pw,agent-b:pw,…` plus the new one; compare each existing
+   user's password with the hub's copy and stop if any differ.
+3. Write it via a 600-mode scratch file + `coolify-env-set.py --scope
+   enantena --app 7vruylidvky1fypsilkecfu9 --from-file <f> LOKI_WRITERS
+   --runtime-only --deploy --yes` (the row IS runtime-only on the hub; the
+   tool now refuses a file with a continuation line), then shred the file.
+4. **Prove every writer, not just the new one, before the play runs**:
+   `POST http://monitor-1-nc:3100/loki/api/v1/push` with body
+   `{"streams":[]}` and each `agent-<host>:<pw>` from `loki-agents.env` —
+   **422 = authenticated** (Loki rejecting the empty body after nginx let
+   it through), **401 = the gateway does not know that writer**; a wrong
+   password must give 401. This creates no streams and needs no host.
+
 ## 7. Rollout checklist (per host, in order)
 
 1. Host on the tailnet (`tailscale status`), enrolled in shared/ansible.
+   Check key expiry from the JSON, not the table: `tailscale status
+   --json | jq '.Self | {KeyExpiry, Expired}'` (and the same for the peer
+   from a workstation) — **`KeyExpiry` absent/null = expiry disabled**, a
+   timestamp = it will expire (USER_TODO: admin console). Note
+   `tailscale debug prefs | grep CorpDNS` too: `true` on a server is the
+   MagicDNS-snapshot trap from the top of this skill, dormant while expiry
+   is disabled.
 2. `oj.*` labels added to the project composes on that host FIRST — else
    everything arrives as fallback-tagged and needs relabeling later.
 3. Agent play (`--tags observability`); on Coolify hosts confirm the
@@ -945,6 +988,22 @@ is the proof; then `logcli labels host` lists the host.
    (A host whose containers were all recreated recently shows NO burst —
    coolify-ovh-vps-1's first rollout was silent because every container was
    hours old. Absence of the burst is not a mis-wire.)
+   **The opposite extreme — a host whose containers are MONTHS old with no
+   docker log rotation** (v5, 2026-09-04: `coolify-proxy` 7.1 GB of json
+   log, caddy 2.5 GB, MariaDB 1.6 GB; dockerd had no `log-opts`) — looks
+   broken and is not: Alloy reads every byte into its WAL (14 GB within
+   five minutes), every push carries at least one too-old entry, so
+   **every push is a 400 and `loki_write_sent_entries_total` sits FLAT for
+   hours** while `dropped_entries_total{reason="ingester_error"}` climbs
+   by millions. Loki still ingests the valid entries of each 400 batch;
+   the proof is the newest ingested timestamp advancing:
+   `logcli query --since 48h --limit 1 '{host="X", service="web"}'` — not
+   the sent counter. Expect the per-host `hq-alloy-not-shipping` and
+   "logs are being dropped" warnings (email tier) for the catch-up
+   window; check `du -sh` of the container json logs and `docker stats`
+   on the agent (`mem_limit: 512m`) before declaring it stuck, and put
+   docker log rotation on the host's TODO — it is what makes the next
+   agent restart cheap.
    **The same reject recurs on every tailer reconnect** — an Alloy or
    socket-proxy restart, or the proxy's `proxy_read_timeout` cutting an
    idle follow-stream. Alloy resumes from a second-granular, inclusive
