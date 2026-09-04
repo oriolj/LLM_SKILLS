@@ -24,6 +24,23 @@ Checks in the oriolj project (2026-09-02, 11): `llmwatch-beat` (5 min/grace 15 m
 frequent suite via `heartbeat_env`), and H2A-LeadHunter's five
 `h2a-leadhunter-{beat,orphan-research,orphan-scoring,budget-check,contact-cadence}`
 (beat 5 min/grace 15 min; hourly sweeps 1 h/30 min; daily 1 d/6 h).
+**H2A-Accountant's four** (2026-09-04): `h2a-accountant-beat` (5 min/15 min,
+fed by a no-op `config.celery.beat_heartbeat_task` on a 300 s beat entry),
+`h2a-accountant-collect-daily` (cron `0 6 * * *` UTC, grace 2 h),
+`h2a-accountant-check-missing-weekly` (cron `0 8 * * 1` UTC, grace 6 h),
+`h2a-accountant-orphan-sweep` (1 h/30 min) — LeadHunter's per-check env
+shape (`HEALTHCHECKS_PING_URL_<CHECK>` on the worker AND beat apps,
+`backend/config/healthchecks.py` with `task_prerun` → `/start`, SUCCESS →
+ping, FAILURE → `/fail`). Total in the oriolj project: 15.
+
+🔴 **The oriolj project has ZERO notification channels (found 2026-09-04
+via `GET /api/v3/channels/`)** — every check there (LeadHunter's six, the
+accountant's four, llmwatch, licita-radar, panotxa, talaia) can go `down`
+and nobody is told; `channels: "*"` on create binds nothing when the list
+is empty. Adding an email/Pushover integration is a UI click (Oriol) —
+until it exists, treat healthchecks.io in that project as display-only
+and say so in the project's status row. Check `GET /api/v3/channels/`
+before claiming a project's jobs are "monitored".
 Five sequential creates 4 s apart all answered 201 that day, so the 403
 burst below is not deterministic — still create one at a time. Body
 fields that work: `name`, `slug`, `tags` (space-separated string),

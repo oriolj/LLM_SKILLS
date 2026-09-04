@@ -475,6 +475,26 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   uncomment it in a second push once the app answers 401 to a bare
   request (LeadHunter, 2026-09-02 — caught with a follow-up push before
   the first scrape).
+- **Seventh reference (personal scope, LIVE, audited 2026-09-04):**
+  **H2A-Accountant** (`oriolj/humans2agents` `agents/accountant`) — the
+  §4b "is it up to speed?" audit done entirely from fetched evidence (Coolify
+  API for buildpack/`is_webhook`/env lengths/decoded base64 `custom_labels`,
+  hub `/api/v1/query`, Grafana `/metrics` rule-group count, `logcli labels
+  host`, healthchecks `GET /checks/`, GlitchTip org project list) and the
+  repo-root `GRAFANA_AND_METRICS.md` written from it. What it added: the
+  `IMPROVEMENTS.md` (agent work) / `USER_TODO.md` (Oriol) split for the
+  audit's findings with the status table pointing at both; Quipu-aware
+  business series (`companies_with_quipu`, `quipu_conflicts`) beside the
+  Holded ones (never rename a series an alert references — add); a
+  «Beat-schedule freshness» panel over `celery_task_last_run_timestamp_seconds{task}`
+  with per-task reference lines, and its three staleness alert rules
+  **committed commented out** until the backend that serves the series is
+  deployed (the dashboard push is safe, the rule push would NoData).
+  Findings worth re-checking on every personal project: `SENTRY_DSN` still
+  pointing at sentry.io SaaS instead of the realm's GlitchTip org (and
+  absent on beat), a healthchecks.io project with **zero notification
+  channels** (healthchecks-io skill), an in-stack Postgres with no backup
+  sidecar two days after the sibling project got one.
 - **Celery**: on a compose host, run the maintained standalone
   `celery-exporter` as one more service pointed at the broker, labeled
   with `oj.metrics.port`. **On Coolify Dockerfile apps (worker/beat are
