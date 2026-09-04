@@ -87,8 +87,7 @@ then build passphrase mode without re-litigating.
 ## Layout of the store (hq reference)
 
 ```
-homelab/secrets/
-  .gitignore            # deny-all except *.enc (see below)
+homelab/secrets/            # deny-all except *.enc in the ROOT .gitignore (see below)
   resend.env            # plaintext, gitignored, chmod 600
   resend.env.enc        # committed, ASCII-armored age
   cdmon.env(.enc)       # enacast CDmon account
@@ -116,6 +115,11 @@ homelab/secrets/
   homelab/secrets/*
   !homelab/secrets/*.enc
   ```
+
+  Put those two lines in the repo's ROOT `.gitignore`, not in a
+  `.gitignore` inside the secrets dir: the encrypt loop runs with
+  `dotglob` (dot-named secrets must not be skipped), so a `.gitignore`
+  living there would be encrypted along with everything else.
 
 - **A header comment in every plaintext** saying what it is, which
   account, and who consumes it (which ansible tag, which tool). The
