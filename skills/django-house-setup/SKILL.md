@@ -88,6 +88,43 @@ local env files under `.envs/.local/`, prod values ONLY in Coolify
   access-log CONFIG without a Loki line is exactly the swallowed-logger
   bug above.
 
+## Cache resilience — the contract (owned here, learned 2026-09-04 on EnaCast)
+
+A Django cache that raises turns every request into a 500: DRF's throttles,
+tenant lookups and the cache middleware all touch it before the view. A cache
+that silently never raises is wrong for two consumers. The house contract:
+
+1. **The configured backend never raises and never stores an oversized
+   value.** Wrap the backend (get → miss, set → False, log rate-limited to
+   one ERROR line per exception type per minute, that line IS the Sentry
+   event — no extra `capture_exception`), and cap writes at
+   `CACHE_MAX_VALUE_BYTES` (512 KB) INSIDE the backend, measured with a
+   counting pickler that stops at the limit. Reference:
+   `EnaCast/enacast` `generic_tools/cache_backends.py` + `docs/cache.md`.
+2. **Then decide per consumer, in a table in `docs/cache.md`:**
+   - throttles that ARE an abuse control (signup, magic link, social login)
+     read a `strict` alias (same store, unwrapped) and answer 429 on an
+     outage (`FailClosedAnonRateThrottle`); the global "anon/user" limits stay
+     fail-open;
+   - `cache.add` dedupe locks fail OPEN (a duplicate beats dropped work):
+     False must not mean both "held" and "unavailable";
+   - tenant/session/response caches degrade to the DB.
+3. **Django cache = its own Redis** (`allkeys-lru`, `maxmemory`, no
+   persistence), never the Celery/RQ broker DB, never pylibmc/memcached
+   (libmemcached 1.0.16 marks the server dead for `retry_timeout` after ONE
+   refused write — that was the outage). Local L1 rule as in CLAUDE-global.
+4. **Deploy flush once per release**, from the first container that starts
+   (`SET NX` on the release tag, raw redis client, non-zero exit when it did
+   not happen). Ten containers each flushing what the others re-warmed, or a
+   flush that "succeeds" on a dead backend, are both wrong.
+5. **Module-level `redis.StrictRedis(...)` clients are banned**: one factory
+   (`get_redis(db)`) reading `settings.REDIS_CLIENT_KWARGS` (connect timeout,
+   keepalive, health check; no socket_timeout where a worker BLPOPs).
+6. `?ordering=` goes through a `SafeOrderingFilter` (unknown or
+   serializer-only terms ignored, `pk` accepted, full lookup path validated) —
+   DRF's stock `OrderingFilter` without `ordering_fields` orders by any
+   serializer field and 500s on method-backed ones.
+
 ## Health endpoints per role (owned here)
 
 - **web**: `/health/` view returning db+cache status
