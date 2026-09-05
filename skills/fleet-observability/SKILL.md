@@ -1057,6 +1057,29 @@ tracing). **Verification needs volume**: at 10 % baseline, 25 fast
 requests can legitimately produce zero traces; use the agent's
 `otelcol_receiver_accepted_spans_total` delta on `:12345` as the immediate
 proof, then a burst of 40–60 requests for the trace itself.
+**ASGI apps (gunicorn + UvicornWorker — H2A-LeadHunter, 2026-09-05)**:
+🔴 `DjangoInstrumentor` traces ASGI requests ONLY when
+`opentelemetry-instrumentation-asgi` is installed (`_is_asgi_supported`
+returns early otherwise and the app emits zero request spans, silently) —
+add the package explicitly; verified in-test that under Django's ASGI
+handler the sync view's DB spans (asgiref thread-sensitive executor) are
+children of the request span. Celery on the **threads pool** has no
+prefork child — connect the instrumentor to `worker_ready` as well as
+`worker_process_init`. 🔴 **Grep every project for
+`os.environ.setdefault("OTEL_EXPORTER_OTLP_…")`** before wiring tracing:
+LeadHunter's Langfuse helper set the global OTLP endpoint/headers to
+Langfuse Cloud, which would have made the process look traced and sent
+Tempo's export to Langfuse — Langfuse gets an explicit exporter on the
+shared provider behind an LLM-scope filter, never the env contract. Test
+traps: the Django instrumentation parses `OTEL_PYTHON_DJANGO_EXCLUDED_URLS`
+once at import (`_excluded_urls_from_env` — monkeypatch that in later
+tests), and pytest-django's DB connection predates the instrumentor
+(`connection.close()` before the request or no DB spans appear).
+**FichaChat lessons**: a legacy `SENTRY_ENVIRONMENT=production` in Coolify
+is normalised in settings (`OJ_ENV`) — one value feeds Sentry and the trace
+resource; compose stacks without a `ROLE` env get one per service next to
+`oj.service`; the "dormant tracing" pattern (SDK + dashboard + Makefile
+shipped, env last) is safe ahead of the host's enrolment.
 **Test hygiene, every project**: the tracing test fixture must
 UNINSTRUMENT (`DjangoInstrumentor().uninstrument()` etc.) in teardown, or
 a request test that runs after it still sees the OTel middleware/patched
