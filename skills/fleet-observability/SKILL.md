@@ -1,16 +1,18 @@
 ---
 name: fleet-observability
-description: Integrate any app or server with the estate's monitoring (Prometheus + Loki + Grafana on monitor-1-nc) — per-host Alloy agents, the oj.* docker-label contract, authenticated log shipping, app /metrics endpoints, and per-project `make logs`. Use when onboarding a server to monitoring, adding logs/metrics to a project, asked "how do I see prod logs from my machine", "add this app to grafana", "tag services for loki", "ship logs to loki", "expose django/go metrics", deploying the Alloy agent, or reviewing a compose file's oj.* labels. Works on Coolify AND non-Coolify hosts, docker and dockerless (native mode). Covers the label cardinality rules, the socket-proxy requirement, the loki-gateway auth split (write vs read creds), django-prometheus multiprocess traps, and the rollout checklist with the first-hour timestamp-reject expectation.
+description: Integrate any app or server with the estate's monitoring (Prometheus + Loki + Tempo + Grafana on monitor-1-nc) — per-host Alloy agents, the oj.* docker-label contract, authenticated log shipping, OpenTelemetry traces (tail-sampled at the host agent), app /metrics endpoints, and per-project `make logs`. Use when onboarding a server to monitoring, adding logs/metrics/traces to a project, asked "how do I see prod logs from my machine", "why is this request slow", "which query is slow", "add tracing / OTel / Tempo", "add this app to grafana", "tag services for loki", "ship logs to loki", "expose django/go metrics", deploying the Alloy agent, or reviewing a compose file's oj.* labels. Works on Coolify AND non-Coolify hosts, docker and dockerless (native mode). Covers the label cardinality rules, the socket-proxy requirement, the loki-gateway auth split (write vs read creds), the trace resource-attribute contract (service.namespace = project), django-prometheus multiprocess traps, and the rollout checklist with the first-hour timestamp-reject expectation.
 ---
 
 # Fleet observability — integrating apps and servers with the monitoring stack
 
 The hub is **monitor-1-nc** (`hq-monitoring` repo, deployed by Coolify):
-Prometheus (metrics, pull), Loki (logs, push, compose-internal), Grafana
+Prometheus (metrics, pull), Loki (logs, push, compose-internal), **Tempo
+(traces, push, compose-internal — since 2026-09-05, §5f)**, Grafana
 (dashboards + email alerts). Error tracking is separate: **GlitchTip**
 (Sentry-compatible, on the `infra-monitoring` host) — see §5b. This skill is the *integration* side: how a
 server or an application joins it. Design doc: hq
-`shared/docs/monitoring.md`. Coolify mechanics: `coolify-deploy` skill.
+`shared/docs/observability.md` (the map) + `shared/docs/monitoring.md`
+(the record). Coolify mechanics: `coolify-deploy` skill.
 
 Everything rides the **tailnet** — joining Tailscale is a hard prerequisite
 for any host before its agent (Prometheus scrapes agents over it; agents push
@@ -70,6 +72,7 @@ re-ship promptly instead of waiting out the backoff.
 ```
 per host:  alloy ──(pull /metrics)── central Prometheus   (tailnet)
            alloy ──(push logs, basic auth)── loki-gateway → Loki
+  apps ──(OTLP :4318)──▶ alloy (tail sampling) ──(push, same basic auth)── gateway :4318 → Tempo
 ```
 
 - **One Alloy replaces node_exporter + promtail.** `prometheus.exporter.unix`
@@ -702,8 +705,9 @@ Per stack (all standard Sentry SDK setup, only the DSN differs):
 
 - **Django/Python**: `sentry_sdk.init(dsn=…, environment=…, release=…)` with
   the Django (+Celery) integrations. `send_default_pii=False` unless decided
-  otherwise; keep `traces_sample_rate` at 0 or very low — GlitchTip is for
-  errors, perf tracing eats its Postgres.
+  otherwise; **`traces_sample_rate` stays 0** — GlitchTip is for errors;
+  performance tracing is OpenTelemetry → Tempo (§5f, Oriol 2026-09-05),
+  never Sentry transactions into GlitchTip's Postgres.
 - **Go**: `sentry-go`, `sentry.Init` + recover middleware.
 - **Next.js/Astro (node)**: `@sentry/nextjs` / `@sentry/node`.
 
@@ -884,6 +888,86 @@ Reference: Panotxa `GRAFANA_AND_METRICS.md` (`JLUV-smallbets/NutriLens`,
 `METRICS.md`'s header link to it, hq `docs/projects.md` names it. A
 dashboard or alert change is not done until this file says what is true
 now.
+
+## 5f. Traces — OpenTelemetry → host Alloy → Tempo (Oriol, 2026-09-05)
+
+"Why was this request slow / which query was it" is answered by traces, on
+the Grafana stack: **Tempo on the hub, fed through the per-host Alloy**.
+Decided over sampled Sentry tracing into GlitchTip (its box cannot carry
+it, and it would split the stack). hq `shared/docs/observability.md` §
+Profiling records the decision; this section is the mechanics.
+
+```
+app (OTel SDK, every span, no head sampling)
+  ──OTLP/HTTP──▶ http://oj-alloy:4318          (alias on the host's docker network;
+                                                 dockerless: http://<host-tailnet-ip>:4318)
+  host Alloy: memory_limiter → transform (host.name = inventory hostname)
+              → tail_sampling: keep ALL errors, ALL traces > 1 s, 10 % of the rest
+              → batch → otlphttp with the host's WRITER user (same as logs)
+  ──▶ hub loki-gateway :4318 (/v1/traces, POST, writers only) ──▶ tempo:4318
+  Grafana datasource `tempo` (every org): trace → logs / metrics by {project, env}
+```
+
+The rules:
+
+- **The sampling policy lives in the agent, not in N apps** (role vars
+  `observability_trace_slow_threshold_ms` 1000, `observability_trace_sample_percent`
+  10, `observability_trace_decision_wait` 15 s — must exceed the slowest
+  request you still want whole). Apps send everything; changing the policy
+  is one ansible run, not N deploys. Head sampling in an app is therefore
+  a bug unless it has a stated reason.
+- **Resource attributes mirror the `oj.*` labels** — this is what makes
+  the Grafana trace ↔ logs jump a label match:
+  `service.namespace` = `oj.project`, `deployment.environment` = `oj.env`,
+  `service.name` = `<project>-<role>` (unique across the estate — a bare
+  `web` collides in Tempo's service picker), `service.version` = git SHA.
+  `host.name` is stamped by the agent (a container's own hostname is its
+  id); never set it in the app.
+- **Trace → logs**: the `tempo` datasource maps `service.namespace` →
+  `project`, `deployment.environment` → `env` and filters by trace id, so
+  **the app must print `trace_id=<32 hex>` in every log line** (OTel
+  logging instrumentation → `%(otelTraceID)s` in the LOGGING format, "0"
+  outside a span; `django-house-setup` owns the Django shape). **Logs →
+  trace**: the Loki datasource's derived field turns that token into a
+  Tempo link. Without the token, only the trace → logs direction works.
+- **Health/metrics routes are excluded** at the SDK
+  (`OTEL_PYTHON_DJANGO_EXCLUDED_URLS=up/,metrics` or the app's equivalent)
+  — they are noise and can never be slow in an interesting way.
+- **Credentials**: none in the app. The agent's :4318 is unauthenticated
+  on purpose — tailnet-bound, docker-network-scoped, and the hub-side
+  writer credential never leaves the agent. Revoking a host's writer in
+  `LOKI_WRITERS` revokes its traces too.
+- **The agent has no WAL for traces** (Alloy's `otelcol.storage.file` is
+  still public-preview in 1.18): in-memory queue + ~5 min of retries. A
+  longer hub outage drops sampled traces — accepted; logs are the record.
+- Retention 30 d (`overrides.defaults.compaction.block_retention`), age
+  only like Loki — the disk ceiling is the quota + disk alert, not Tempo.
+  No metrics-generator (span-metrics/service graph would need Prometheus's
+  remote-write receiver on a tailnet port); every app has its own request
+  histogram for RED panels.
+- **Ordering when onboarding a host/app**: hub deployed (Tempo + gateway
+  :4318 live — `curl -X POST http://monitor-1-nc:4318/v1/traces` answers
+  401) → agent play on the host (`--tags observability`; verify
+  `otelcol_receiver_accepted_spans_total` appears on the agent's :12345
+  once an app sends) → the app's `OTEL_EXPORTER_OTLP_ENDPOINT` env +
+  deploy. Setting the app env before the agent listens only produces
+  exporter error lines every few seconds.
+- Verify end to end: Grafana → Explore → Tempo → search
+  `{resource.service.namespace="<project>"}`; open a slow trace, click a
+  DB span (`db.statement` carries the SQL, parameters stripped), click
+  "Logs for this span" — lines with the same `trace_id` must appear.
+
+Per-stack SDK shape: **Django** — `config/tracing.py` in
+`oriolj/llm-index-watcher` (reference, 2026-09-05): `TracerProvider` +
+`BatchSpanProcessor(OTLPSpanExporter())` driven by the standard `OTEL_*`
+env, instrumentors for Django, psycopg, redis, httpx, logging, called from
+an `AppConfig.ready()`, plus `CeleryInstrumentor` from
+`worker_process_init` (the prefork child); Langfuse, when keyed, attaches
+to the SAME provider with a scope filter (LLM spans only). **Go** —
+`go.opentelemetry.io/otel` + `otelhttp` handler wrapper, `otlptracehttp`
+exporter to the same endpoint, resource attributes as above. **Next.js**
+— `@vercel/otel` or the OTel node SDK in `instrumentation.ts`; only for
+self-hosted node servers (Vercel-hosted apps have no host agent).
 
 ## 6. `make logs` — prod/beta logs from the dev machine
 

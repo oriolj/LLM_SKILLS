@@ -19,6 +19,7 @@ drift).
 | Celery deploy safety (acks_late, AOF, orphan sweeps, dedupe) | `celery-deploy-safety` skill |
 | DRF pagination/list-page footguns | global `CLAUDE.md` §DRF + Next.js |
 | `/metrics`, prom.py collectors, multiproc, scrape lanes, dashboards/orgs | `fleet-observability` skill §5, §5c |
+| Traces (OTel → host Alloy → Tempo): the pipeline, sampling policy, resource-attribute contract | `fleet-observability` skill §5f — the Django wiring is the "Tracing" section below |
 | Idempotent write endpoints (client tokens) | `api-idempotency` skill |
 | JWT/session login resilience | `auth-session-resilience` skill |
 | Tenancy isolation | `multitenancy-guardrails` skill |
@@ -69,8 +70,16 @@ local env files under `.envs/.local/`, prod values ONLY in Coolify
   `silk_request`, DELETE past `SILKY_MAX_RECORDED_REQUESTS`) deadlocks
   Postgres whenever two requests overlap → random `deadlock detected`
   500s on real traffic (EnaCast AI, 2026-08-25 → 2026-09-02), and it
-  stores every visitor's headers/bodies. Silk lives in `local.py` only;
-  production profiling is Prometheus/Grafana (`fleet-observability`).
+  stores every visitor's headers/bodies. Silk lives in `local.py` only,
+  used against a prod snapshot (`prod-db-sync`); production profiling is
+  **traces in Tempo** (`fleet-observability` §5f + the Tracing section
+  below) plus the Prometheus request histogram. Running silk "at 1 % with
+  bodies capped" keeps the hazards and loses the value — don't.
+- **Every log line ends in `trace_id=%(otelTraceID)s span_id=%(otelSpanID)s`**
+  (the token Grafana's Loki datasource turns into a Tempo link), with a
+  `logging.Filter` that defaults both to `"0"` so the format never
+  KeyErrors when tracing is off. Shape: `config/tracing.py`
+  `TraceContextFilter` + `LOGGING["filters"]` in `oriolj/llm-index-watcher`.
 - Apps log to **stdout/stderr only** (the host Alloy agent ships container
   stdout to Loki — `fleet-observability`); never to files in the
   container.
@@ -87,6 +96,47 @@ local env files under `.envs/.local/`, prod values ONLY in Coolify
   `{project="<p>", env="prod", service="web"} |~ "\"GET /"` — an
   access-log CONFIG without a Loki line is exactly the swallowed-logger
   bug above.
+
+## Tracing — the Django wiring (owned here; the pipeline is `fleet-observability` §5f)
+
+Reference: `oriolj/llm-index-watcher` `backend/config/tracing.py` (2026-09-05).
+
+- Deps: `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`,
+  `opentelemetry-instrumentation-{django,psycopg,redis,celery,httpx,logging}`
+  (instrumentation versions track the SDK: `0.63b1` ↔ `1.42.1`).
+- **One module, `config/tracing.py`**: `init_tracing()` is a no-op unless
+  `OTEL_EXPORTER_OTLP_ENDPOINT` is set (dev/tests/agent-less hosts run
+  untraced), builds `TracerProvider(resource=…)` with
+  `service.name=f"{project}-{ROLE}"`, `service.namespace=project`,
+  `deployment.environment=<oj.env>`, `service.version=APP_VERSION`, adds
+  `BatchSpanProcessor(OTLPSpanExporter())` (the exporter reads the env
+  itself and appends `/v1/traces`), `set_tracer_provider`, then instruments
+  Django/psycopg/redis/httpx/logging. `os.environ.setdefault(
+  "OTEL_PYTHON_DJANGO_EXCLUDED_URLS", "up/,metrics")`. Idempotent, wrapped
+  in try/except — tracing must never take the app down.
+- **Call it from an `AppConfig.ready()`** (every process: web, worker,
+  beat, one-offs), BEFORE anything else that might create a provider
+  (Langfuse). Without `--preload` each gunicorn worker imports the app
+  after fork, so this is per-worker; with `--preload` move the call to a
+  `post_fork` hook (`BatchSpanProcessor` threads do not survive fork
+  cleanly).
+- **Celery**: `CeleryInstrumentor().instrument()` must run in the prefork
+  CHILD — a `worker_process_init` receiver in `config/celery.py` calling
+  `instrument_celery_worker()`; the child inherits the provider from the
+  parent's `ready()`.
+- **No head sampling in the app** (the agent tail-samples). `traces_sample_rate`
+  in `sentry_sdk.init` stays 0.
+- **Langfuse coexistence**: one global provider per process. When tracing
+  owns it, Langfuse's OTLP exporter is added to THAT provider behind a
+  span-processor wrapper that forwards only `pydantic-ai`/`langfuse` scopes
+  (so Django/DB spans never spend Langfuse quota); Langfuse creates its own
+  provider only when tracing is off. Never `set_tracer_provider` twice.
+- LOGGING: the `trace_id=` suffix + filter from the LOGGING contract above.
+- Tests: no endpoint → `init_tracing()` False and no SDK provider; endpoint
+  set → resource attributes as above, idempotent; Langfuse after tracing
+  reuses the provider; the filter defaults to `"0"`. Reset
+  `trace._TRACER_PROVIDER` / `_TRACER_PROVIDER_SET_ONCE._done` in the
+  fixture — the SDK allows one global provider per process.
 
 ## Cache resilience — the contract (owned here, learned 2026-09-04 on EnaCast)
 
@@ -165,3 +215,7 @@ during the rolling overlap the OLD code runs against the NEW schema.
 10. Backups per `coolify-deploy` + verify the R2 object, not the status.
 11. Repo carries `DEPLOY.md`/`09-deploy-and-ops.md` with the standard
     status table, updated same-turn.
+12. Tracing: `config/tracing.py` + `AppConfig.ready()` + Celery
+    `worker_process_init`; `OTEL_EXPORTER_OTLP_ENDPOINT=http://oj-alloy:4318`
+    as runtime-only env on every role once the host's agent has the trace
+    lane (`fleet-observability` §5f ordering); `trace_id=` in the log format.

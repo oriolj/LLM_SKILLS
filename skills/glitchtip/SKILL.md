@@ -94,3 +94,11 @@ runtime-only Coolify env: `fleet-observability` §5b owns it. DSNs travel
 as `SENTRY_DSN`; official Sentry SDKs work as-is against GlitchTip.
 Reachability: app servers reach the DSN host over the tailnet — confirm a
 new host is on the tailnet before wiring, or events vanish silently.
+
+**Performance tracing does NOT go here** (Oriol, 2026-09-05):
+`traces_sample_rate` / `profiles_sample_rate` stay 0 in every
+`sentry_sdk.init`. Request/query profiling is OpenTelemetry → the host's
+Alloy → Tempo on the hub (`fleet-observability` §5f) — GlitchTip's box
+(2 vCPU, 76 GB, no logical backup) cannot carry transactions, and it would
+split the signal off the Grafana stack. An app found with a non-zero rate
+(H2A-Accountant had 0.1 hardcoded) is a finding to fix, not a precedent.
