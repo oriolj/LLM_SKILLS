@@ -1022,7 +1022,35 @@ scopes]` (Panotxa `nutrilens/meals/langfuse_service.py`); v4 exports only
 Langfuse + GenAI scopes by default (`should_export_span` to customise).
 Second-app lesson (Panotxa): a Sentry `environment` default of
 `production` breaks the `= oj.env` contract — the resource attribute and
-the Sentry env must both say `prod`. **Go** —
+the Sentry env must both say `prod`. Further references from the
+2026-09-05 fan-out: **EnaCast AI** (`EnaCast/enacast-ai`, role env is
+`CONTAINER_ROLE` with `web|celeryworker|update_channels|sweep_enacast_sync`
+→ `service.name` = `enacast-ai-<role, _→->`; psycopg2 → the
+`opentelemetry-instrumentation-psycopg2` package; langfuse v4 verified to
+reuse the provider and export only Langfuse/GenAI scopes — no block list),
+**EnaCast 24H** (`EnaCast/Enacast24H`, **SQLite** →
+`opentelemetry-instrumentation-sqlite3`, spans carry `db.system="sqlite"`
+so `oj-traces sql --db sqlite` and the dashboard's SQL panels must filter
+on it; every request shows a few `PRAGMA` spans — Django's per-connection
+setup, noise not a bug; the `-recorder` is not Django and is NOT traced;
+its `pyproject.toml` in `watch_paths` redeploys the recorder on a deps
+bump — see USER_TODO), **Licita Radar** (`oriolj/public_contract_scanner`: no Celery/Redis, so
+only Django/psycopg/httpx/logging; it called `init_langfuse()` at
+**settings import** — that had to move into an `AppConfig.ready()`, since
+the Django instrumentor reads `settings.MIDDLEWARE` and cannot run
+mid-import; `gunicorn --preload` is fine — the provider is created in the
+master and `BatchSpanProcessor` re-creates its thread after fork, verified
+live; its supercronic scheduler runs management commands, which have no
+root span, so their SQL is orphan CLIENT and dropped by design — a
+`BaseCommand` mixin opening a root span is the fix if those ever need
+tracing). **Verification needs volume**: at 10 % baseline, 25 fast
+requests can legitimately produce zero traces; use the agent's
+`otelcol_receiver_accepted_spans_total` delta on `:12345` as the immediate
+proof, then a burst of 40–60 requests for the trace itself.
+**Test hygiene, every project**: the tracing test fixture must
+UNINSTRUMENT (`DjangoInstrumentor().uninstrument()` etc.) in teardown, or
+a request test that runs after it still sees the OTel middleware/patched
+drivers (broke 24H's `/metrics` test until found). **Go** —
 `go.opentelemetry.io/otel` + `otelhttp` handler wrapper, `otlptracehttp`
 exporter to the same endpoint, resource attributes as above. **Next.js**
 — `@vercel/otel` or the OTel node SDK in `instrumentation.ts`; only for
