@@ -164,11 +164,14 @@ monitor-1-nc (the hub runs the same agent since 2026-08-31), storage-1,
 infra-monitoring and **v5** (THE EnaCast production backend, onboarded
 2026-09-04 the day after an outage investigation had to read its logs
 with `docker logs` over ssh); smartup-nbg1-1 and jluv-apps-1 are staged.
-The role is still **logs-only** (journald + docker with the full label
-relabeling, WAL, tailnet bind on :12345); the hub's `alloy` Prometheus job
-scrapes each agent's SELF-metrics, and host metrics are Beszel's job (scope
-boundary above) — do not read "host metrics scraped" as a promise of
-`node_*` series. Still planned: `oj.metrics.port` app discovery.
+The role ships **logs + traces** (2026-09-05: journald + docker with the
+full label relabeling, WAL, tailnet bind on :12345; OTLP intake on :4318
+with tail sampling and forward to Tempo — §5f); the hub's `alloy`
+Prometheus job scrapes each agent's SELF-metrics, and host metrics are
+Beszel's job (scope boundary above) — do not read "host metrics scraped"
+as a promise of `node_*` series. Still planned: `oj.metrics.port` app
+discovery. Fleet state 2026-09-05 after the trace roll-out: every host
+above except smartup-nbg1-1 (tailnet dead) carries the trace lane.
 Per new host, in this order (§6b has the traps): generate a password
 (alnum only — no `:` or `,`), add `LOKI_AGENT_PASSWORD_<HOST>` to
 `homelab/secrets/loki-agents.env`, rebuild the hub app's `LOKI_WRITERS`
@@ -1003,16 +1006,92 @@ The rules:
   `type: "traces"` panels for lists.
 
 Per-stack SDK shape: **Django** — `config/tracing.py` in
-`oriolj/llm-index-watcher` (reference, 2026-09-05): `TracerProvider` +
+`oriolj/llm-index-watcher` (reference, 2026-09-05) and
+`JLUV-smallbets/NutriLens` `backend/config/tracing.py` (Panotxa, same day —
+the cookiecutter-layout variant: `config/settings/{base,production}.py`,
+`UsersConfig.ready()`, `config/celery_app.py`): `TracerProvider` +
 `BatchSpanProcessor(OTLPSpanExporter())` driven by the standard `OTEL_*`
 env, instrumentors for Django, psycopg, redis, httpx, logging, called from
 an `AppConfig.ready()`, plus `CeleryInstrumentor` from
 `worker_process_init` (the prefork child); Langfuse, when keyed, attaches
-to the SAME provider with a scope filter (LLM spans only). **Go** —
+to the SAME provider — 🔴 **Langfuse v3 (`langfuse<4`) then exports EVERY
+span it sees to Langfuse's quota** (`_init_tracer_provider` reuses the
+global provider; verified in 3.8.1 source): construct the client with
+`blocked_instrumentation_scopes=[the django/wsgi/psycopg/dbapi/redis/httpx/celery
+scopes]` (Panotxa `nutrilens/meals/langfuse_service.py`); v4 exports only
+Langfuse + GenAI scopes by default (`should_export_span` to customise).
+Second-app lesson (Panotxa): a Sentry `environment` default of
+`production` breaks the `= oj.env` contract — the resource attribute and
+the Sentry env must both say `prod`. **Go** —
 `go.opentelemetry.io/otel` + `otelhttp` handler wrapper, `otlptracehttp`
 exporter to the same endpoint, resource attributes as above. **Next.js**
 — `@vercel/otel` or the OTel node SDK in `instrumentation.ts`; only for
 self-hosted node servers (Vercel-hosted apps have no host agent).
+
+## 5g. Investigating slow requests and queries — the agent workflow (Oriol, 2026-09-05)
+
+The point of the trace lane is that **an agent can check and investigate
+slowness itself**, from a workstation, without Grafana clicks. The read
+path is the hub gateway's `:3200` listener (readers only, GET only —
+search, traces, TraceQL metrics) with the SAME `reader` credential as
+`logcli` (`~/.config/oj-loki/env`, `homelab/ansible --tags loki-logs`
+deploys it together with the `oj-traces` CLI from hq
+`homelab/tools/oj-traces`). Every project Makefile wraps it:
+
+```bash
+make traces-slow            # slowest server spans (> 500 ms) last hour   — SINCE=6h MIN=1s
+make traces-errors          # traces with an error span, last 6 h
+make traces-sql             # slow SQL spans (> 100 ms) WITH the statement — MIN=50ms
+make traces-routes          # p50 / p95 / sampled rate per http.route (TraceQL metrics)
+make trace ID=<trace id>    # the waterfall as a tree: spans, offsets, db.statement, exceptions
+oj-traces traceql '{resource.service.namespace="panotxa" && span.db.system="postgresql"} | duration > 200ms'
+oj-traces metrics '{resource.service.namespace="panotxa" && kind=server} | quantile_over_time(duration,.95) by (span.http.route)'
+```
+
+**When to run it — not only when asked**: after every deploy of an
+instrumented app (`make traces-errors` + `make traces-slow --since 30m`
+next to the usual health/metrics checks), when a p95/5xx alert fires, when
+a user says "it's slow", and in every §4b "is it up to speed" audit. A
+Talaia alert or a latency rule tells you THAT; the trace tells you WHY.
+
+**How to read what comes back** (the sampling rule first: errors and > 1 s
+are complete, the rest is a 10 % sample, health/metrics never traced):
+
+1. `traces-routes` → which route is slow (p95 per route). One route = that
+   endpoint; every route at once = DB, host or network — check Beszel and
+   the project's infra dashboard before reading code.
+2. `traces-slow` → pick the worst trace id → `make trace ID=…`. Read the
+   tree top-down: the server span's total vs. the sum of its children.
+   Children ≈ total → the time is in the calls below (DB, Redis, httpx);
+   children ≪ total → Python (serialisation, template, CPU) — profile that
+   view locally against a prod snapshot (`prod-db-sync`).
+3. Same `SELECT` repeated N times under one request = **N+1** —
+   `select_related`/`prefetch_related`, or an aggregate. One long
+   statement = **missing index or bad plan** — `EXPLAIN (ANALYZE, BUFFERS)`
+   it on the snapshot, never on prod. `db.statement` has parameters
+   stripped; the log line with the same `trace_id` often has the ids.
+4. A long `httpx`/`POST …` CLIENT span = the third party (LLM provider,
+   payment, push) — that is a timeout/retry/async question, not a query.
+5. `traces-errors` → the exception event on the span (`exception.type` /
+   `message`) plus `logcli … |= "<trace id>"` for the surrounding log
+   lines; GlitchTip has the grouped stack trace for the same error.
+6. Celery: `kind=consumer` spans are the task run; the producing request
+   is linked as the parent when the dispatch happened inside a request.
+
+**Write it down where it belongs**: the finding goes in the project's
+`IMPROVEMENTS.md` (agent work) with the trace id and the statement, the
+fix ships with a regression test, and `GRAFANA_AND_METRICS.md` § Known
+gaps loses or gains a line. A slow query found this way is also the
+signal to add the missing Postgres row (`pg_stat_statements`) if the
+project has none — see hq `shared/docs/observability.md` § Profiling.
+
+Tempo query API the CLI uses (all GET, all on `:3200` through the
+gateway): `/api/search?q=<traceql>&start&end&limit&spss`,
+`/api/traces/<id>` (OTLP JSON: batches → scopeSpans → spans),
+`/api/metrics/query_range?q=<traceql | fn()>&start&end&step`,
+`/api/v2/search/tag/<name>/values`, `/api/echo` (liveness). Grafana's
+datasource proxy (`/api/datasources/proxy/uid/tempo/…`) is the fallback
+when the gateway is down, but needs the admin login.
 
 ## 6. `make logs` — prod/beta logs from the dev machine
 
@@ -1109,7 +1188,10 @@ The safe recipe:
    a host in the inventory IS a host in monitoring).
 5. Verify in order: `up{host="X"} == 1` → host dashboard has data →
    `{host="X"}` returns journald lines → docker logs per project →
-   app-metrics targets up.
+   app-metrics targets up → `POST {}` to the agent's `:4318/v1/traces`
+   answers 200 (trace intake) and, once an app on the host sends,
+   `oj-traces slow -p <project> --since 30m` returns traces with
+   `host.name` = the host (§5f/§5g).
 6. **Expect a noisy first hour**: Alloy reads each container's whole log
    history and Loki 400-rejects everything older than
    `reject_old_samples_max_age` (7 d) as "timestamp too old". That is the
@@ -1170,3 +1252,9 @@ The safe recipe:
   forever in the index.
 - Don't point two Alloys at the same journald/docker source (e.g. old
   promtail left behind) — duplicate streams with half-matching labels.
+- Don't send traces anywhere but the host agent: no `traces_sample_rate`
+  in Sentry, no app pushing straight to the hub's `:4318`, no second OTel
+  collector per stack. One intake per host, one policy per host.
+- Don't head-sample in the app and don't "fix" a noisy trace list in the
+  agent policy — orphan one-span traces are an app-side sampler bug
+  (§5f), not a reason to lower the baseline percentage.

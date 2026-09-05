@@ -222,4 +222,10 @@ during the rolling overlap the OLD code runs against the NEW schema.
 12. Tracing: `config/tracing.py` + `AppConfig.ready()` + Celery
     `worker_process_init`; `OTEL_EXPORTER_OTLP_ENDPOINT=http://oj-alloy:4318`
     as runtime-only env on every role once the host's agent has the trace
-    lane (`fleet-observability` §5f ordering); `trace_id=` in the log format.
+    lane (`fleet-observability` §5f ordering); `trace_id=` in the log format;
+    `make traces-slow / traces-errors / traces-sql / traces-routes / trace ID=`
+    in the Makefile next to `make logs*`; the «<Project> trazas» dashboard.
+    After the first deploy and after every later one: `make traces-errors`
+    + `make traces-slow SINCE=30m` are part of the verification
+    (`fleet-observability` §5g) — an agent that deploys and does not look
+    at the traces has not verified the deploy.
