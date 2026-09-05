@@ -862,7 +862,13 @@ first and Oriol moved it). Contents, in this shape:
   provider → pipeline → user, and a growing gap between `end_to_end` and
   `perceived` is a frontend problem (polling interval, resize, upload),
   not a backend one. Bound the label set (transport ×2) and never label
-  by user or device.
+  by user or device. **Status: a standing intent, not yet built anywhere**
+  — Panotxa has `llm` + `end_to_end` live and the `perceived` stage
+  deferred by Oriol on 2026-09-05 ("for now, not"); the concrete plan for
+  it (where t0/t1 live, the app's SSE + 1 s/2 s polling fallback, the
+  endpoint shape) is in its `GRAFANA_AND_METRICS.md` §7. When building a
+  NEW product's latency row, plan the client beacon from day one — it is
+  cheap while the capture flow is being written and a retrofit later.
 - **One alert** on the task's p95 (`histogram_quantile(0.95, …[30m])`
   above ~4× the normal call time for 15 m, warning, **OK on NoData** —
   low-traffic apps legitimately have empty 30-minute windows). A slow
