@@ -1075,7 +1075,14 @@ traps: the Django instrumentation parses `OTEL_PYTHON_DJANGO_EXCLUDED_URLS`
 once at import (`_excluded_urls_from_env` — monkeypatch that in later
 tests), and pytest-django's DB connection predates the instrumentor
 (`connection.close()` before the request or no DB spans appear).
-**FichaChat lessons**: a legacy `SENTRY_ENVIRONMENT=production` in Coolify
+**EnaChat lessons** (`EnaCast/enasuite` `enachat/`, 2026-09-05): a
+Langfuse helper that builds its OWN `OTLPSpanExporter` (not the Langfuse
+client) needs the LIW-style `_LLMSpansOnly` wrapper whatever the langfuse
+version; a Django app with **no `LOGGING` dict at all** silently inherits
+`DEFAULT_LOGGING`'s `mail_admins` — the audit greps for `LOGGING`
+explicitly; multi-tenant apps serve on the TENANT host
+(`santjust.chat`), so the verification burst must hit that host, not the
+platform domain. **FichaChat lessons**: a legacy `SENTRY_ENVIRONMENT=production` in Coolify
 is normalised in settings (`OJ_ENV`) — one value feeds Sentry and the trace
 resource; compose stacks without a `ROLE` env get one per service next to
 `oj.service`; the "dormant tracing" pattern (SDK + dashboard + Makefile
