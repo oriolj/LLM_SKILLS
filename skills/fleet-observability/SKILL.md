@@ -433,7 +433,17 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   distribution, Momentum/Habit averages over active users) — windowed
   `_avg` families are emitted only when the window has rows, with an
   always-present `_count` beside them, so a quality scale never shows a
-  fake 0 and alerts on them must not use NoData.
+  fake 0 and alerts on them must not use NoData. **Percentiles for
+  unscrapeable workers (2026-09-05):** the Redis signal-hook pattern only
+  gives sum/count (an average) — for p50/p90/p95 the `task_postrun` hook
+  ALSO increments cumulative bucket fields (`"<task>|<le>"` + `+Inf`,
+  `prom.duration_bucket_fields`) in one more hash, and the web collector
+  emits a `HistogramMetricFamily` from it (`panotxa_celery_task_runtime_
+  seconds`), so `histogram_quantile` and rate-based alerts work. Keep the
+  old sum/count pair — dashboards depend on it. Pair it with a
+  DB-side "what the user waited" percentile computed per scrape over the
+  window's rows (`panotxa_dish_latency_seconds{stage,window,quantile}`):
+  the histogram sees the task, the DB sees queue wait + retries.
 - **Fifth reference (smartupsoft scope, STAGED 2026-08-31 — not yet
   verified live, check hq USER_TODO before copying):**
   **FichaChat** (`SmartupSoft/employee_time_control/backend`) —
