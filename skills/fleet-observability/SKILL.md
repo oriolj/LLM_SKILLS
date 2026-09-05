@@ -940,6 +940,20 @@ The rules:
 - **The agent has no WAL for traces** (Alloy's `otelcol.storage.file` is
   still public-preview in 1.18): in-memory queue + ~5 min of retries. A
   longer hub outage drops sampled traces — accepted; logs are the record.
+- 🔴 **`alloy validate` does not catch component BUILD errors, and the
+  docs describe a newer Alloy than the pinned v1.18.1.** The documented
+  `otelcol.auth.basic { client_auth { username, password_file } }` form
+  validates, then crash-loops the agent at start (`no credential source
+  provided`) — which took log shipping on oriolj-nc-1 down for ~3 min on
+  2026-09-05 until the config was rolled to `local.file "loki_pass" {
+  is_secret = true }` + the classic `username`/`password` arguments. Before
+  applying an agent config change: render it, `alloy validate`, AND run
+  the pinned image for ~10 s against the rendered file
+  (`timeout 12 docker run … grafana/alloy:<pinned> run … config.alloy | grep -E "Failed to build|initial load"`)
+  — the local run fails only on the expected socket-proxy/WAL errors when
+  the config is good. The role's "Alloy not ready" report after an apply
+  means exactly this: read `docker compose logs alloy` in
+  `/opt/observability` before anything else.
 - Retention 30 d (`overrides.defaults.compaction.block_retention`), age
   only like Loki — the disk ceiling is the quota + disk alert, not Tempo.
   No metrics-generator (span-metrics/service graph would need Prometheus's
