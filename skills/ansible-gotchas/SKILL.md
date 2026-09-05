@@ -185,6 +185,22 @@ packages, default shell, no prior run's leftovers. For every task ask:
   remote-dev machine"), hostname-key it in group_vars
   (`x_hostnames: [...]` + `is_x: "{{ ansible_hostname in x_hostnames }}"`)
   — works identically for local and remote runs, unlike host_vars.
+- **A host with no python cannot run ANY module — bootstrap it with `raw`.**
+  Termux (Android), minimal containers and some cloud images ship without
+  python; every module, `ping` and `gather_facts` included, dies with
+  "module interpreter … not found". The play for such hosts runs with
+  `gather_facts: no`, its first task is a `raw:` that installs python
+  (idempotent probe: `command -v python || <pkg install python>`), then an
+  explicit `setup:`. Seen 2026-09-05 on a fresh Termux reinstall: the role
+  had been written against a phone that already had python, so nothing
+  noticed until the reinstall.
+- **Facts can lie on unusual targets — verify the one you build paths
+  from.** On Android/Termux `ansible_user_dir` is `/data` (bionic's passwd
+  answer for the app uid) while the real home is `ansible_env.HOME`;
+  `ansible_distribution` is `Android`. Pin the interpreter and shell
+  (`ansible_python_interpreter`, `ansible_shell_executable`) when nothing
+  lives under `/usr`, and set `ansible_become: false` where there is no
+  sudo, so a stray `become` fails loudly rather than hanging.
 - **Fact caching can go stale/poisoned** — a cached fact from a probe that
   once failed sticks around; prefer re-probing cheap facts every run under
   `tags: always`.
