@@ -820,8 +820,39 @@ project dashboard. The set (skip rows the project genuinely doesn't have):
 | **App itself** | `<app>_app_info{version="<sha>"} 1` (deploys visible as annotations); the per-scrape business collector (§5); `up` on every job of the project | `config/prom.py` pattern. |
 
 Dashboard convention: one dashboard per project, rows in this order —
-Product/business, pipeline (Celery), HTTP, then the DB/Redis rows as the
-exporters land. Alert-worthy defaults: 5xx ratio, worker/beat dead, queue
+Product/business, **the key-feature latency row**, pipeline (Celery),
+HTTP, then the DB/Redis rows as the exporters land.
+
+**The key-feature latency row (Oriol, 2026-09-05, Panotxa).** Every SaaS
+has one thing the product lives on — the photo coming back scored, the
+tender matched, the transcript delivered — and in this estate that thing
+almost always runs as a Celery task around a third-party call (Gemini,
+OpenAI, a scraper, a payment API). Its latency is a product KPI, not a
+pipeline detail: give it **its own row, second on the dashboard right
+after Product**, never a tail on the Celery row (that is where it landed
+first and Oriol moved it). Contents, in this shape:
+
+- **Tiles**: p50 and p95 of the user-perceived wait over 24 h, p95 of the
+  third-party call alone, share of "slow" runs (threshold = about twice
+  what the UI promises — Panotxa's analysis animation is 7 s, slow = 15 s),
+  the sample size, and a 7-day p95 as the steadier baseline.
+- **Two sources, side by side**, because they answer different questions:
+  (1) the worker's **runtime histogram** per task — the Redis-bucket
+  pattern in §5 (`<app>_celery_task_runtime_seconds`), real
+  `histogram_quantile`, gaps when nothing ran; (2) the **DB view per
+  unit of work** — the third-party call time the task already stores
+  next to the "created → first result" wait (queue + call + retries),
+  percentiles computed per scrape over the window's rows
+  (`<app>_<thing>_latency_seconds{stage=llm|end_to_end, window, quantile}`
+  + `_count` + `_slow_ratio`). The gap between the two lines IS the queue
+  wait and retry cost; the histogram alone hides it.
+- **One alert** on the task's p95 (`histogram_quantile(0.95, …[30m])`
+  above ~4× the normal call time for 15 m, warning, **OK on NoData** —
+  low-traffic apps legitimately have empty 30-minute windows). A slow
+  provider degrades before it errors; this fires first.
+
+The same row shape (plus the Quality/Cohorts rows for product KPIs) is
+the reference in Panotxa's `GRAFANA_AND_METRICS.md`. Alert-worthy defaults: 5xx ratio, worker/beat dead, queue
 length growing, saturation ratio sustained > ~0.7, disk-backed sizes
 (DB, Redis memory) trending at their limit.
 
