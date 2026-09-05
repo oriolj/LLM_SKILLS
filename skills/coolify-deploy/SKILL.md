@@ -409,6 +409,16 @@ FRONTEND_URL = config("FRONTEND_URL", default="") or "https://app.example.com"
 ALLOWED_HOSTS = list(dict.fromkeys(REQUIRED_HOSTS + env_hosts))
 ```
 
+**Redis variant (BikeCRM beta, dead from 2026-03-29 to 2026-09-05)**: a
+compose file with `REDIS_PASSWORD: ""` for a passwordless in-stack
+Valkey/Redis makes django-redis pass `"PASSWORD": ""`, redis-py then sends
+`AUTH ""`, and the server answers `AUTH <password> called without any
+password configured for the default user`. With `IGNORE_EXCEPTIONS: True`
+the web app looks fine (cache silently off) while django-q / Celery
+crash-loop on the same error. `"PASSWORD": env("REDIS_PASSWORD", default=None) or None`.
+Make the health endpoint round-trip the cache (set/get, 503 on failure) so
+the rolling-update gate catches it instead of five months of silence.
+
 ## 4. Persistent storage — the data-loss chapter
 
 **Rule zero: every path that must survive a redeploy needs an explicit Persistent Storage entry in the Coolify UI.** A Dockerfile `VOLUME ["/data"]` does NOT save you — Docker creates a fresh **anonymous** volume (64-char hash name) on every container create; the old one orphans and the app boots empty.

@@ -104,3 +104,53 @@ sync-db-prod: ## Pull PROD DB into local (config: .envs/.prod-sync; YES=1 skips 
 
 (plus a root-Makefile pass-through if the repo nests, forwarding `YES` and
 `PROD_PG_CONTAINER`).
+
+## Prod → beta/staging sync on a Coolify host, nightly + on demand (BikeCRM, 2026-09-05)
+
+Same idea as the local sync, but the target is a running beta stack on a
+shared Coolify host and it must run unattended. Reference implementation:
+`bikecrm-backend/ansible/files/beta-db-sync/` + `ansible/playbooks/setup_beta_db_sync.yml`
+(+ `DEPLOY.md` "Prod → beta database sync").
+
+- **Dump where the DB is reachable.** A DigitalOcean managed Postgres is
+  VPC-private; the beta host cannot connect (verified with `/dev/tcp`). So
+  the beta host ssh-es to the prod droplet and the dump streams back.
+- **Forced-command key, nothing else.** ed25519 pair generated ON the beta
+  host (`community.crypto.openssh_keypair`, never leaves the box); its
+  `authorized_keys` line on prod is
+  `command="/usr/local/bin/<dump-script>",from="<beta ip>",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding`.
+  Test it by running `ssh -i key prod id`: you must get `PGDMP…` (the dump),
+  never `uid=0`. The dump script reads the DB creds from the droplet's own
+  env file and runs `pg_dump -Fc --no-owner --no-acl` in a `postgres:<same
+  major>-alpine` container — no credential leaves prod.
+- **Restore into `<db>_restore`, sanitise the COPY, then swap.** Run
+  `manage.py migrate` and a project `sanitize_beta_db` command from the beta
+  web container with `docker exec -e DATABASE_URL=<restore url>` (the
+  entrypoint built DATABASE_URL from `POSTGRES_*` at boot; `exec` does not
+  re-run it, so override the URL itself). Any failure aborts BEFORE the
+  serving DB is touched. Swap = `pg_terminate_backend` on the live DB,
+  `ALTER DATABASE … RENAME` ×2, drop `_old`; restart the worker container so
+  the queue reconnects. No app downtime beyond a reconnect.
+- **What sanitise must do for a Django SaaS**: delete every scheduler row
+  (`django_q_schedule`/`ormq`/`task`, or `django_celery_beat` tables) — the
+  restored prod schedules WILL fire on beta (renewal-reminder emails to real
+  clients, Stripe reports, shop reconciliations); disable every third-party
+  integration and NULL its credentials (WooCommerce app password + webhook
+  secret, Shopify client secret, PrestaShop key, …). Refuse to run under
+  production settings; test it. Names/emails stay real unless the audience
+  requires anonymisation — say so in the deploy doc.
+- **Container detection on the shared host**: exactly-one-match name filters
+  in a config file (`/etc/<app>-db-sync.env`) — compose stacks are
+  `<service>-<resource-uuid>-<ts>`, Dockerfile apps `<app-uuid>-<ts>`, DB
+  resources `<db-uuid>`; the playbook takes them as `-e` vars so the split to
+  DB resources is a config change. Also assert the target web container's
+  `DJANGO_SETTINGS_MODULE` is the beta one — the script must be unable to
+  restore into prod by a wrong filter.
+- **Sanity gates**: dump ≥ 100 MB and starts with `PGDMP`; restored DB has
+  > 50 tables; `pg_restore` exit 1 (warnings) tolerated, anything else fatal.
+- **Scheduling**: systemd oneshot + timer on the host (`Persistent=true`,
+  `RandomizedDelaySec`), `journalctl -u` for logs, optional healthchecks.io
+  `/start` `/fail` pings. On demand = `make sync-prod-db-to-beta` → `ssh host
+  <script>`; nothing routes through a laptop.
+- **Bonus**: `latest.dump` kept on the beta host is an off-provider copy of
+  prod. Treat that host's disk as holding production data.
