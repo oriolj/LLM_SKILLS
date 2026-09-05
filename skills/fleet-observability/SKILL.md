@@ -932,7 +932,22 @@ The rules:
   Tempo link. Without the token, only the trace → logs direction works.
 - **Health/metrics routes are excluded** at the SDK
   (`OTEL_PYTHON_DJANGO_EXCLUDED_URLS=up/,metrics` or the app's equivalent)
-  — they are noise and can never be slow in an interesting way.
+  — they are noise and can never be slow in an interesting way. **And
+  drop orphan CLIENT roots in the app's sampler**: excluding the scrape's
+  server span leaves every collector query as a parentless `SELECT`, i.e.
+  a one-span trace each — 10+/min per app, verified in Tempo on the first
+  day (plus heartbeat Redis calls, beat's polls, migrations). The Django
+  reference wraps `ParentBased(ALWAYS_ON)` with "kind == CLIENT and no
+  valid parent → DROP"; server/consumer/producer roots and their children
+  are untouched. Prove it after deploy with TraceQL
+  `{resource.service.namespace="<p>"} | count() = 1` staying empty.
+- **On the hub host the agent's tailnet OTLP intake is `:4319`, not
+  `:4318`** — the hub's gateway owns `<tailnet-ip>:4318` there
+  (`observability_otlp_bind_port` in the inventory; the docker-network
+  alias `oj-alloy:4318` is unchanged). The first fleet roll-out hit
+  "port is already allocated" and left monitor-1-nc's Alloy down for ~4
+  min (2026-09-05). Any new host that publishes 4318 itself gets the same
+  override.
 - **Credentials**: none in the app. The agent's :4318 is unauthenticated
   on purpose — tailnet-bound, docker-network-scoped, and the hub-side
   writer credential never leaves the agent. Revoking a host's writer in

@@ -124,8 +124,12 @@ Reference: `oriolj/llm-index-watcher` `backend/config/tracing.py` (2026-09-05).
   CHILD — a `worker_process_init` receiver in `config/celery.py` calling
   `instrument_celery_worker()`; the child inherits the provider from the
   parent's `ready()`.
-- **No head sampling in the app** (the agent tail-samples). `traces_sample_rate`
-  in `sentry_sdk.init` stays 0.
+- **No head sampling in the app** (the agent tail-samples) — the ONE
+  sampler rule is structural, not statistical: `ParentBased(ALWAYS_ON)`
+  wrapped so a CLIENT span with no valid parent is dropped (`/metrics`
+  collector queries, heartbeat Redis calls, beat polls, migrations would
+  each be a one-span trace otherwise — `_NoOrphanClientSpans` in the
+  reference). `traces_sample_rate` in `sentry_sdk.init` stays 0.
 - **Langfuse coexistence**: one global provider per process. When tracing
   owns it, Langfuse's OTLP exporter is added to THAT provider behind a
   span-processor wrapper that forwards only `pydantic-ai`/`langfuse` scopes
