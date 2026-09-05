@@ -846,6 +846,23 @@ first and Oriol moved it). Contents, in this shape:
   (`<app>_<thing>_latency_seconds{stage=llm|end_to_end, window, quantile}`
   + `_count` + `_slow_ratio`). The gap between the two lines IS the queue
   wait and retry cost; the histogram alone hides it.
+- **Measure what the USER perceived, not what the server saw** (Oriol,
+  2026-09-05). "created → first result" in the DB still misses both ends:
+  the client-side work before the request lands (image resize, upload on
+  a mobile link) and the time until the UI actually shows the result —
+  if the frontend **polls**, that is up to one polling interval on top;
+  with SSE it is the stream's push latency. The server cannot see either,
+  so the client reports it: stamp `t0` at the user's action (the capture
+  tap, the submit), `t1` when the result is rendered, and send the
+  breakdown (`prepare_ms`, `upload_ms`, `wait_ms`, `total_ms`, transport
+  `sse|poll`) to a tiny timing endpoint keyed by the unit of work — or
+  piggyback it on the next request the client makes anyway. Store it on
+  the row and emit it as `stage="perceived"` next to `llm` and
+  `end_to_end`. Three lines on one panel then read left to right as
+  provider → pipeline → user, and a growing gap between `end_to_end` and
+  `perceived` is a frontend problem (polling interval, resize, upload),
+  not a backend one. Bound the label set (transport ×2) and never label
+  by user or device.
 - **One alert** on the task's p95 (`histogram_quantile(0.95, …[30m])`
   above ~4× the normal call time for 15 m, warning, **OK on NoData** —
   low-traffic apps legitimately have empty 30-minute windows). A slow
