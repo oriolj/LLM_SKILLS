@@ -985,6 +985,22 @@ The rules:
   `{resource.service.namespace="<project>"}`; open a slow trace, click a
   DB span (`db.statement` carries the SQL, parameters stripped), click
   "Logs for this span" — lines with the same `trace_id` must appear.
+- **Each project gets its own traces dashboard IN ITS FOLDER** (Oriol,
+  2026-09-05): `grafana/dashboards/<scope>/<project>/<project>-traces.json`,
+  title «<Project> trazas», uid `<project>-traces`, next to the KPI and
+  infra dashboards; the project name is a hidden `constant` variable
+  `project`, so onboarding the next project is: copy the LLM Index
+  Watcher file, change uid/title/tags/links and that one constant. (A
+  scope-wide «Trazas» with a project picker was built first and moved
+  the same day — dashboards are per project, not per signal.) It is
+  built on **TraceQL metrics** (`| rate()`,
+  `| quantile_over_time(duration, .95) by (span.http.route) | topk(10)`,
+  `| count_over_time()`), which Tempo 3.0 serves without the
+  metrics-generator — verified live. Read it knowing the sampling: error
+  and > 1 s figures are real, everything else is 10 % of the traffic
+  (proportions fine, absolute rates not — the Prometheus histogram is the
+  real request rate). Panel targets: `queryType: "traceql"` + the query;
+  `type: "traces"` panels for lists.
 
 Per-stack SDK shape: **Django** — `config/tracing.py` in
 `oriolj/llm-index-watcher` (reference, 2026-09-05): `TracerProvider` +
