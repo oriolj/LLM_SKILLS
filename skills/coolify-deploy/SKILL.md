@@ -1539,6 +1539,24 @@ Enantena team, server mlrtx2):
   on the missing key until the same bind was added).
 - Put the `healthcheck:` in the compose file ONLY (no Dockerfile
   `HEALTHCHECK`): one source, and Coolify's injected probe stays away.
+- **A bind-mounted state dir on an external disk needs a mount sentinel**
+  (review finding, 2026-09-06): if `/mnt/usb` is not mounted when Docker
+  starts, the bind source is an empty directory on the ROOT filesystem and
+  the container happily initialises a fresh state there and reports
+  success — for a backup runner that means backing up onto the wrong disk
+  and, for the lossy archive, re-downloading 15 TB. Both loops now refuse
+  to start unless a sentinel file exists in the mounted dir
+  (`.backupmaker-state`, `.nobackup`), and the hub has a rule on the
+  filesystem's total size (`statvfs` total < 20 TB = wrong disk). Do the
+  same for any app whose bind mount lives on a removable/USB/NFS disk.
+- **Check the credential files for paths outside the state dir** before
+  the first deploy — and the SSH targets for a NEW key: a runner moved to
+  a new host has a new root key that no target trusts (42/42 jobs failed
+  `Permission denied (publickey)` on mlrtx2's first cycle). The fix that
+  needs no panel: install the new public key from the OLD runner host,
+  whose key the targets already accept (`ssh old-host 'ssh target
+  "echo <pub> >> ~/.ssh/authorized_keys"'`), and record host keys with
+  `-o StrictHostKeyChecking=accept-new` from the new host once.
 - Push-to-deploy proof: the GitHub-App source + `watch_paths` gave a
   `is_webhook: true` deployment 30 s after the push for the app whose
   paths matched, and nothing for the sibling — both halves verified.

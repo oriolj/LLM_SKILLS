@@ -550,6 +550,19 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   port reaches the hub because the compose file publishes it on the host's
   tailnet address (`${TAILNET_IP:?}:9105:9105`, `coolify-deploy` §2) — the
   reason those two apps are Compose resources at all.
+  Review lessons the same day (the full list is the repo's commit
+  `a1d4da7`): expose a **killed-run signal** — a run that dies without a
+  report (SIGKILL after Docker's grace, OOM, reboot) is invisible to
+  "last report" metrics; the runner writes a tiny `progress.json` at every
+  job boundary and the supervisor reports `*_run_last_killed 1` at start
+  when it finds done < total, the lossy loop compares `last_run_started`
+  with `last_run_finished`. Expose the **current run's duration** (a wedged
+  cycle only shows after the stale threshold otherwise) and the **live
+  progress** (`*_run_progress{done,total}` from the same file / in-process
+  counters; a Grafana bar gauge of `100*done/total`). Send only **crashes**
+  to GlitchTip (supervisor errors, a crashed run, non-exit-code job
+  failures) — per-job/per-file failures are metrics, and 42 rsync exit
+  codes a day would drown the issue list.
 - **Go reference (enantena scope, 2026-09-02): EnaCast/EnCaSaGo** —
   hand-written exposition in `internal/dashboard/prometheus.go`, catalogue
   `METRICS.md`, human doc `GRAFANA_AND_METRICS.md`, hub job `encasago-app`
