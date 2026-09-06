@@ -202,6 +202,28 @@ commands bypass it so `docker exec … manage.py` one-offs still work.
 Dockerfile resources keep blue-green; keep migrations additive —
 during the rolling overlap the OLD code runs against the NEW schema.
 
+## Local compose — pin the project name (owned here, learned 2026-09-06 on NutriLens)
+
+Every Django repo's local compose lives in a directory called `backend`, so
+compose's default project name is `backend` for all of them on one machine:
+they share `backend_default`, and each one's `redis` / `postgres` service
+name resolves to *whichever* container answers. Symptom: Celery tasks
+intermittently "never arrive" — they were published to another project's
+broker, whose worker fails them `NotRegistered`; web requests can hit the
+wrong database the same way. Rules:
+
+- `docker-compose.local.yml` starts with `name: <project>` (e.g.
+  `name: nutrilens`). Container names alone (`container_name:`) do NOT
+  isolate the network.
+- Renaming an existing project would orphan its data volumes: keep them by
+  giving each volume an explicit `name: <oldproject>_<volume>` and
+  `external: true`, and document the one-time `docker volume create` for
+  fresh machines.
+- **Never `docker compose down --remove-orphans` on a machine like this**:
+  with a shared project name it removes the other repos' containers (it took
+  BudgetBuddy's dev stack down; volumes survived, containers had to be
+  recreated with `up -d --no-build`).
+
 ## New-project checklist (each row = go to its owner)
 
 1. Settings layout + `.envs/` + env inventory table BEFORE first deploy
