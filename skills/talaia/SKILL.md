@@ -183,6 +183,42 @@ If `uv run pytest` fails with phantom `ModuleNotFoundError`s while `uv run
 python` works, the venv predates a directory move: `rm -rf backend/.venv && uv
 sync`.
 
+## When an alert fires — triage path (accountant outage, 2026-09-06)
+
+1. **Scope it in one call**: `curl -s http://oriolj-nc-1:8611/metrics | grep
+   'talaia_suite_up.* 0'` — which suites are red, and `talaia_suite_over_budget`
+   while you are there.
+2. **Read the suite page** `http://oriolj-nc-1:8611/suite/<id>`: the failing
+   test's assertion carries URL + status + body, and the run history's first
+   red row is the outage START. Write that timestamp down — deploy docs written
+   from memory get it wrong (the accountant doc first said 12 min for an
+   8 h 21 min outage; the Coolify deployment rows, not recollection, fix that).
+3. **Probe live** with curl (browser UA). Traefik's `503 no available server`
+   means no healthy container behind the router — a deploy or a healthcheck,
+   not the app's code paths.
+4. **Find the host** in the project's `DEPLOY.md`. No SSH path (jluv-apps-1
+   is on the personal tailnet, unreachable from here)? Use the Coolify API of
+   the project's SCOPE (`coolify-deploy` skill §7b): `GET /applications/{uuid}`
+   (`exited:unhealthy` = nothing serving), `GET /deployments/applications/{uuid}`
+   (a `failed` row at the outage start), `GET /deployments/{uuid}` (the log; a
+   `Container logs:` block with the traceback appears only when the health
+   gate ran out with the container still present — otherwise re-trigger with
+   `POST /deploy?uuid=…` and read the new one). Token: hq
+   `homelab/secrets/coolify-<scope>.env` — parse it, never `source` it (the
+   `|` in the value), and send a browser UA (Cloudflare 1010).
+5. **Reproduce at the deployed commit** in a detached `git worktree` under the
+   scratchpad (the main checkout may belong to another live session — check
+   `git status` and `origin/master` before committing or pushing there),
+   against a throwaway `postgres:16-alpine` WITH data in the affected tables
+   (best: the project's prod dump from R2). A from-scratch migrate that passes
+   proves nothing about a DB with rows.
+6. **After the fix**: watch `talaia_suite_up` flip, remove the `USER_TODO.md`
+   item, and correct the project's deploy-history rows from the Coolify data.
+
+Alerting today is one Pushover push on up→down plus cooldown re-alerts
+(`backend/talaia/alerts.py`); nothing escalates to emergency priority, so a
+22:18 alert can wait until morning — a known gap, not a bug.
+
 ## Where things live
 
 | | |
