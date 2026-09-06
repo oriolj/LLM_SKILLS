@@ -204,6 +204,24 @@ after the swap). The playbook, every step verified:
 API notes learned on the way:
 - `GET /deployments/applications/{uuid}` returns **`{"count", "deployments": [...]}`** — not a bare list, not `data`. Parsing the wrong key
   reads as "no deployments" while the deploy has already finished.
+- **Compose-app domains and fqdn (2026-09-06, backupmaker-dashboard):**
+  `PATCH docker_compose_domains: ""` is refused with "Cannot set
+  docker_compose_domains without docker_compose_raw. Reload the compose
+  file from the git repository first" until the app has loaded its compose
+  (first deploy or the UI's reload) — do it after the first deploy;
+  `fqdn` is not PATCHable on compose apps ("This field is not allowed")
+  and the auto-assigned sslip `fqdn` stays as an inert string: a service
+  without a domain gets no Traefik router (verify with `docker inspect`
+  labels — none of `traefik.http.routers.*`). `POST /projects` rejects
+  descriptions with an em-dash (allowed: letters, digits, spaces,
+  `- _ . , ! ? ( ) ' " + = * / @ &`).
+- **Tailnet-only compose ports and the DOCKER-USER guard**: a guard rule
+  (`! -i tailscale0 … --ctorigdstport <port> -j DROP`) also blocks a
+  container on the SAME host (Talaia) from reaching the tailnet bind through
+  the docker bridge — 8611 (guarded) answers 000 from a container, an
+  unguarded tailnet bind answers 200. The tailnet-IP bind alone already
+  keeps the public IP out (probe times out); add a guard entry only for
+  ports nothing on the host needs to reach.
 - `is_auto_deploy_enabled` reads back `null` for every app, including the
   ones that demonstrably auto-deploy — the field is not serialised; don't
   diagnose from it.
