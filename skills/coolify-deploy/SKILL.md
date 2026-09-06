@@ -577,6 +577,33 @@ service to the same compose** instead of leaving the row red:
 - The data compose's watch path is usually the compose file only, so a
   change to the sidecar's script/Dockerfile ships on the NEXT compose
   deploy — say so in the commit.
+- **No SSH path to the host? Run one backup at container start** (H2A-
+  Accountant, 2026-09-06: the box is on the personal tailnet, the
+  workstation on EnaCast's). The sidecar's CMD is a tiny `run.sh`: `backup
+  || echo "start-up run FAILED"` when `BACKUP_ON_START=1` (default), then
+  `exec supercronic`. Proof without SSH: `GET /applications/{uuid}/logs?
+  lines=400` (compose apps return every container's lines — grep
+  `backup:`), `rclone lsl r2:<bucket>/<prefix>` from the workstation with
+  the same bucket-scoped key, and the check's `last_ping` on
+  healthchecks.io. Every deploy of the data resource re-proves the pipeline
+  as a side effect (first dump 06:25:01, uploaded + verified + pinged by
+  06:25:03).
+- **Set the `BACKUP_S3_*` env rows BEFORE pushing the compose** — the
+  `${VAR:?}` guards fail the deploy otherwise, and a compose deploy has
+  already stopped Postgres by then. Order: create the healthchecks check →
+  `coolify-env-set.py --build-time` the rows → push. And mind what else
+  the push deploys: a commit touching `backend/**` AND the compose file
+  rolls the three apps too, and any unpushed sibling commit on the branch
+  goes with it (2026-09-06: the push carried another session's wave-2
+  commit whose migration then failed — check `git status -sb` for
+  `ahead N` before pushing an ops change).
+- **Document WHERE the backups are, in the deploy doc, the same day**
+  (house rule, Oriol 2026-09-06 — hq `shared/docs/deploying-a-new-project.md`
+  §4a): bucket + prefix + object-name pattern, schedule + retention, the
+  credential that reads them and where it lives BY NAME, the Coolify env
+  rows (names), the healthchecks.io check, the `rclone lsl` one-liner and
+  the `pg_restore` recipe, last verified execution + last restore test.
+  Reference: `agents/accountant/DEPLOY.md` «Backups».
 
 ## 5a. postgres:18 in compose — the volume-layout trap (TimeTracker forensics, 2026-08-30)
 
@@ -1713,6 +1740,7 @@ worked:
 | Fresh deploy: DB "uninitialized and password option is not specified" | MariaDB/MySQL service without a root password setting | `MARIADB_RANDOM_ROOT_PASSWORD=yes` — invisible until the volume is empty (disaster recovery) |
 | `make logs` empty for a Dockerfile app that used to ship; `docker inspect` shows no `oj.*` labels | A domain edit (UI or `PATCH domains`) regenerated `custom_labels` and dropped the `oj.*` block — silently, nothing alerts | hq `homelab/tools/coolify-labels.py --scope <s> apply --app <uuid> oj.project=… oj.env=… oj.service=…`, then restart the app; run `check` after every domain change |
 | Deploy doc's Backups rows red because the DB lives inside a compose resource | Coolify scheduled backups need a standalone DB resource; "Phase 2 will fix it" never runs | Backup sidecar in the same compose (§5a0) — dump → R2 daily, healthchecks.io check, restore tested the same day; the standalone move becomes optional |
+| Django migrate-on-boot dies with `cannot CREATE INDEX "<table>…" because it has pending trigger events`; the deploy rolls back (or, worse, the rollback container is gone and the app is down) | A migration mixes `AddField(db_index=True)` / new FKs with a `RunPython` that UPDATEs the same table: Django emits the `CREATE INDEX` statements at the END of the migration (deferred SQL), after the UPDATE left deferred FK-trigger events pending in the same transaction. Works on an empty dev DB, fails on real data (H2A-Accountant 2026-09-06, web down 12 min) | Move the `RunPython` into its own migration (next number, depends on the schema one; idempotent UPDATEs so dev DBs that ran the old file are fine). Rehearse `manage.py migrate` against a `pg_restore` of the latest prod dump before pushing — that is what the R2 backups are for |
 | Deploy passes its health gate, then every request 500s (`OperationalError`, `ConnectionError`) | The health endpoint is a constant `{"status":"ok"}` — it proves the process answers, not that `DATABASE_URL`/`REDIS_URL` are right (a renamed data service at a split, a moved DB) | Real probe (§5): `SELECT 1` + cache set/get, 503 naming the failed check; the gate then rolls the deploy back |
 | Deploys on a tunnel-connected server fail intermittently, exit 255 mid-command (`mkdir -p` "fails" with no output) | **First check `journalctl -u ssh | grep -i maxstartups` on the server.** Coolify Cloud opens a FRESH SSH connection per deploy command (no ControlMaster through the cloudflared ProxyCommand) — 1,300–2,200 logins/min during a deploy — and OpenSSH's stock `MaxStartups 10:30:100` drops the 11th+ pre-auth connection: `drop connection #11 from [::1] … Maxstartups`, `additional 209 connections dropped`. A dropped pre-auth connection is exit 255 with no output, at a random step (clone, env write, `docker cp`, `mkdir`). Seen 2026-08-28 on monitor-1-nc, 5 deploys in a row, and 2026-09-03 on v5.enacast.com (EnaCast prod: 60 drops that day from Coolify Cloud's Hetzner IPs 49.12.x/49.13.x; the deploy died at `cat …/Dockerfile`, pre-build, old stack untouched). The other cause, when sshd is silent: cloudflared on QUIC over DEGRADED UDP (strict egress fw, netcup UDP filtering) — connects, then drops mid-transfer | `MaxStartups 100:30:200` in the sshd drop-in (hq `shared/ansible` baseline sets it fleet-wide, `ssh_max_startups`), reload sshd, redeploy. For the QUIC case force `TUNNEL_TRANSPORT_PROTOCOL=http2` (TCP) on the connector. Also: a failed deploy may have ALREADY stopped the old stack (Compose buildpack stops before it starts) — check `docker ps` before assuming the app is still serving |
 

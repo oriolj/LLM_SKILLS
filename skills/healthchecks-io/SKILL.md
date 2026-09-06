@@ -31,7 +31,12 @@ fed by a no-op `config.celery.beat_heartbeat_task` on a 300 s beat entry),
 `h2a-accountant-orphan-sweep` (1 h/30 min) — LeadHunter's per-check env
 shape (`HEALTHCHECKS_PING_URL_<CHECK>` on the worker AND beat apps,
 `backend/config/healthchecks.py` with `task_prerun` → `/start`, SUCCESS →
-ping, FAILURE → `/fail`). Total in the oriolj project: 15.
+ping, FAILURE → `/fail`), plus `h2a-accountant-db-backup` (2026-09-06, 1 d /
+6 h grace, tags `h2a-accountant oriolj backup` — pinged by the compose
+backup sidecar after a size-verified R2 upload, env
+`HEALTHCHECKS_PING_URL_DB_BACKUP` as a BUILD-TIME row on the data resource
+because the compose buildpack interpolates it). Total in the oriolj
+project: 16.
 
 🔴 **The oriolj project has ZERO notification channels (found 2026-09-04
 via `GET /api/v3/channels/`)** — every check there (LeadHunter's six, the
