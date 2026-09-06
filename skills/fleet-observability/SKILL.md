@@ -158,10 +158,12 @@ Role drops `/opt/observability/{docker-compose.yml,config.alloy,nginx.conf}`
 and runs `docker compose up -d`. Agent updates = bump the pinned image in
 the role, run the play.
 
-**Status (2026-09-04): the role is LIVE on seven hosts** — `logcli labels
+**Status (2026-09-06): the role is LIVE on eight hosts** — `logcli labels
 host` lists coolify-ovh-vps-1, oriolj-nc-1, enacast-ai-fsn1-1,
 monitor-1-nc (the hub runs the same agent since 2026-08-31), storage-1,
-infra-monitoring and **v5** (THE EnaCast production backend, onboarded
+infra-monitoring, **mlrtx2** (the office ML desktop — a Coolify remote
+server deliberately NOT in `servers`, enrolled 2026-09-06 with the
+backupmaker deployment: 79k lines shipped within a minute of the play) and **v5** (THE EnaCast production backend, onboarded
 2026-09-04 the day after an outage investigation had to read its logs
 with `docker logs` over ssh); smartup-nbg1-1 and jluv-apps-1 are staged.
 The role ships **logs + traces** (2026-09-05: journald + docker with the
@@ -533,6 +535,21 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   `oriolj/llm-index-watcher`, documented in its `METRICS.md`.
 - **Plain Python** (scripts, daemons): `prometheus_client.start_http_server`
   on the internal port; single-process, so none of the multiproc pain.
+  **Reference for batch/backup loops (oriolj/backupmaker, 2026-09-06 —
+  `METRICS.md` + `GRAFANA_AND_METRICS.md`, dashboard «Backups» in org
+  Personal, alert group `backupmaker`)**: the long-lived LOOP process serves
+  `/metrics`; every value is a **per-scrape collector over durable state**
+  (the runner's `reports/latest.json` + an index of `run-*.json`; the lossy
+  tool's SQLite manifest through a covering index, cached 5 min in a
+  background thread) — no in-process counters, so a restart never resets a
+  number. Anything that walks millions of files (bytes per job / per file
+  extension) runs ONCE per cycle in a daemon thread scheduled by the loop,
+  never at scrape. Label the per-job series `backup_job`, never `job`
+  (Prometheus owns `job` → `exported_job`). Failed targets are a gauge +
+  a warning rule, not a stop: `backupmaker_run_jobs{status="failed"}`. The
+  port reaches the hub because the compose file publishes it on the host's
+  tailnet address (`${TAILNET_IP:?}:9105:9105`, `coolify-deploy` §2) — the
+  reason those two apps are Compose resources at all.
 - **Go reference (enantena scope, 2026-09-02): EnaCast/EnCaSaGo** —
   hand-written exposition in `internal/dashboard/prometheus.go`, catalogue
   `METRICS.md`, human doc `GRAFANA_AND_METRICS.md`, hub job `encasago-app`

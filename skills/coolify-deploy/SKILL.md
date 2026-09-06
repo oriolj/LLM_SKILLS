@@ -1502,6 +1502,51 @@ auto-assigned even here) → `POST /deploy`.
   (oliver006/redis_exporter) wants `REDIS_ADDR=redis://<db-uuid>:6379` +
   `REDIS_PASSWORD` split out — it does NOT parse creds from the URL.
 
+### Worker-style Compose apps with a tailnet-only metrics port (verified 2026-09-06, backupmaker on mlrtx2)
+
+The one legitimate reason to pick the Compose buildpack for a single
+service: the hub's Prometheus PULLS `/metrics`, and only a compose
+`ports:` entry can bind a published port to the host's tailnet address —
+Dockerfile resources publish on `0.0.0.0` (API) or not at all. Facts from
+creating two such apps by API (`oriolj/backupmaker` runner + lossy loop,
+Enantena team, server mlrtx2):
+
+- `POST /applications/private-github-app` with `build_pack: dockercompose`,
+  `base_directory` (`/` or `/tools/<sub>`), `docker_compose_location:
+  /docker-compose.yml`, `watch_paths`, `instant_deploy: false`,
+  `is_auto_deploy_enabled: false` works; Coolify fetches the compose from
+  GitHub AT CREATION and **seeds every `${VAR…}` row immediately** —
+  `${TAILNET_IP:?}` and `${URL:-}` came back as existing rows with an
+  EMPTY value (len 0, build-time). Set them (`coolify-env-set.py …
+  --build-time`) before the first deploy; the `:?` guard refuses to
+  deploy on the empty seed, which is the point.
+- Write the bind explicitly — `"${TAILNET_IP:?}:9105:9105"` — instead of
+  relying on the rewrite; verify after deploy with `docker port <c>` →
+  `9105/tcp -> 100.93.203.14:9105`.
+- **`PATCH domains` is REJECTED on compose apps** (`"The domains field
+  cannot be used for dockercompose applications. Use
+  docker_compose_domains instead"`) and the whole PATCH fails — send
+  `{"docker_compose_domains": [{"name": "<service>", "domain": ""}]}`
+  alone (plus `is_auto_deploy_enabled`). The top-level `fqdn` keeps
+  showing the auto-assigned sslip name afterwards; it is informational
+  for compose apps (no router is generated without a per-service domain).
+- Absolute host paths in `volumes:` pass through untouched (no Preserve
+  Repository needed); a root-running container avoids the bind-mount
+  chown trap, and a read-only `/root/.ssh:/root/.ssh:ro` bind hands the
+  rsync/ssh/rclone jobs the host root's keys — **check every credential
+  file for paths that live OUTSIDE the state dir** (the lossy `rclone.conf`
+  pointed at `key_file = /root/.ssh/id_ed25519`; its first deploy failed
+  on the missing key until the same bind was added).
+- Put the `healthcheck:` in the compose file ONLY (no Dockerfile
+  `HEALTHCHECK`): one source, and Coolify's injected probe stays away.
+- Push-to-deploy proof: the GitHub-App source + `watch_paths` gave a
+  `is_webhook: true` deployment 30 s after the push for the app whose
+  paths matched, and nothing for the sibling — both halves verified.
+- The deploy is stop→start; a loop that owns child processes must handle
+  SIGTERM itself (forward to the child, kill the job's process group,
+  still write its report) — the 30 s budget is enough for that, not for
+  finishing a transfer.
+
 ### Git-less deploys — when the content must never touch a remote (verified 2026-08-31, cashflow-enantena)
 
 Some apps cannot be git-sourced at all: the source of truth is a repo
