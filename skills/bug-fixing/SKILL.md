@@ -42,6 +42,10 @@ skill; this file is the method.
      warning, filter at the SDK), never by resolving the issue and hoping.
   Write the class into the release note ("What happened" vs "Now") and the team
   email — the reader must learn whether a flow was unblocked or a refusal explained.
+- **A QA report is a bug source like any other**: map each finding to a tracker issue when
+  one exists (the timestamps + user agent pin it), and fix the mechanism behind several
+  findings at once (one error renderer, one retry policy, one FormData serialisation)
+  rather than each symptom on its page.
 
 ## 1. Reproduce BEFORE changing code
 
