@@ -100,12 +100,28 @@ it. **Symptom while it is unset** (Claude Code `/mcp`, 2026-09-07):
 page, there is no `/.well-known/oauth-authorization-server`, so the SDK's
 registration fallback POSTs to root `/register` — GlitchTip's own Django
 signup route — and Django answers its CSRF page. That 403 means "flag not
-set on the server", never a client-side config error. Enabling it = the
-compose in Coolify (Enantena team, service `ecsgwgsccsgwk40ss0og4gsc`):
-`GLITCHTIP_ENABLE_MCP: 'true'` beside `GLITCHTIP_DOMAIN` in `x-environment`,
-`web` and `worker`, then Restart (queued in hq `USER_TODO.md` 2026-09-07 —
-an agent's API PATCH was denied by the permission classifier; ask before
-retrying). The image is untagged, so a restart also pulls latest.
+set on the server", never a client-side config error.
+
+**🔴 The flag alone takes GlitchTip DOWN when `GLITCHTIP_DOMAIN` is http**
+(2026-09-07, ~10 min outage, reverted): the MCP SDK's `validate_issuer_url`
+raises `ValueError: Issuer URL must be HTTPS` for any non-`localhost` http
+issuer, the issuer is `GLITCHTIP_URL` + `/mcp` (`apps/mcp/server.py`,
+same on master), and `asgi.py` builds the MCP app at import — so every
+granian worker dies at boot and the `web` container restart-loops. There is
+no override env. **Prerequisite**: `GLITCHTIP_DOMAIN` must be an `https://`
+URL clients reach — Tailscale Serve
+(`tailscale serve --bg --https=443 http://127.0.0.1:8000` on the box →
+`https://infra-monitoring.armadillo-tawny.ts.net`, tailnet-only) or a
+Coolify/Traefik domain with Let's Encrypt (public login page). The
+ingest DSNs keep the `http://…@infra-monitoring:8000/<id>` form and keep
+working (the container still listens on 8000); the UI origin, generated
+links and `CSRF_TRUSTED_ORIGINS` follow the new domain. The choice is
+Oriol's — hq `USER_TODO.md` 2026-09-07. Once made: set `GLITCHTIP_DOMAIN`
+and `GLITCHTIP_ENABLE_MCP: 'true'` in the compose (`x-environment`, `web`,
+`worker`; Coolify service `ecsgwgsccsgwk40ss0og4gsc`, Enantena team —
+`PATCH /api/v1/services/<uuid>` wants `docker_compose_raw` **base64**
+even though `GET` returns it plain; `POST …/restart`), then probe, then
+point the MCP entries at `https://<domain>/mcp`.
 
 **Auth — two ways** (server code v6.1.8: `apps/mcp/auth.py`,
 `apps/oauth/provider.py`):
@@ -117,7 +133,7 @@ retrying). The image is untagged, so a restart also pulls latest.
   ```bash
   T=$(grep '^GLITCHTIP_API_TOKEN=' hq/homelab/secrets/glitchtip.env | cut -d= -f2)
   cd <repo> && claude mcp add -s local --transport http glitchtip \
-    http://infra-monitoring:8000/mcp --header "Authorization: Bearer $T"
+    https://<GLITCHTIP_DOMAIN host>/mcp --header "Authorization: Bearer $T"
   ```
   (`claude mcp remove glitchtip` first if a URL-only entry exists; the
   header lands in the profile's `.claude.json`, never in a repo `.mcp.json`.)
@@ -125,12 +141,12 @@ retrying). The image is untagged, so a restart also pulls latest.
   then `/mcp` → authenticate → consent page at `/oauth/authorize/`. The
   metadata advertises `/mcp/{authorize,token,register,revoke}`; the issuer
   is `GLITCHTIP_DOMAIN` + `/mcp`, so the domain MUST equal the URL clients
-  use — it is `http://infra-monitoring:8000`, so it matches. One browser
+  use (and be https, see above). One browser
   approval per Claude profile; useless for headless runs.
 
 **Verify** (after the flag; also the probe to run before blaming a client):
 ```bash
-curl -s -o /dev/stderr -w '\nHTTP %{http_code}\n' -X POST http://infra-monitoring:8000/mcp \
+curl -s -o /dev/stderr -w '\nHTTP %{http_code}\n' -X POST https://<GLITCHTIP_DOMAIN host>/mcp \
   -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}'
