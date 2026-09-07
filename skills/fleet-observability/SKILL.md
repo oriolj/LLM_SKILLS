@@ -752,7 +752,17 @@ Per stack (all standard Sentry SDK setup, only the DSN differs):
   performance tracing is OpenTelemetry → Tempo (§5f, Oriol 2026-09-05),
   never Sentry transactions into GlitchTip's Postgres.
 - **Go**: `sentry-go`, `sentry.Init` + recover middleware.
-- **Next.js/Astro (node)**: `@sentry/nextjs` / `@sentry/node`.
+- **Next.js/Astro — server side (node)**: `@sentry/nextjs` / `@sentry/node`,
+  same rules, and only if that server is on the tailnet (a Vercel function
+  is NOT).
+- **Any BROWSER SDK** (`@sentry/browser`, `@sentry/react`, the client half
+  of `@sentry/nextjs`/`@sentry/astro`) **cannot reach the DSN** — the
+  user's machine is not on the tailnet, and the SDK swallows the failure.
+  The answer is the **same-origin tunnel**: a placeholder DSN in the
+  bundle, `tunnel:` pointing at a relay on a tailnet host (the project's
+  own backend, not Vercel), the real DSN pinned server-side. Decided
+  2026-09-07 over opening ingest or paying for Sentry SaaS; contract and
+  traps in the `glitchtip` skill § Browser SDKs.
 
 Non-negotiables, wired to the rest of the estate's rules:
 
@@ -770,11 +780,12 @@ closed on the instance (Django-shell recipe) — the `glitchtip` skill owns
 the mechanics. Still confirm with the user only:
 
 1. ~~The DSN itself~~ — self-serve now (see above).
-2. **Reachability of the DSN host from the app's servers.** The GlitchTip
-   UI is tailnet-only today; whether app servers send events over the
-   tailnet or a public ingest endpoint exists is deployment-specific —
-   confirm before wiring an SDK that would silently fail to deliver
-   events (SDKs swallow transport errors by design).
+2. **Reachability of the DSN host from whatever sends the event.** Ingest
+   is tailnet-only and stays that way (Oriol, 2026-09-07) — confirm before
+   wiring an SDK that would silently fail to deliver events (SDKs swallow
+   transport errors by design). Server on the tailnet → direct. Browser,
+   or a server that is not on the tailnet (Vercel, Cloudflare Pages) →
+   the same-origin tunnel, `glitchtip` skill § Browser SDKs.
 
 - DOCKER-USER tailnet-only guard hosts as of 2026-08-30: coolify-ovh-vps-1, oriolj-nc-1, enacast-ai-fsn1-1 (script + oneshot unit per `coolify-deploy` §7c).
 

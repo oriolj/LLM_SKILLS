@@ -1,6 +1,6 @@
 ---
 name: glitchtip
-description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error tracking on infra-monitoring) — orgs per realm, the API token, self-serving projects/DSNs via the Sentry API, the org-creation-is-closed workaround, and the built-in MCP server (flag, auth, Claude Code wiring, the CSRF-403 symptom). Use when a project needs a DSN, when creating a GlitchTip org/project, when wiring sentry_sdk in any app, when adding GlitchTip as an MCP server to Claude Code, or when the user mentions GlitchTip, error tracking, or Sentry DSNs.
+description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error tracking on infra-monitoring) — orgs per realm, the API token, self-serving projects/DSNs via the Sentry API, the org-creation-is-closed workaround, the built-in MCP server (flag, auth, Claude Code wiring, the CSRF-403 symptom), and the same-origin tunnel that lets BROWSER SDKs reach the tailnet-only ingest without exposing it. Use when a project needs a DSN, when creating a GlitchTip org/project, when wiring sentry_sdk in any app, when adding error tracking to a frontend (@sentry/browser, @sentry/react, the client half of @sentry/nextjs or @sentry/astro) or asking whether to use Sentry SaaS for it instead, when adding GlitchTip as an MCP server to Claude Code, or when the user mentions GlitchTip, error tracking, or Sentry DSNs.
 ---
 
 # GlitchTip — the estate's error tracking
@@ -178,3 +178,85 @@ Alloy → Tempo on the hub (`fleet-observability` §5f) — GlitchTip's box
 (2 vCPU, 76 GB, no logical backup) cannot carry transactions, and it would
 split the signal off the Grafana stack. An app found with a non-zero rate
 (H2A-Accountant had 0.1 hardcoded) is a finding to fix, not a precedent.
+
+## Browser SDKs — the same-origin tunnel (decided 2026-09-07, NOT yet built)
+
+**The constraint**: a browser SDK posts envelopes from the *user's*
+machine. `http://…@infra-monitoring:8000/<id>` resolves on the tailnet
+only, so `@sentry/browser`, `@sentry/react` and the CLIENT half of
+`@sentry/nextjs` / `@sentry/astro` would silently drop every event (SDKs
+swallow transport errors by design). The server half is unaffected — it
+runs on a tailnet host.
+
+**The decision (Oriol, 2026-09-07): frontends stay on GlitchTip too,
+behind a same-origin relay** — not a public ingest endpoint, and not
+Sentry SaaS. The Sentry SDKs' `tunnel` option exists for exactly this:
+
+```js
+Sentry.init({
+  dsn: "https://public@errors.invalid/1",          // placeholder, see below
+  tunnel: "https://api.<project>.com/monitoring/", // a URL we own
+})
+```
+
+The browser POSTs the envelope to a URL we own; our server rewrites it and
+forwards it to GlitchTip over the tailnet.
+
+**Nothing internal ships in the bundle.** The client DSN is a
+*placeholder* — it only has to parse (`<scheme>://<key>@<host>/<id>`). The
+relay replaces the `dsn` field of the envelope's first line with the real
+value from its own server-side env, so the bundle carries no MagicDNS
+name, no tailnet IP, no project key and no project id. That is the
+difference from Sentry's own documented tunnel example, which forwards to
+whatever DSN the client sent (and therefore publishes it): **pin the DSN
+server-side, never trust the client's.**
+
+**Where the relay lives — the Vercel trap.** It must sit on a host that is
+ON the tailnet. Next.js frontends deploy to Vercel and static Astro sites
+to Cloudflare Pages (house rule) — **neither can reach
+`infra-monitoring`**, so a route handler there is not a relay, it is a
+502. Put the endpoint on the project's own Django/Go backend (Coolify,
+tailnet) and give `tunnel` its absolute URL; that makes the call
+cross-origin, so the relay must answer the CORS preflight
+(`Access-Control-Allow-Origin: <the site origin>`, `POST`,
+`content-type`). A framework route handler is a valid relay only when the
+app itself runs on a tailnet host.
+
+**Relay contract** (whatever the language):
+
+1. `POST` only, body read as bytes and capped (~200 KB); anything else → 4xx.
+2. Parse line 1 as JSON, replace `dsn` with the server-side value, re-join
+   the envelope unchanged.
+3. Forward to `<dsn-origin>/api/<project-id>/envelope/`, building the
+   upstream headers **from scratch** — the global proxy-header rules apply
+   (never copy the incoming set).
+4. Per-IP rate limit. This is an unauthenticated write path into the error
+   tracker; the public key never was a secret, but the relay is now the
+   only thing between the internet and the project's issue stream.
+5. **No auth, no session lookup** — errors happen on logged-out pages, and
+   a relay that 401s loses exactly the events worth having.
+6. Always answer 200/204 with an empty body; never echo GlitchTip's
+   response back to the browser.
+
+**The bonus nobody plans for**: uBlock / Brave / Privacy Badger block
+requests matching `*/api/*/envelope/` and `sentry-cdn` by pattern. A
+same-origin path under our own name is not on those lists, so the tunnel
+recovers events that Sentry SaaS would also have lost.
+
+**What it costs**:
+
+- Events are lost while the relay's own backend is down or redeploying —
+  the failures you most want to see. Sentry SaaS has that blind spot only
+  for network-level outages.
+- Source maps and session replay stay weak: GlitchTip's artifact-bundle
+  support is thinner than Sentry's and it has no replay at all. **The
+  escape hatch is Sentry SaaS for a frontend that genuinely needs them.**
+  It is NOT taken today, and taking it means an account/scope decision
+  (the three-realm exception in the global `CLAUDE.md`) plus a
+  `sentry.env` in `homelab/secrets/`.
+- In exchange, a frontend error and the backend 500 behind it stay in the
+  same GlitchTip org — the whole reason for not splitting the tools.
+
+**Status: no project implements this yet.** The first frontend that needs
+browser error tracking builds the relay; name the reference implementation
+here when it exists.
