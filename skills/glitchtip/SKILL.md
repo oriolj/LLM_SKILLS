@@ -115,10 +115,20 @@ URL clients reach — Tailscale Serve
 Coolify/Traefik domain with Let's Encrypt (public login page). The
 ingest DSNs keep the `http://…@infra-monitoring:8000/<id>` form and keep
 working (the container still listens on 8000); the UI origin, generated
-links and `CSRF_TRUSTED_ORIGINS` follow the new domain. The choice is
-Oriol's — hq `USER_TODO.md` 2026-09-07. Once made: set `GLITCHTIP_DOMAIN`
-and `GLITCHTIP_ENABLE_MCP: 'true'` in the compose (`x-environment`, `web`,
-`worker`; Coolify service `ecsgwgsccsgwk40ss0og4gsc`, Enantena team —
+links and `CSRF_TRUSTED_ORIGINS` follow the new domain. Oriol chose
+**Tailscale Serve** (2026-09-07). **Serve needs "HTTPS Certificates"
+enabled on the tailnet first** — `tailscale cert` answers *"your Tailscale
+account does not support getting TLS certs"* and `tailscale serve --bg`
+hangs when it is off (EnaCast tailnet: off as of 2026-09-07, admin-console
+click queued in hq `USER_TODO.md`; no Tailscale API key in hq). Once on:
+`tailscale serve --bg --https=443 http://127.0.0.1:8000` on the box,
+`tailscale serve status` to confirm, then set `GLITCHTIP_DOMAIN`
+(`https://infra-monitoring.armadillo-tawny.ts.net`), `CSRF_TRUSTED_ORIGINS`
+to that origin (GlitchTip defaults it to `[]` and sets no
+`SECURE_PROXY_SSL_HEADER`, so an https Origin behind Serve would fail
+Django's CSRF check on UI logins without it — API bearer calls and MCP
+are exempt) and `GLITCHTIP_ENABLE_MCP: 'true'` in the compose
+(`x-environment`, `web`, `worker`; Coolify service `ecsgwgsccsgwk40ss0og4gsc`, Enantena team —
 `PATCH /api/v1/services/<uuid>` wants `docker_compose_raw` **base64**
 even though `GET` returns it plain; `POST …/restart`), then probe, then
 point the MCP entries at `https://<domain>/mcp`.
@@ -137,6 +147,10 @@ point the MCP entries at `https://<domain>/mcp`.
   ```
   (`claude mcp remove glitchtip` first if a URL-only entry exists; the
   header lands in the profile's `.claude.json`, never in a repo `.mcp.json`.)
+  On minisforum it is installed at **user scope in all three profiles**
+  (`CLAUDE_CONFIG_DIR=~/.claude{,-smartup,-enacast} claude mcp add -s user …`,
+  2026-09-07) with `https://infra-monitoring.armadillo-tawny.ts.net/mcp`;
+  other workstations: repeat the three commands.
 - **OAuth 2.0 + dynamic client registration** (interactive): URL only,
   then `/mcp` → authenticate → consent page at `/oauth/authorize/`. The
   metadata advertises `/mcp/{authorize,token,register,revoke}`; the issuer
