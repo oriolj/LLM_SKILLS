@@ -1,6 +1,6 @@
 ---
 name: glitchtip
-description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error tracking on infra-monitoring) — orgs per realm, the API token, self-serving projects/DSNs via the Sentry API, and the org-creation-is-closed workaround. Use when a project needs a DSN, when creating a GlitchTip org/project, when wiring sentry_sdk in any app, or when the user mentions GlitchTip, error tracking, or Sentry DSNs.
+description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error tracking on infra-monitoring) — orgs per realm, the API token, self-serving projects/DSNs via the Sentry API, the org-creation-is-closed workaround, and the built-in MCP server (flag, auth, Claude Code wiring, the CSRF-403 symptom). Use when a project needs a DSN, when creating a GlitchTip org/project, when wiring sentry_sdk in any app, when adding GlitchTip as an MCP server to Claude Code, or when the user mentions GlitchTip, error tracking, or Sentry DSNs.
 ---
 
 # GlitchTip — the estate's error tracking
@@ -86,6 +86,65 @@ if not org.organization_users.filter(user=u).exists():
     org.add_user(u, role=OrganizationUserRole.OWNER)
 "'
 ```
+
+## MCP server (built in since 6.1 — OFF until the flag is set)
+
+GlitchTip ≥ 6.1 (running: **6.1.8**, checked 2026-09-07 at
+`GET /api/settings/` → `"version"`) mounts an MCP server at
+`http://infra-monitoring:8000/mcp` (Streamable HTTP, Django app `apps.mcp`,
+routed by `glitchtip/asgi.py`), gated by **`GLITCHTIP_ENABLE_MCP=true`** on
+the `web` container — default `False`, and the estate's compose does not set
+it. **Symptom while it is unset** (Claude Code `/mcp`, 2026-09-07):
+"MCP endpoint not found at …:8000" + "Dynamic Client Registration rejected
+(HTTP 403) … CSRF verification failed". Reading: `/mcp` is the SPA's 404
+page, there is no `/.well-known/oauth-authorization-server`, so the SDK's
+registration fallback POSTs to root `/register` — GlitchTip's own Django
+signup route — and Django answers its CSRF page. That 403 means "flag not
+set on the server", never a client-side config error. Enabling it = the
+compose in Coolify (Enantena team, service `ecsgwgsccsgwk40ss0og4gsc`):
+`GLITCHTIP_ENABLE_MCP: 'true'` beside `GLITCHTIP_DOMAIN` in `x-environment`,
+`web` and `worker`, then Restart (queued in hq `USER_TODO.md` 2026-09-07 —
+an agent's API PATCH was denied by the permission classifier; ask before
+retrying). The image is untagged, so a restart also pulls latest.
+
+**Auth — two ways** (server code v6.1.8: `apps/mcp/auth.py`,
+`apps/oauth/provider.py`):
+
+- **API token as Bearer** (headless: agents, `claude -p`). The same
+  `GLITCHTIP_API_TOKEN`; the token's scopes gate the tools. This is how the
+  EnaCast repo's entry is wired (local scope of the claude-enacast profile,
+  2026-09-07):
+  ```bash
+  T=$(grep '^GLITCHTIP_API_TOKEN=' hq/homelab/secrets/glitchtip.env | cut -d= -f2)
+  cd <repo> && claude mcp add -s local --transport http glitchtip \
+    http://infra-monitoring:8000/mcp --header "Authorization: Bearer $T"
+  ```
+  (`claude mcp remove glitchtip` first if a URL-only entry exists; the
+  header lands in the profile's `.claude.json`, never in a repo `.mcp.json`.)
+- **OAuth 2.0 + dynamic client registration** (interactive): URL only,
+  then `/mcp` → authenticate → consent page at `/oauth/authorize/`. The
+  metadata advertises `/mcp/{authorize,token,register,revoke}`; the issuer
+  is `GLITCHTIP_DOMAIN` + `/mcp`, so the domain MUST equal the URL clients
+  use — it is `http://infra-monitoring:8000`, so it matches. One browser
+  approval per Claude profile; useless for headless runs.
+
+**Verify** (after the flag; also the probe to run before blaming a client):
+```bash
+curl -s -o /dev/stderr -w '\nHTTP %{http_code}\n' -X POST http://infra-monitoring:8000/mcp \
+  -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}'
+# 200 + serverInfo = on · 404 HTML = flag still unset · 401 = token
+```
+
+**Tools** (v6.1.8 `apps/mcp/server.py`): `list_organizations`,
+`list_projects`, `list_issues`, `get_issue`, `get_latest_event`,
+`get_event`, `update_issue`, `list_alerts`, `list_monitors`, the
+transaction/span family (`list_transaction_groups`, `detect_n_plus_one`,
+`get_transaction_trend`… — empty here, traces go to Tempo, not GlitchTip)
+and `list_logs` / `get_log` (behind the `logs` feature, enabled). The
+third-party servers (`adfdev/glitchtip-mcp`, `coffebar/mcp-glitchtip`) are
+not needed — the built-in one covers issue triage.
 
 ## Wiring apps (pointers)
 
