@@ -15,7 +15,7 @@ description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error
 - **Orgs partition it per realm**: `enacast` (pre-existing) and `oriolj`
   (created 2026-08-31). smartupsoft: create when first needed (recipe
   below). Projects (2026-09-02): `enacast/{enacast-backend, enacast-ai,
-  leadhunter, enacast24h, encasago}`, `oriolj/{talaia, h2a-leadhunter, licita-radar, llm-index-watcher, backupmaker}` (backupmaker = id 11, created 2026-09-06 by API for the two backup loops on mlrtx2 — crashes only, per-job failures stay in metrics; the DSN keeps the MagicDNS host because mlrtx2's containers resolve `infra-monitoring`) (licita-radar = id 8 and llm-index-watcher = id 9, both created 2026-09-02 by API, DSNs on their Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).
+  leadhunter, enacast24h, encasago}`, `oriolj/{talaia, h2a-leadhunter, licita-radar, llm-index-watcher, backupmaker, panotxa}` (panotxa = id 12, created 2026-09-07 by API as the target of the browser tunnel below; **its Django backend still reports to sentry.io SaaS** — the estate's last SaaS-Sentry holdout, one Coolify env change away) (backupmaker = id 11, created 2026-09-06 by API for the two backup loops on mlrtx2 — crashes only, per-job failures stay in metrics; the DSN keeps the MagicDNS host because mlrtx2's containers resolve `infra-monitoring`) (licita-radar = id 8 and llm-index-watcher = id 9, both created 2026-09-02 by API, DSNs on their Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).
   `enacast/leadhunter` (id 3) is a wrong-realm leftover (H2A-LeadHunter
   is personal) — 0 events ever; deletion is queued as Oriol's decision
   in hq `USER_TODO.md`. **A personal app's project goes in `oriolj`** —
@@ -179,7 +179,7 @@ Alloy → Tempo on the hub (`fleet-observability` §5f) — GlitchTip's box
 split the signal off the Grafana stack. An app found with a non-zero rate
 (H2A-Accountant had 0.1 hardcoded) is a finding to fix, not a precedent.
 
-## Browser SDKs — the same-origin tunnel (decided 2026-09-07, NOT yet built)
+## Browser SDKs — the same-origin tunnel (decided 2026-09-07; built in Panotxa)
 
 **The constraint**: a browser SDK posts envelopes from the *user's*
 machine. `http://…@infra-monitoring:8000/<id>` resolves on the tailnet
@@ -194,8 +194,8 @@ Sentry SaaS. The Sentry SDKs' `tunnel` option exists for exactly this:
 
 ```js
 Sentry.init({
-  dsn: "https://public@errors.invalid/1",          // placeholder, see below
-  tunnel: "https://api.<project>.com/monitoring/", // a URL we own
+  dsn: "https://public@errors.invalid/1",   // placeholder, see below
+  tunnel: "https://api.<project>.com/api/e/", // a URL we own
 })
 ```
 
@@ -222,6 +222,14 @@ cross-origin, so the relay must answer the CORS preflight
 `content-type`). A framework route handler is a valid relay only when the
 app itself runs on a tailnet host.
 
+**Name the endpoint for the ad blockers, not for the reader.** uBlock, Brave
+and Privacy Badger match `/monitoring`, `/telemetry`, `/analytics` and
+anything containing "sentry" — naming the relay after what it does hands
+back the events tunnelling was meant to recover. Panotxa uses **`/api/e/`**.
+It also has to live under whatever prefix the project's CORS config covers
+(`CORS_URLS_REGEX = r"^/api/.*$"` there), or the cross-origin preflight from
+the app's own domain fails.
+
 **Relay contract** (whatever the language):
 
 1. `POST` only, body read as bytes and capped (~200 KB); anything else → 4xx.
@@ -245,6 +253,13 @@ recovers events that Sentry SaaS would also have lost.
 
 **What it costs**:
 
+- **Native mobile crashes are not covered.** `@sentry/capacitor` (and
+  react-native) initialise sentry-android / sentry-cocoa alongside the JS
+  layer, and those SDKs have **no `tunnel` option** — with a placeholder DSN
+  they would post to a host that does not exist and fail silently. Set
+  `enableNative: false` whenever the tunnel is in use, and say so in the
+  project's docs; the only way to get native crash reports is a DSN the
+  device can actually reach.
 - Events are lost while the relay's own backend is down or redeploying —
   the failures you most want to see. Sentry SaaS has that blind spot only
   for network-level outages.
@@ -257,6 +272,30 @@ recovers events that Sentry SaaS would also have lost.
 - In exchange, a frontend error and the backend 500 behind it stay in the
   same GlitchTip org — the whole reason for not splitting the tools.
 
-**Status: no project implements this yet.** The first frontend that needs
-browser error tracking builds the relay; name the reference implementation
-here when it exists.
+### Reference implementation — Panotxa (2026-09-07)
+
+Repo `JLUV-smallbets/NutriLens`, commit `1854ed9`. Copy from here rather
+than from Sentry's docs sample.
+
+| Piece | Where |
+|---|---|
+| The relay | `backend/config/error_relay.py` — DSN parse → envelope endpoint, header rewrite, two rate limits, upstream POST with headers built from scratch |
+| Its route | `backend/config/urls.py`, `path("api/e/", …)` **before** the `api/` router include |
+| Its setting | `GLITCHTIP_RELAY_DSN` in `config/settings/base.py`, empty = accept-and-drop |
+| Its tests | `backend/tests/test_error_relay.py` — 14 cases, incl. "the client DSN is replaced, never trusted" and "fails closed when the cache is down" |
+| The client | `frontend-capacitor/src/services/error-reporting.ts` (placeholder DSN, tunnel from `environment.apiUrl`, `enableNative` off) |
+| The deploy notes | the repo's `DEPLOY.md` §3.4, including the `curl` probe |
+
+**Panotxa is also the worked example of the Vercel trap**: the PWA is served
+from Vercel, so the relay had to go on the Django backend at
+`api.panotxa.com` (Coolify, oriolj-nc-1, on the tailnet) and the tunnel is
+an absolute cross-origin URL. GlitchTip project `oriolj/panotxa` (id 12,
+created 2026-09-07 by API).
+
+**Verify the bundle, not the intention** — the point of the placeholder is
+that nothing internal ships, so prove it after a production build:
+
+```bash
+grep -rl "infra-monitoring\|armadillo-tawny\|100\.8[0-9]\." dist/   # must print nothing
+grep -rlo "/api/e/" dist/assets/*.js                                # the tunnel is there
+```
