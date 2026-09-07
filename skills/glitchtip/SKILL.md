@@ -254,8 +254,40 @@ the app's own domain fails.
    only thing between the internet and the project's issue stream.
 5. **No auth, no session lookup** — errors happen on logged-out pages, and
    a relay that 401s loses exactly the events worth having.
-6. Always answer 200/204 with an empty body; never echo GlitchTip's
-   response back to the browser.
+6. Answer 200/204 with an empty body; never echo GlitchTip's response back
+   to the browser. The exception is **shedding** (rate limit, capacity,
+   breaker open): answer **429**, which the Sentry SDKs treat as a rate
+   limit and back off on — the client behaviour you want while struggling.
+7. 🔴 **Bound the CONCURRENCY, not just the rate** — the finding that made
+   the first Panotxa build unshippable. The forward is synchronous, so an
+   accepted envelope parks a request thread until the upstream answers,
+   and a per-minute ceiling bounds nothing about threads in flight: at
+   600/min against a 3 s stall, ~30 threads sit on monitoring while
+   `/health/` queues behind them. A slow error tracker must never be able
+   to take the app down.
+   - a **non-blocking semaphore** (3 slots) per process — `acquire(blocking=False)`,
+     shed on failure, `release()` in a `finally` or the relay wedges shut;
+   - a **circuit breaker** (5 consecutive transport failures → 30 s of not
+     even trying), so an outage costs one timeout per cooldown, not one per
+     event;
+   - both **in memory, per process**: they must hold when Redis is down,
+     which is exactly when the cache-backed limits stop counting;
+   - **never trip the breaker on a 4xx.** A wrong key answers instantly and
+     needs to stay loud — hiding it behind a cooldown buries the
+     misconfiguration this skill exists to prevent.
+   The alternative (hand the envelope to a task queue) decouples fully but
+   buys a broker round-trip and a backlog failure mode per browser error;
+   the two guards above are the cheaper answer at this volume.
+8. **A "fail-closed" cache path is a lie until you check the backend's
+   error mode.** django-redis with `IGNORE_EXCEPTIONS: True` (the
+   cookiecutter default in every house project) **swallows** connection
+   errors and returns `None` — no exception, so an `except` branch never
+   runs and `None > ceiling` raises TypeError → **500 on every relay
+   request for the length of the Redis outage**, each one feeding the
+   backend's own error tracker. Treat a `None` from `add()`/`incr()` as
+   "no counter" and refuse. A test that mocks a *raised* exception passes
+   while production does this; write the test against the real backend's
+   behaviour.
 
 **The bonus nobody plans for**: uBlock / Brave / Privacy Badger block
 requests matching `*/api/*/envelope/` and `sentry-cdn` by pattern. A
@@ -286,8 +318,13 @@ recovers events that Sentry SaaS would also have lost.
 ### Reference implementation — Panotxa (LIVE 2026-09-07)
 
 Repo `JLUV-smallbets/NutriLens`, commits `1854ed9` (relay) + `dd9d5a3`
-(the `X-Sentry-Auth` fix). Copy from here rather than from Sentry's docs
-sample — the sample is what produced the 403 above.
+(the `X-Sentry-Auth` fix) + `5b76bad` (concurrency + cache hardening). Copy
+from here rather than from Sentry's docs sample — the sample is what
+produced the 403 above. **Note that two of the three commits are fixes to
+the first one**, both found by an adversarial review of code that was
+already deployed and looked green: the relay answering 200 while every
+event was refused, and the fail-closed branch that could not fire. Budget a
+review pass for the next one.
 
 | Piece | Where |
 |---|---|

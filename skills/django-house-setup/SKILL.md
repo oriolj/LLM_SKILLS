@@ -174,7 +174,20 @@ that silently never raises is wrong for two consumers. The house contract:
 5. **Module-level `redis.StrictRedis(...)` clients are banned**: one factory
    (`get_redis(db)`) reading `settings.REDIS_CLIENT_KWARGS` (connect timeout,
    keepalive, health check; no socket_timeout where a worker BLPOPs).
-6. `?ordering=` goes through a `SafeOrderingFilter` (unknown or
+6. 🔴 **A fail-closed branch written as `except Exception` is dead code on a
+   cookiecutter project** (Panotxa, 2026-09-07). The stock production
+   `CACHES` is `django_redis` with **`IGNORE_EXCEPTIONS: True`**, whose
+   `omit_exception` decorator **swallows** connection errors and returns
+   `None`. Nothing raises, so the `except` never runs; the code falls
+   through and `None > ceiling` raises TypeError → **500 on every request
+   for the length of the Redis outage**, each one an event in the project's
+   own error tracker. Any consumer that means to refuse must treat a `None`
+   from `add()`/`incr()`/`get()` as "unavailable", not as a value — or read
+   the unwrapped `strict` alias from item 2. **Test it against the real
+   backend's behaviour**: a test that mocks a *raised* exception passes
+   while production returns `None`. Verified with the installed
+   `django_redis` against a closed port: `add` → `None`, `incr` → `None`.
+7. `?ordering=` goes through a `SafeOrderingFilter` (unknown or
    serializer-only terms ignored, `pk` accepted, full lookup path validated) —
    DRF's stock `OrderingFilter` without `ordering_fields` orders by any
    serializer field and 500s on method-backed ones.
