@@ -7,8 +7,10 @@ description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error
 
 ## Instance + account model
 
-- **ONE self-hosted instance for all realms**: `http://infra-monitoring:8000`
-  (tailnet-only UI/API), Coolify containers `web-/worker-ecsgwgsccsgwk40ss0og4gsc`
+- **ONE self-hosted instance for all realms**: UI + MCP at
+  `https://infra-monitoring.armadillo-tawny.ts.net` (Tailscale Serve, since
+  2026-09-07); API + ingest also on `http://infra-monitoring:8000`
+  (tailnet-only both), Coolify containers `web-/worker-ecsgwgsccsgwk40ss0og4gsc`
   on the `infra-monitoring` host.
 - **Orgs partition it per realm**: `enacast` (pre-existing) and `oriolj`
   (created 2026-08-31). smartupsoft: create when first needed (recipe
@@ -87,94 +89,79 @@ if not org.organization_users.filter(user=u).exists():
 "'
 ```
 
-## MCP server (built in since 6.1 — OFF until the flag is set)
+## MCP server — LIVE since 2026-09-07
 
-GlitchTip ≥ 6.1 (running: **6.1.8**, checked 2026-09-07 at
-`GET /api/settings/` → `"version"`) mounts an MCP server at
-`http://infra-monitoring:8000/mcp` (Streamable HTTP, Django app `apps.mcp`,
-routed by `glitchtip/asgi.py`), gated by **`GLITCHTIP_ENABLE_MCP=true`** on
-the `web` container — default `False`, and the estate's compose does not set
-it. **Symptom while it is unset** (Claude Code `/mcp`, 2026-09-07):
-"MCP endpoint not found at …:8000" + "Dynamic Client Registration rejected
-(HTTP 403) … CSRF verification failed". Reading: `/mcp` is the SPA's 404
-page, there is no `/.well-known/oauth-authorization-server`, so the SDK's
-registration fallback POSTs to root `/register` — GlitchTip's own Django
-signup route — and Django answers its CSRF page. That 403 means "flag not
-set on the server", never a client-side config error.
+**URL: `https://infra-monitoring.armadillo-tawny.ts.net/mcp`** (tailnet-only,
+Streamable HTTP, GlitchTip 6.1.8 `apps.mcp`, MCP server version 1.27.0).
+Installed at **user scope in all three Claude profiles on minisforum**
+(`claude`, `claude-smartup`, `claude-enacast`; `claude mcp list` → Connected,
+2026-09-07). On another workstation, once per profile:
 
-**🔴 The flag alone takes GlitchTip DOWN when `GLITCHTIP_DOMAIN` is http**
-(2026-09-07, ~10 min outage, reverted): the MCP SDK's `validate_issuer_url`
-raises `ValueError: Issuer URL must be HTTPS` for any non-`localhost` http
-issuer, the issuer is `GLITCHTIP_URL` + `/mcp` (`apps/mcp/server.py`,
-same on master), and `asgi.py` builds the MCP app at import — so every
-granian worker dies at boot and the `web` container restart-loops. There is
-no override env. **Prerequisite**: `GLITCHTIP_DOMAIN` must be an `https://`
-URL clients reach — Tailscale Serve
-(`tailscale serve --bg --https=443 http://127.0.0.1:8000` on the box →
-`https://infra-monitoring.armadillo-tawny.ts.net`, tailnet-only) or a
-Coolify/Traefik domain with Let's Encrypt (public login page). The
-ingest DSNs keep the `http://…@infra-monitoring:8000/<id>` form and keep
-working (the container still listens on 8000); the UI origin, generated
-links and `CSRF_TRUSTED_ORIGINS` follow the new domain. Oriol chose
-**Tailscale Serve** (2026-09-07). **Serve needs "HTTPS Certificates"
-enabled on the tailnet first** — `tailscale cert` answers *"your Tailscale
-account does not support getting TLS certs"* and `tailscale serve --bg`
-hangs when it is off (EnaCast tailnet: off as of 2026-09-07, admin-console
-click queued in hq `USER_TODO.md`; no Tailscale API key in hq). Once on:
-`tailscale serve --bg --https=443 http://127.0.0.1:8000` on the box,
-`tailscale serve status` to confirm, then set `GLITCHTIP_DOMAIN`
-(`https://infra-monitoring.armadillo-tawny.ts.net`), `CSRF_TRUSTED_ORIGINS`
-to that origin (GlitchTip defaults it to `[]` and sets no
-`SECURE_PROXY_SSL_HEADER`, so an https Origin behind Serve would fail
-Django's CSRF check on UI logins without it — API bearer calls and MCP
-are exempt) and `GLITCHTIP_ENABLE_MCP: 'true'` in the compose
-(`x-environment`, `web`, `worker`; Coolify service `ecsgwgsccsgwk40ss0og4gsc`, Enantena team —
-`PATCH /api/v1/services/<uuid>` wants `docker_compose_raw` **base64**
-even though `GET` returns it plain; `POST …/restart`), then probe, then
-point the MCP entries at `https://<domain>/mcp`.
-
-**Auth — two ways** (server code v6.1.8: `apps/mcp/auth.py`,
-`apps/oauth/provider.py`):
-
-- **API token as Bearer** (headless: agents, `claude -p`). The same
-  `GLITCHTIP_API_TOKEN`; the token's scopes gate the tools. This is how the
-  EnaCast repo's entry is wired (local scope of the claude-enacast profile,
-  2026-09-07):
-  ```bash
-  T=$(grep '^GLITCHTIP_API_TOKEN=' hq/homelab/secrets/glitchtip.env | cut -d= -f2)
-  cd <repo> && claude mcp add -s local --transport http glitchtip \
-    https://<GLITCHTIP_DOMAIN host>/mcp --header "Authorization: Bearer $T"
-  ```
-  (`claude mcp remove glitchtip` first if a URL-only entry exists; the
-  header lands in the profile's `.claude.json`, never in a repo `.mcp.json`.)
-  On minisforum it is installed at **user scope in all three profiles**
-  (`CLAUDE_CONFIG_DIR=~/.claude{,-smartup,-enacast} claude mcp add -s user …`,
-  2026-09-07) with `https://infra-monitoring.armadillo-tawny.ts.net/mcp`;
-  other workstations: repeat the three commands.
-- **OAuth 2.0 + dynamic client registration** (interactive): URL only,
-  then `/mcp` → authenticate → consent page at `/oauth/authorize/`. The
-  metadata advertises `/mcp/{authorize,token,register,revoke}`; the issuer
-  is `GLITCHTIP_DOMAIN` + `/mcp`, so the domain MUST equal the URL clients
-  use (and be https, see above). One browser
-  approval per Claude profile; useless for headless runs.
-
-**Verify** (after the flag; also the probe to run before blaming a client):
 ```bash
-curl -s -o /dev/stderr -w '\nHTTP %{http_code}\n' -X POST https://<GLITCHTIP_DOMAIN host>/mcp \
+T=$(grep '^GLITCHTIP_API_TOKEN=' hq/homelab/secrets/glitchtip.env | cut -d= -f2)
+for d in ~/.claude ~/.claude-smartup ~/.claude-enacast; do
+  CLAUDE_CONFIG_DIR=$d claude mcp add -s user --transport http glitchtip \
+    https://infra-monitoring.armadillo-tawny.ts.net/mcp --header "Authorization: Bearer $T"
+done
+```
+The header is the API token as Bearer (`apps/mcp/auth.py` validates plain
+`APIToken`s; the token's scopes gate the tools) — headless, no OAuth click,
+lands in the profile's `.claude.json`, never in a repo `.mcp.json`. OAuth 2.0
++ dynamic client registration also works (URL only, then `/mcp` →
+authenticate → consent at `/oauth/authorize/`; metadata at
+`/.well-known/oauth-authorization-server`, endpoints `/mcp/{authorize,token,
+register,revoke}`) but needs a browser per profile.
+
+**Tools** (`apps/mcp/server.py`): `list_organizations`, `list_projects`,
+`list_issues`, `get_issue`, `get_latest_event`, `get_event`, `update_issue`,
+`list_alerts`, `list_monitors`, the transaction/span family (empty here —
+traces go to Tempo), `list_logs` / `get_log`. Third-party servers
+(`adfdev/glitchtip-mcp`, `coffebar/mcp-glitchtip`) are not needed.
+
+**Probe** (run before blaming a client):
+```bash
+curl -s -o /dev/stderr -w '\nHTTP %{http_code}\n' -X POST https://infra-monitoring.armadillo-tawny.ts.net/mcp \
   -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}'
-# 200 + serverInfo = on · 404 HTML = flag still unset · 401 = token
+# 200 + serverInfo = on · 404 HTML = GLITCHTIP_ENABLE_MCP unset · 401 = token · 000 = Serve/tailnet
 ```
+Further calls need the `Mcp-Session-Id` response header from `initialize`.
 
-**Tools** (v6.1.8 `apps/mcp/server.py`): `list_organizations`,
-`list_projects`, `list_issues`, `get_issue`, `get_latest_event`,
-`get_event`, `update_issue`, `list_alerts`, `list_monitors`, the
-transaction/span family (`list_transaction_groups`, `detect_n_plus_one`,
-`get_transaction_trend`… — empty here, traces go to Tempo, not GlitchTip)
-and `list_logs` / `get_log` (behind the `logs` feature, enabled). The
-third-party servers (`adfdev/glitchtip-mcp`, `coffebar/mcp-glitchtip`) are
-not needed — the built-in one covers issue triage.
+### How it is wired, and the two traps (learned 2026-09-07)
+
+- **The server side is three compose env lines** on the Coolify service
+  (`ecsgwgsccsgwk40ss0og4gsc`, Enantena team; `x-environment`, `web` and
+  `worker`): `GLITCHTIP_DOMAIN: 'https://infra-monitoring.armadillo-tawny.ts.net'`,
+  `CSRF_TRUSTED_ORIGINS:` same origin, `GLITCHTIP_ENABLE_MCP: 'true'`.
+  Coolify API: `PATCH /api/v1/services/<uuid>` with `docker_compose_raw`
+  **base64** (the `GET` returns it plain — sending plain fails validation),
+  then `POST …/restart`.
+- **Trap 1 — the flag alone takes GlitchTip DOWN when `GLITCHTIP_DOMAIN` is
+  http.** The MCP SDK's `validate_issuer_url` raises `Issuer URL must be
+  HTTPS` for any non-`localhost` http issuer; the issuer is `GLITCHTIP_URL`
+  + `/mcp` and `asgi.py` builds the MCP app at import, so every granian
+  worker dies and `web` restart-loops (~10 min outage before the revert).
+  No override env, same on master. Hence Tailscale Serve on the box:
+  `tailscale serve --bg --https=443 http://127.0.0.1:8000` (status:
+  `tailscale serve status`; off: `tailscale serve --https=443 off`).
+  **Serve needs "HTTPS Certificates" enabled on the tailnet** (admin console
+  → DNS) — off, `tailscale cert` says *"your Tailscale account does not
+  support getting TLS certs"* and `serve --bg` hangs. Oriol enabled it on
+  the EnaCast tailnet 2026-09-07; no Tailscale API key exists in hq.
+- **Trap 2 — CSRF behind Serve.** GlitchTip defaults `CSRF_TRUSTED_ORIGINS`
+  to `[]` and sets no `SECURE_PROXY_SSL_HEADER`, so an https `Origin` on UI
+  logins would fail Django's CSRF check without the explicit origin. API
+  bearer calls and MCP are exempt.
+- **Symptom when the flag is unset** (Claude Code `/mcp`): "MCP endpoint
+  not found" + "Dynamic Client Registration rejected (HTTP 403) … CSRF
+  verification failed" — `/mcp` is the SPA's 404, so the SDK's registration
+  fallback POSTs to root `/register`, GlitchTip's own signup route.
+- **What did NOT change**: the ingest DSNs (`http://…@infra-monitoring:8000/<id>`)
+  and `GLITCHTIP_URL` in `glitchtip.env` — the container still listens on
+  8000, the Sentry API answers with the token on both hosts. Only the UI
+  origin moved: **log in at the https URL** (cookies are Secure now; the
+  http origin fails CSRF on login).
 
 ## Wiring apps (pointers)
 
