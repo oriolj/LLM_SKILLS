@@ -15,7 +15,7 @@ description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error
 - **Orgs partition it per realm**: `enacast` (pre-existing) and `oriolj`
   (created 2026-08-31). smartupsoft: create when first needed (recipe
   below). Projects (2026-09-02): `enacast/{enacast-backend, enacast-ai,
-  leadhunter, enacast24h, encasago}`, `oriolj/{talaia, h2a-leadhunter, licita-radar, llm-index-watcher, backupmaker, panotxa}` (panotxa = id 12, created 2026-09-07 by API as the target of the browser tunnel below; **its Django backend still reports to sentry.io SaaS** — the estate's last SaaS-Sentry holdout, one Coolify env change away) (backupmaker = id 11, created 2026-09-06 by API for the two backup loops on mlrtx2 — crashes only, per-job failures stay in metrics; the DSN keeps the MagicDNS host because mlrtx2's containers resolve `infra-monitoring`) (licita-radar = id 8 and llm-index-watcher = id 9, both created 2026-09-02 by API, DSNs on their Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).
+  leadhunter, enacast24h, encasago}`, `oriolj/{talaia, h2a-leadhunter, licita-radar, llm-index-watcher, backupmaker, panotxa}` (panotxa = id 12, created 2026-09-07 by API; takes BOTH the Django backend — migrated off sentry.io SaaS the same day, `SENTRY_DSN` on web+worker+beat — and the PWA's browser events through the tunnel below) (backupmaker = id 11, created 2026-09-06 by API for the two backup loops on mlrtx2 — crashes only, per-job failures stay in metrics; the DSN keeps the MagicDNS host because mlrtx2's containers resolve `infra-monitoring`) (licita-radar = id 8 and llm-index-watcher = id 9, both created 2026-09-02 by API, DSNs on their Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).
   `enacast/leadhunter` (id 3) is a wrong-realm leftover (H2A-LeadHunter
   is personal) — 0 events ever; deletion is queued as Oriol's decision
   in hq `USER_TODO.md`. **A personal app's project goes in `oriolj`** —
@@ -237,7 +237,18 @@ the app's own domain fails.
    the envelope unchanged.
 3. Forward to `<dsn-origin>/api/<project-id>/envelope/`, building the
    upstream headers **from scratch** — the global proxy-header rules apply
-   (never copy the incoming set).
+   (never copy the incoming set) — and **authenticate with the DSN's key**:
+   ```
+   X-Sentry-Auth: Sentry sentry_version=7, sentry_key=<key>, sentry_client=<name>/1
+   ```
+   🔴 **This is the step Sentry's own tunnel sample omits, and GlitchTip is
+   not forgiving about it.** Sentry SaaS reads the key out of the envelope
+   header's `dsn`; GlitchTip does not — it answers
+   `403 {"detail": "Denied"}` and the event is gone. Verified against the
+   live instance 2026-09-07: header `dsn` alone → 403; `?sentry_key=<key>`
+   → 200; `X-Sentry-Auth` → 200. Rewriting the header `dsn` (step 2) is
+   still right — it is what a Sentry-compatible upstream stores — but it
+   authenticates nothing.
 4. Per-IP rate limit. This is an unauthenticated write path into the error
    tracker; the public key never was a secret, but the relay is now the
    only thing between the internet and the project's issue stream.
@@ -272,10 +283,11 @@ recovers events that Sentry SaaS would also have lost.
 - In exchange, a frontend error and the backend 500 behind it stay in the
   same GlitchTip org — the whole reason for not splitting the tools.
 
-### Reference implementation — Panotxa (2026-09-07)
+### Reference implementation — Panotxa (LIVE 2026-09-07)
 
-Repo `JLUV-smallbets/NutriLens`, commit `1854ed9`. Copy from here rather
-than from Sentry's docs sample.
+Repo `JLUV-smallbets/NutriLens`, commits `1854ed9` (relay) + `dd9d5a3`
+(the `X-Sentry-Auth` fix). Copy from here rather than from Sentry's docs
+sample — the sample is what produced the 403 above.
 
 | Piece | Where |
 |---|---|
@@ -293,9 +305,27 @@ an absolute cross-origin URL. GlitchTip project `oriolj/panotxa` (id 12,
 created 2026-09-07 by API).
 
 **Verify the bundle, not the intention** — the point of the placeholder is
-that nothing internal ships, so prove it after a production build:
+that nothing internal ships, so prove it against the DEPLOYED asset, not a
+local build:
 
 ```bash
-grep -rl "infra-monitoring\|armadillo-tawny\|100\.8[0-9]\." dist/   # must print nothing
-grep -rlo "/api/e/" dist/assets/*.js                                # the tunnel is there
+curl -sL https://app.panotxa.com/assets/index-<hash>.js -o /tmp/b.js
+grep -cE "infra-monitoring|armadillo-tawny|100\.8[0-9]\." /tmp/b.js   # want 0
+grep -c "api/e/" /tmp/b.js                                            # want 1
 ```
+
+**A 200 from the relay is not proof the event landed** — the relay answers
+200 whatever the upstream said (by design). The end-to-end check is a probe
+followed by a read of the project's issues:
+
+```bash
+# POST a well-formed envelope to the relay, then:
+curl -s -H "Authorization: Bearer $T" \
+  "$GLITCHTIP_URL/api/0/projects/<org>/<project>/issues/?sort=-last_seen&limit=5"
+```
+Expect a lag of a minute or two (GlitchTip ingests through a worker). If the
+issue never appears, `{project="…",service="web"}` in Loki carries the
+relay's own warning with the upstream status — that is what turned the 403
+into a five-minute find. Also verify the browser's real path, not just
+curl's: `OPTIONS` from the site origin must return the CORS headers, since
+the tunnel is cross-origin whenever the frontend is on Vercel/Pages.
