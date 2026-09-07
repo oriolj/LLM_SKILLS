@@ -1,6 +1,6 @@
 ---
 name: bug-fixing
-description: Bug-fixing workflow for any web app with a backend + frontend — reproduce BEFORE touching code (run both locally, walk the user's own path in a real browser via the Claude in Chrome extension, Playwright as fallback), read Sentry events for the payload and the user's click, suspect masked bugs and stale UI, fix the mechanism across sibling code, re-walk the same path after the fix checking success / refusal-with-message / can't-go-stale, then close the loop (release notes, UX feedback, i18n, monitoring). Use when handed a Sentry/error-tracker event, a client bug report, a failing production flow, or any "X doesn't work" request.
+description: Bug-fixing workflow for any web app with a backend + frontend, whatever the source of the report (error tracker event, client email, QA finding, "X doesn't work") — reproduce BEFORE touching code (run both locally, walk the user's own path in a real browser via the Claude in Chrome extension, headless Playwright as fallback), classify the bug (should work but fails / must be refused but the user is never told why / pure noise), fix the mechanism across sibling code, re-walk the same path after the fix checking success / refusal-with-message / can't-go-stale, then close the loop (release notes, team email, i18n, monitoring, and this skill). Use for any bug-fix request.
 ---
 
 # Bug fixing — reproduce, fix, re-walk the user's path
@@ -28,6 +28,20 @@ skill; this file is the method.
   bug may have been there for months.
 - Check whether **sibling code** shares the pattern (three models with copy-pasted
   methods, three handlers with the same tracker). Fix them all or you'll be back.
+- **Classify the bug before designing the fix** — the fix is different for each class:
+  1. *The user should be able to do this and it fails* → make it work (an archived
+     client's open sheet must still accept tasks).
+  2. *The user must NOT be able to do this, but nothing told them why* (a bare
+     `Exception` → 500, a silent revert, a blank page) → refuse with a translated
+     message that says what to do instead ("close the sheets first", "assign the bike
+     to a client"), a 4xx the frontend renders, never a 500. Sometimes one report
+     hides both classes (deleting a client with open sheets = class 2; adding a task
+     to a deleted client's sheet = class 1) — name each one.
+  3. *Nothing is wrong for the user, only noise* (a metrics sidecar missing in an
+     environment, a browser extension) → stop the noise at the mechanism (log a
+     warning, filter at the SDK), never by resolving the issue and hoping.
+  Write the class into the release note ("What happened" vs "Now") and the team
+  email — the reader must learn whether a flow was unblocked or a refusal explained.
 
 ## 1. Reproduce BEFORE changing code
 
@@ -46,6 +60,24 @@ Use the **Claude in Chrome extension** (`claude-in-chrome` skill →
 `mcp__claude-in-chrome__*` tools). Fallback when the extension misbehaves or the flow
 needs scripting: the project's **Playwright** setup (`playwright` CLI / the repo's e2e
 target).
+
+**Headless Playwright fallback that worked (2026-09-07, extension not connected):** one
+shared helper module in the session scratchpad (`pw-common.mjs`: launch chromium/webkit
+from the frontend's `node_modules`, `addInitScript` that seeds the token in
+`localStorage`, an API-response logger with ms offsets, a toast poller, a tiny
+authenticated `fetch` wrapper) + one small script per path (`repro-<bug>.mjs`,
+`verify-<bug>.mjs <mode> <id>`) that prints each API status, the toasts and the final
+URL and saves a screenshot. State changes between steps (archive a client, reopen a
+sheet) go through ORM one-liners in the wrapper shell, not through the UI. Real WebKit
+for iOS-only reports: the same script inside `mcr.microsoft.com/playwright:v<ver>-noble`
+with `--network host` and the repo mounted at the same absolute path. Before starting
+a dev server, check whether another session already owns the port.
+
+**Not reproducible after a bounded, honest attempt** (both engines, the user's device
+class emulated, every gesture sequence the code path admits, the third-party source
+read for the null path): say so, ship NO speculative fix, leave the tracker issue open,
+and write the sequences tried + the code facts into the companion skill so the next
+attempt starts further along. A guard added "just in case" hides the next real event.
 
 - **Never type a password into a login form.** Obtain a token/session through the API
   with the repo's documented test credentials and inject it the way the app stores it
@@ -122,5 +154,14 @@ Then confirm in the DB — the UI can lie in both directions.
 - Pushing: a `Permission denied (publickey)` line can come from a first key attempt
   while the push still lands — confirm with `git ls-remote origin <branch>` vs
   `git rev-parse HEAD` before reporting a failed push.
-- Write down what you learned that wasn't obvious (a landmine, a repro trick) in the
-  project's companion skill or testing docs — the next bug will be faster.
+- **Tell the team by email** once the fix is deployed somewhere they can try it (the
+  project's `CLAUDE.md` names the CLI, the recipients, the sender and the language).
+  One section per bug: *how the user hit it* (the exact clicks), *what they saw*,
+  *what happens now* (quote the new UI text verbatim from the catalog), *how to test
+  it* (environment + steps), and *what is NOT fixed / not reproduced* — the team must
+  not discover an open item from the tracker. Send after the re-walk, never before.
+- **Update this skill and the project's companion skill in the same turn** — a repro
+  trick, a landmine, a test-account change, an investigation that ended "not
+  reproduced" — and refresh the pointer to both in every repo's `CLAUDE.md` when the
+  loop changes. The next bug is faster only if the write-up exists; a session can end
+  at any moment.
