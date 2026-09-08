@@ -123,6 +123,28 @@ follow it — point the surface at the page it lands on. And an app root that
 **legitimately 404s** (a per-tenant product like EnaArchive) means the tenant
 page, not the root, is the real check.
 
+🔴 **A 404 on `/` is not proof a project cannot be monitored — read its
+URLconf before writing it off** (EnaStats, 2026-09-08). It had sat in
+`COVERAGE.md`'s "deliberately not monitored" table because
+`/`, `/healthz` and `/api/` all 404'd, and hq carried a matching TODO about
+its "missing public entrypoint". Nothing was missing: the app is API +
+Django admin with **no web UI**, its health path is `/health/` *with* the
+trailing slash, and `/api/<version>/` requires the segment, so only
+`/api/v1/` can match. Probing conventional paths answers "does this project
+use my conventions", not "is this project up". For an API-only app the
+surfaces are the health view, the DRF API index (a 200 there proves URL
+reversing, versioning and content negotiation, not just that gunicorn is
+up), the auth gate asserted as a bare **401** (a 200 would be the data
+leak, a 5xx the broken gate), the admin login page (the only rendered
+template), each hostname the resource serves (a Traefik router or cert that
+only breaks on the second domain is otherwise invisible) — and the root
+404 itself: assert the **framework's own 404 body**, because Traefik's
+"no route" page is also a 404 and reads `404 page not found`, so the check
+then distinguishes "serving, and correctly has no root view" from "nothing
+is behind the router any more". A known-broken endpoint stays **out** of the
+suite: pinning a 500 as expected cements it — report it and add the check
+once it is fixed.
+
 ## Safety rules (these tests hit PRODUCTION)
 
 - **Test accounts only.** Never point a suite at a real customer account.

@@ -520,6 +520,89 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   absent on beat), a healthchecks.io project with **zero notification
   channels** (healthchecks-io skill), an in-stack Postgres with no backup
   sidecar two days after the sibling project got one.
+- **Eighth reference (enantena scope, STAGED 2026-09-08 — app not yet
+  deployed): EnaStats** (`EnaCast/EnaStats`, Coolify **compose** resource on
+  storage-1) — the estate's first **MariaDB + memcached + no-Celery** shape,
+  and the first on **Python 3.8** (`architect==0.5.4` caps it). What it adds:
+  - **The pins.** OpenTelemetry and `prometheus_client` still resolve on 3.8
+    if you take the last 3.8-compatible releases and pin them `==`:
+    `prometheus-client==0.21.1`, `opentelemetry-sdk` +
+    `opentelemetry-exporter-otlp-proto-http` `==1.33.1`, instrumentations
+    `==0.54b1` (django, mysqlclient, redis, pymemcache, requests, logging —
+    `opentelemetry-instrumentation-mysqlclient` has a 3.8 release, so no
+    generic-dbapi fallback is needed). Ranges are the bug here: a re-lock
+    pulls a 3.9-only release and `uv sync --frozen` breaks inside the
+    `python:3.8-slim` image. Bump them only with the Python version.
+  - **A compose resource can publish a tailnet host port** — it has no
+    blue-green to lose (unlike the Dockerfile apps, which must ride the
+    public origin with the Traefik router + allowlist above). `/metrics` is
+    `"${TAILNET_IP:-127.0.0.1}:9125:8000"`: unset falls back to loopback,
+    never public, and the hub scrapes `storage-1:9125` by MagicDNS name.
+    Two things this needs: `ALLOWED_HOSTS` must contain the hostname AND the
+    tailnet IP (Django `DisallowedHost` 400s the scrape otherwise), and the
+    public origin is token-gated by treating **any request carrying a proxy
+    header** (`X-Forwarded-*`, `Forwarded`) as public regardless of source
+    address — Traefik reaches the container over the docker network, so its
+    source IP is private too and a bare private-IP check would open the
+    endpoint to the internet.
+  - **Dependency series without exporters.** With no `postgres-exporter` /
+    `redis-exporter` equivalent deployed, the web collector probes MariaDB
+    (`SHOW GLOBAL STATUS`/`VARIABLES`), Redis (`INFO`), memcached
+    (`stats()`) and InfluxDB itself, at most every 30 s
+    (`ENASTATS_METRICS_DEP_CACHE_SECONDS`), emitting `_dependency_up` +
+    `_dependency_probe_duration_seconds` (the second is what separates "the
+    dependency is slow" from "the scrape is slow") and the servers' own
+    cumulative counters as gauges. A dependency that is down yields `_up 0`,
+    no detail series, and a scrape that still succeeds.
+  - **A legacy telemetry path can be a product dependency.** Its
+    telegraf → InfluxDB feed was left completely untouched because
+    `stats/api.py` reads InfluxDB back **at request time** to serve the
+    public API. Prometheus is purely additive, and carries **no per-radio
+    labels** (radios are in the low hundreds) — per-radio detail stays in
+    InfluxDB where the API already reads it. Look for a read path before
+    proposing to retire any "legacy" metrics store.
+  - **Table growth on a 125 M-row partitioned table**: gauges from
+    `information_schema.TABLES`/`.PARTITIONS`, computed by the worker at
+    most every 15 min and bounded with `SET STATEMENT max_statement_time=15`
+    — never on a scrape, and never `COUNT(*)`. `TABLE_ROWS` is InnoDB's
+    sampled estimate: a trend, not a count.
+  - Catalogue: the repo's `METRICS.md`. Hub side: dashboards
+    `grafana/dashboards/enacast/enastats/`, alert group `hq;enastats`, job
+    `enastats-app` — job and rules **staged commented out** per the
+    fifth/sixth references' rule.
+- **Django management-command workers (`while True`, no Celery)** — the
+  unscrapeable-container problem without a broker to hang signal hooks off
+  (EnaStats `worker-stats` / `worker-radios`, 2026-09-08). Same answer as
+  the Celery bullet below, one layer lower: the worker **writes** into Redis
+  and the WEB service's `/metrics` **renders** it. Shape that works
+  (`EnaStats/worker_metrics.py`): a `prom:` prefix in a dedicated Redis DB,
+  `prom:counters` and `prom:gauges` hashes keyed `family|label|label`, and
+  `prom:hist:<family>|<label>` hashes holding `le:<bound>` cumulative counts
+  plus `sum`/`count`, with the bucket bounds defined **once** in the module
+  both sides import — a histogram family whose buckets differ between label
+  sets aggregates into nothing. The rules that come with it:
+  - **Counters survive deploys** (they live in Redis, not worker memory) —
+    the point of the pattern, but it also makes a reset a deliberate act.
+  - **Gauges are last-known values: never alert on one going flat.** A dead
+    worker keeps reporting its last reading forever. The staleness signal is
+    a `_last_success_timestamp_seconds` gauge per worker, alerted as
+    `time() - … > N` (N ≈ 6× the loop interval).
+  - **One bucket set for loops of very different speed** (a 20 s collector
+    and a 5-minute sync share `.5 … 600`), for the same aggregation reason.
+  - **Nothing in the metrics path may raise into the loop.** Its own Redis
+    client, its own pool, ~1 s timeouts, every write swallowing its own
+    exception. EnaStats has a recorded outage from a metrics call without a
+    timeout crash-looping both daemons.
+  - **Give each cycle a root span** (§5f) or its SQL is dropped as orphan
+    CLIENT spans, and open phase children in a `try/finally` — a leaked OTel
+    context attach otherwise piles up across failed cycles.
+  - **Instrument the branches that only logged.** The highest-value series
+    here was an outcome counter on the poll loop
+    (`_streams_polled_total{outcome=ok|fetch_error|http_error|no_source}`):
+    until it existed nobody could answer "how many of the things we poll are
+    actually reachable", because every failure mode was a log line. When
+    onboarding a loop, read its `except` branches first — each one is a
+    label value someone has been guessing at.
 - **Celery**: on a compose host, run the maintained standalone
   `celery-exporter` as one more service pointed at the broker, labeled
   with `oj.metrics.port`. **On Coolify Dockerfile apps (worker/beat are
@@ -1147,8 +1230,8 @@ mid-import; `gunicorn --preload` is fine — the provider is created in the
 master and `BatchSpanProcessor` re-creates its thread after fork, verified
 live; its supercronic scheduler runs management commands, which have no
 root span, so their SQL is orphan CLIENT and dropped by design — a
-`BaseCommand` mixin opening a root span is the fix if those ever need
-tracing). **Verification needs volume**: at 10 % baseline, 25 fast
+`BaseCommand` mixin opening a root span is the fix, and EnaStats below
+built it for real). **Verification needs volume**: at 10 % baseline, 25 fast
 requests can legitimately produce zero traces; use the agent's
 `otelcol_receiver_accepted_spans_total` delta on `:12345` as the immediate
 proof, then a burst of 40–60 requests for the trace itself.
@@ -1182,6 +1265,22 @@ is normalised in settings (`OJ_ENV`) — one value feeds Sentry and the trace
 resource; compose stacks without a `ROLE` env get one per service next to
 `oj.service`; the "dormant tracing" pattern (SDK + dashboard + Makefile
 shipped, env last) is safe ahead of the host's enrolment.
+**EnaStats lessons** (`EnaCast/EnaStats`, 2026-09-08 — the first traced app
+whose roots are mostly NOT HTTP, and the first on **Python 3.8**): the
+version cap is not a blocker — sdk/exporter `1.33.1` + instrumentations
+`0.54b1` are the last 3.8 releases and must be pinned `==` (§5), and
+`opentelemetry-instrumentation-mysqlclient` exists at that version, so a
+MySQL/MariaDB app needs no dbapi workaround. **Each `while True`
+management-command cycle opens its own root span** (`EnaStats/tracing.py`
+`cycle_span(name)` → `start_as_current_span(kind=INTERNAL)`, phase children
+via `child_span` closed in a `finally`): that is what turns a worker's SQL
+and HTTP from parentless CLIENT spans the sampler drops into a readable
+per-cycle trace, and it is what a supercronic/cron/loop command needs
+everywhere. `service.name` is `<project>-<ROLE>` with `ROLE` set per compose
+service (`web`, `worker-stats`, `worker-radios`), so the three containers of
+one stack are separable in Tempo. Its traces dashboard is adapted for the
+shape: a row on the two loops' per-cycle root spans and their phase
+children, and `mysql` instead of `sqlite` in the SQL panels.
 **Test hygiene, every project**: the tracing test fixture must
 UNINSTRUMENT (`DjangoInstrumentor().uninstrument()` etc.) in teardown, or
 a request test that runs after it still sees the OTel middleware/patched
@@ -1436,3 +1535,30 @@ password (secrets file → rebuild `LOKI_WRITERS` per §6b → hub redeploy →
 - Don't head-sample in the app and don't "fix" a noisy trace list in the
   agent policy — orphan one-span traces are an app-side sampler bug
   (§5f), not a reason to lower the baseline percentage.
+- 🔴 **Never emit a success signal from a place that cannot see the
+  failure.** EnaStats' 20 s collector pinged its healthchecks.io SUCCESS
+  url unconditionally, *outside* the `try/except` that swallowed the
+  cycle's exception: a job failing on every single pass reported healthy,
+  and had for a long time. The check could only ever catch the process
+  being dead, never the job being broken — a green that is worse than no
+  check, because it is believed. Same shape wherever a heartbeat, a
+  "last run OK" gauge or a status row is written: the signal must be
+  emitted **on the success path only**, an exception must ping `/fail` (or
+  set the error outcome), and a "returned False / non-200" result is an
+  error cycle, not a quiet success. When onboarding an existing job, read
+  where its ping sits relative to its error handling **before** trusting
+  any history it has.
+- 🔴 **When a dashboard and an app are built in parallel against a written
+  contract, verify the literal label VALUES before the first deploy.**
+  EnaStats' cycle-failure panel filtered
+  `enastats_worker_cycles_total{outcome!="ok"}` while the app emits
+  `outcome=success|error` (`ok` belongs to a *different* counter in the same
+  catalogue) — every successful cycle would have counted as a failure and
+  the panel would have read a flat 100 % on day one. Nothing catches this
+  later: the query is valid, the series exists, the panel renders. Cheap
+  check, in order of preference: diff every `{label="value"}` in the
+  dashboard/rules against the app's own constants, or against the live
+  `/metrics` body once it answers — never against the contract document
+  both sides were written from, which is exactly what they already agree
+  with. (`prometheus_client` also silently appends `_total` to counter
+  names, §5 — same class of mismatch.)

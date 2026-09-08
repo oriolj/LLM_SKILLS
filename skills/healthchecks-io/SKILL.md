@@ -95,6 +95,23 @@ success) beats one-check-per-job; per-job depth belongs in Grafana
   keep meaning what they mean. Unset URL = no ping (dev/tests). The
   crontab needs `sh -c` semantics (supercronic runs commands through
   `$SHELL -c`, default `/bin/sh`) — quote the whole command as one arg.
+- 🔴 **Audit where an EXISTING ping sits relative to the job's error
+  handling — a green check is not evidence.** EnaStats' 20 s stats
+  collector (a `while True` management command, not Celery) pinged the
+  SUCCESS url unconditionally at the end of every pass, *outside* the
+  `try/except` that swallowed the cycle's exception: a collector raising on
+  every single cycle still reported healthy, and had for a long time. The
+  check could only ever catch the **process being dead**, never the **job
+  being broken** — the failure mode a heartbeat is bought for. Fixed
+  2026-09-08 by tracking whether the cycle actually finished: success pings
+  the success url, an exception pings `/fail`, and a helper returning False
+  (an upstream API answering non-200) counts as an error, not a quiet
+  success. Two rules follow: the ping goes on the **success path only** —
+  never in a `finally`, never after a bare swallow — and a long-lived loop
+  wants the outcome in metrics too (`<app>_worker_cycles_total{outcome}`,
+  `fleet-observability` §5) so the history is queryable instead of being one
+  boolean on a SaaS page. When inheriting a project's checks, read the
+  ping's call site before writing "monitored" in a status table.
 - Every deployed repo's status table has a "Jobs monitored by
   healthchecks.io" row (hq `shared/docs/deploying-a-new-project.md`) —
   wiring a project's heartbeats closes it.
