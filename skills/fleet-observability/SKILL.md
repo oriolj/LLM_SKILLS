@@ -1333,6 +1333,21 @@ The safe recipe:
    it through), **401 = the gateway does not know that writer**; a wrong
    password must give 401. This creates no streams and needs no host.
 
+### 6c. Fleet writers for appliance fleets (2026-09-08)
+
+The per-host writer rule (§4) assumes hosts are few and each enrolment is an
+event. For a **fleet of identical appliances on third-party premises** (the
+EnaCast streamers: one Debian box per radio, provisioned by
+`EnacastStreamer/ansible/playbooks/setup-monitoring.yml`) one writer per
+fleet is used instead: `agent-streamers`, password
+`LOKI_AGENT_PASSWORD_STREAMERS` in `loki-agents.env`. Reasons: the gateway
+cannot scope a credential to a `host` label, so per-host writers only buy
+independent revocation; and a per-host writer costs a hub redeploy per new
+radio, which does not scale. Revocation of a stolen box = rotate the fleet
+password (secrets file → rebuild `LOKI_WRITERS` per §6b → hub redeploy →
+`make fleet PLAYBOOK=playbooks/setup-monitoring.yml` in that repo). The
+`host` label still identifies each box. Servers keep per-host writers.
+
 ## 7. Rollout checklist (per host, in order)
 
 1. Host on the tailnet (`tailscale status`), enrolled in shared/ansible.
