@@ -259,7 +259,7 @@ wrong database the same way. Rules:
     as runtime-only env on every role once the host's agent has the trace
     lane (`fleet-observability` §5f ordering); `trace_id=` in the log format;
     `make traces-slow / traces-errors / traces-sql / traces-routes / trace ID=`
-    in the Makefile next to `make logs*`; the «<Project> trazas» dashboard.
+    in the Makefile next to `make logs*`; the `<Project> traces` dashboard (English — the global rule of 2026-09-09).
     After the first deploy and after every later one: `make traces-errors`
     + `make traces-slow SINCE=30m` are part of the verification
     (`fleet-observability` §5g) — an agent that deploys and does not look

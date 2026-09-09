@@ -1178,12 +1178,18 @@ The rules:
   "Logs for this span" — lines with the same `trace_id` must appear.
 - **Each project gets its own traces dashboard IN ITS FOLDER** (Oriol,
   2026-09-05): `grafana/dashboards/<scope>/<project>/<project>-traces.json`,
-  title «<Project> trazas», uid `<project>-traces`, next to the KPI and
+  title `<Project> traces`, uid `<project>-traces`, next to the KPI and
   infra dashboards; the project name is a hidden `constant` variable
   `project`, so onboarding the next project is: copy the LLM Index
   Watcher file, change uid/title/tags/links and that one constant. (A
-  scope-wide «Trazas» with a project picker was built first and moved
-  the same day — dashboards are per project, not per signal.) It is
+  scope-wide traces dashboard with a project picker was built first and
+  moved the same day — dashboards are per project, not per signal.)
+  🔴 **In ENGLISH — titles, row headers, panel names, descriptions**
+  (Oriol, 2026-09-09, now a global rule). This template used to say
+  «<Project> trazas» and every dashboard cloned from it was Spanish, three
+  KPI/infra dashboards were Catalan, and it took a fleet-wide translation
+  pass (hq-monitoring `c2196ef..433220d`) to undo. A convention already in
+  the wrong language is not a reason to match it. It is
   built on **TraceQL metrics** (`| rate()`,
   `| quantile_over_time(duration, .95) by (span.http.route) | topk(10)`,
   `| count_over_time()`), which Tempo 3.0 serves without the
