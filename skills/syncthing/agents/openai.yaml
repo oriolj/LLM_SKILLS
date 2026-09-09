@@ -1,0 +1,4 @@
+interface:
+  display_name: "Syncthing"
+  short_description: "Diagnose sync, recover files and protect Git history"
+  default_prompt: "Use $syncthing to inspect this sync setup and resolve the issue while preserving recoverable data."
