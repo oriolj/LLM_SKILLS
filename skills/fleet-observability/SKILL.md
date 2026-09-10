@@ -520,10 +520,11 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   absent on beat), a healthchecks.io project with **zero notification
   channels** (healthchecks-io skill), an in-stack Postgres with no backup
   sidecar two days after the sibling project got one.
-- **Eighth reference (enantena scope, STAGED 2026-09-08 — app not yet
-  deployed): EnaStats** (`EnaCast/EnaStats`, Coolify **compose** resource on
-  storage-1) — the estate's first **MariaDB + memcached + no-Celery** shape,
-  and the first on **Python 3.8** (`architect==0.5.4` caps it). What it adds:
+- **Eighth reference (enantena scope, LIVE — metrics + logs 2026-09-09,
+  traces 2026-09-10): EnaStats** (`EnaCast/EnaStats`, Coolify **compose**
+  resource on storage-1) — the estate's first **MariaDB + memcached +
+  no-Celery** shape, the first on **Python 3.8** (`architect==0.5.4` caps
+  it), and the first compose resource with tracing on. What it adds:
   - **The pins.** OpenTelemetry and `prometheus_client` still resolve on 3.8
     if you take the last 3.8-compatible releases and pin them `==`:
     `prometheus-client==0.21.1`, `opentelemetry-sdk` +
@@ -566,10 +567,24 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     most every 15 min and bounded with `SET STATEMENT max_statement_time=15`
     — never on a scrape, and never `COUNT(*)`. `TABLE_ROWS` is InnoDB's
     sampled estimate: a trend, not a count.
-  - Catalogue: the repo's `METRICS.md`. Hub side: dashboards
-    `grafana/dashboards/enacast/enastats/`, alert group `hq;enastats`, job
-    `enastats-app` — job and rules **staged commented out** per the
-    fifth/sixth references' rule.
+  - Catalogue: the repo's `METRICS.md` (~55 series once live, including
+    `enastats_app_info{version}` — 12-char sha from `release.py`, env
+    `SOURCE_COMMIT` then `/app/.source_commit` baked by the Dockerfile `ARG`
+    — and the tracing-state series below). Hub side: dashboards
+    `grafana/dashboards/enacast/enastats/` (`enastats`, `EnaStats traces`),
+    alert group `hq;enastats` (11 rules incl. `enastats-trace-export-failing`,
+    none critical, all `noDataState: OK`), job `enastats-app` scraping
+    `storage-1:9125` token-free (private source; bearer on the public
+    origin). Job and rules were staged commented out per the fifth/sixth
+    references' rule and uncommented after the app answered (2026-09-09).
+  - **The endpoint story** (2026-09-09/10, §5f): `OTEL_EXPORTER_OTLP_ENDPOINT=
+    http://oj-alloy:4318` exported nothing until the compose resource got
+    *Connect to Predefined Network* ON (`connect_to_docker_network: true`);
+    the host's tailnet IP was tried first and failed silently. Live since
+    06:24 on 2026-09-10: one trace per collector pass (root
+    `record_current_stats.cycle`, ~25 + 2·rows spans after suppression,
+    down from ~2,500), crashed passes as error traces; the host agent's
+    decision window is raised to 90 s for it.
 - **Django management-command workers (`while True`, no Celery)** — the
   unscrapeable-container problem without a broker to hang signal hooks off
   (EnaStats `worker-stats` / `worker-radios`, 2026-09-08). Same answer as

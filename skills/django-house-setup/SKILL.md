@@ -45,6 +45,14 @@ local env files under `.envs/.local/`, prod values ONLY in Coolify
 (runtime-only). `config/` also holds `celery_app.py`, `prom.py`,
 `healthserver.py`, `urls.py`, `api_router.py`.
 
+**`DATABASES` `OPTIONS` timeouts are production behaviour, not a probe
+setting** (EnaStats, 2026-09-10): a `read_timeout` bounds EVERY statement of
+every process, and a review's `read_timeout: 10` killed the collector's
+legitimately slow writes for half an hour after each MariaDB restart (cold
+33 GB buffer pool — 76 write errors, 8 crashed passes in 4 min). Set it above
+the slowest legitimate statement INCLUDING cold-cache phases (300 s there),
+or bound only the probe's own connection — `fleet-observability` §5f.
+
 ## LOGGING — the contract (owned here)
 
 - 🔴 **`"disable_existing_loggers": False` in EVERY settings file.**
