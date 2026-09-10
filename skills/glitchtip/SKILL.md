@@ -17,9 +17,13 @@ description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error
   below). Projects (2026-09-02): `enacast/{enacast-backend, enacast-ai,
   enacast24h, encasago, enastats}` (enastats = id 13, created 2026-09-10 by API; DSN stored with the hub's EnaCast-tailnet IP because storage-1's containers do not resolve MagicDNS, like the 24H apps there), `oriolj/{talaia, h2a-leadhunter, licita-radar, llm-index-watcher, backupmaker, panotxa}` (panotxa = id 12, created 2026-09-07 by API; takes BOTH the Django backend — migrated off sentry.io SaaS the same day, `SENTRY_DSN` on web+worker+beat — and the PWA's browser events through the tunnel below) (backupmaker = id 11, created 2026-09-06 by API for the two backup loops on mlrtx2 — crashes only, per-job failures stay in metrics; the DSN keeps the MagicDNS host because mlrtx2's containers resolve `infra-monitoring`) (licita-radar = id 8 and llm-index-watcher = id 9, both created 2026-09-02 by API, DSNs on their Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).
   **No unused projects** (Oriol, 2026-09-10): `enacast/leadhunter` (wrong
-  realm, 0 events) and `enacast/enachat` (created 2026-09-05, never wired —
-  no resource carried its DSN) were deleted by API; recreate a project
-  when its DSN is about to be set, not before. And create with ONE POST:
+  realm, 0 events) was deleted by API. 🔴 **"0 events" is NOT "unused"**:
+  `enacast/enachat` (id 10) also had 0 events and was deleted the same
+  minute — but `enachat-web` + `enachat-worker` carried its DSN (found in
+  `coolify-envs.env` only AFTER the delete). Recreated as id **15**, both
+  rows repointed, redeploy queued for Oriol. Before deleting any project:
+  `grep ':8000/<id>$' hq/homelab/secrets/coolify-envs*.env` across ALL three
+  scope exports — a DSN on a resource means in use, events or not. And create with ONE POST:
   a helper that evaluates the request twice made `enastats-2`. **A personal app's project goes in `oriolj`** —
   check the org before reusing a DSN found on a resource.
 - **One user**: `oriol@smartupsoft.com` (NOT a superuser) — owner of both
