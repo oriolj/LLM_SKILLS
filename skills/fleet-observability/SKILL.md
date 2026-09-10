@@ -1139,20 +1139,28 @@ The rules:
   "port is already allocated" and left monitor-1-nc's Alloy down for ~4
   min (2026-09-05). Any new host that publishes 4318 itself gets the same
   override.
-- 🔴 **The endpoint is `http://oj-alloy:4318`, never the host's tailnet IP**
-  (EnaStats, 2026-09-09/10 — one lost day). The alias lives on the
-  `coolify` docker network, which Coolify attaches EVERY resource to; no
-  "Connect to Predefined Network" toggle is involved (it is off on every
-  traced resource). A container that targets `http://<host-tailnet-ip>:4318`
-  instead sends packets that leave the docker bridge and never enter on
-  `tailscale0`, so the host firewall drops them: the SDK bootstraps, log
-  lines carry real `trace_id`s, `enastats_tracing_enabled` reads 1 — and
-  Tempo stays empty, with no error anywhere the app's LOGGING can show.
-  The tailnet address is for DOCKERLESS hosts only. Make the app export
-  its own tracing state (`<app>_tracing_endpoint_configured`,
-  `<app>_tracing_enabled` gauges from the process that serves `/metrics`)
-  so "never started" and "started, cannot export" are distinguishable
-  from outside the box.
+- 🔴 **The endpoint is `http://oj-alloy:4318` — and a Coolify COMPOSE resource
+  cannot reach it until "Connect to Predefined Network" is ON** (EnaStats,
+  2026-09-09/10, the first compose resource in the estate to switch tracing
+  on — one lost day and two wrong turns). Facts, all verified from Coolify's
+  generated compose (`GET /applications/<uuid>` → `docker_compose`):
+  a Dockerfile resource's container sits on the `coolify` network, where the
+  agent's alias lives, so every traced app before EnaStats just worked; a
+  compose resource's services sit on a **per-resource network only**
+  (`networks: {<uuid>: null}` on every service), so `oj-alloy` does not
+  resolve and the exporter dies with `NewConnectionError`. The fix is the
+  resource setting `connect_to_docker_network: true` (API PATCH on the
+  application, or the UI toggle), then a deploy. **Not** the host's tailnet
+  IP: from a container that traffic is DNATed to the agent's container on
+  ANOTHER bridge and Docker's inter-bridge isolation drops it —
+  `ConnectTimeout`, no log the app's LOGGING can show (the tailnet address
+  is for DOCKERLESS hosts only). H2A-Accountant, H2A-LeadHunter and
+  FichaChat are compose resources with tracing dormant: they will hit the
+  same wall the day their endpoint is set. Make the app export its own
+  tracing state (`<app>_tracing_endpoint_configured`, `<app>_tracing_enabled`,
+  `<app>_trace_export_batches_total{result}` from the process that serves
+  `/metrics`) so "never started", "started, cannot export" and "exporting"
+  are three different numbers, not a log grep.
 - 🔴 **Coolify compose resources: keep `build: .`, never `build: {context,
   args}`** (EnaStats, three failed deploys 2026-09-09). With an `args`
   mapping Coolify rewrites `environment` from a list to a map, and a bare
