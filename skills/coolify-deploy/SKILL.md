@@ -1214,6 +1214,21 @@ serving immediately and is exactly what the deploy would have done — then
 NOT clear Coolify's record.** The deployment stays `in_progress` forever on
 the control-plane side, and that is the part that actually hurts.
 
+### A migration that adds a column breaks every sibling resource still on the old code (EnaCast, 2026-09-10)
+Django applies a field's `default` while adding the column and then DROPS it
+from the schema. Any other resource writing the same table from the previous
+code — a separately deployed worker, a recorder, a compose sibling that only
+Oriol redeploys at quiet hours — then fails its INSERTs with MariaDB 1364
+`Field 'x' doesn't have a default value` (Postgres: NOT NULL violation). On
+EnaCast the `enacast-recorder` resource lost 22 scheduled recording starts in
+the 80 minutes between the web deploy and the hand-applied DB default.
+Before adding a NOT NULL column to a shared table: (1) `docker ps` on the host
+— which other containers write that database from a different deploy? (2) ship
+a DATABASE default in the same migration set (`RunPython` with
+`atomic = False`, `ALTER TABLE … ALTER COLUMN … SET DEFAULT …`, vendor-guarded),
+or make the column nullable; (3) otherwise redeploy the sibling in the same
+window; (4) after the deploy grep the sibling's logs for `default value`.
+
 ### A stuck deployment head-of-line blocks every later one
 
 This is the failure that cost the most time, so recognise it fast. A wedged
