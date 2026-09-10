@@ -1161,6 +1161,19 @@ The rules:
   `<app>_trace_export_batches_total{result}` from the process that serves
   `/metrics`) so "never started", "started, cannot export" and "exporting"
   are three different numbers, not a log grep.
+- 🔴 **A `DATABASES` `read_timeout` is a production behaviour change, not a
+  probe setting** (EnaStats, 2026-09-10). Adding `OPTIONS: {connect_timeout:
+  5, read_timeout: 10}` so a stalled MariaDB could not park the `/metrics`
+  dependency probe also bounded EVERY statement of every process — and the
+  collector's row-by-row writes legitimately crawl at seconds per row for
+  up to half an hour after each MariaDB restart (cold 33 GB buffer pool,
+  which every compose deploy of that stack causes). Result within four
+  minutes: 76 write errors, 8 crashed passes, listener rows lost. Set the
+  read timeout above the slowest legitimate statement INCLUDING cold-cache
+  phases (300 s there — still catches a hung socket), or bound only the
+  probe's own connection. The new `outcome="error"` cycle counter and the
+  error-status root spans are what made the regression visible in one
+  scrape instead of one day.
 - 🔴 **Coolify compose resources: keep `build: .`, never `build: {context,
   args}`** (EnaStats, three failed deploys 2026-09-09). With an `args`
   mapping Coolify rewrites `environment` from a list to a map, and a bare
