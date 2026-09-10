@@ -15,10 +15,12 @@ description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error
 - **Orgs partition it per realm**: `enacast` (pre-existing) and `oriolj`
   (created 2026-08-31). smartupsoft: create when first needed (recipe
   below). Projects (2026-09-02): `enacast/{enacast-backend, enacast-ai,
-  leadhunter, enacast24h, encasago}`, `oriolj/{talaia, h2a-leadhunter, licita-radar, llm-index-watcher, backupmaker, panotxa}` (panotxa = id 12, created 2026-09-07 by API; takes BOTH the Django backend — migrated off sentry.io SaaS the same day, `SENTRY_DSN` on web+worker+beat — and the PWA's browser events through the tunnel below) (backupmaker = id 11, created 2026-09-06 by API for the two backup loops on mlrtx2 — crashes only, per-job failures stay in metrics; the DSN keeps the MagicDNS host because mlrtx2's containers resolve `infra-monitoring`) (licita-radar = id 8 and llm-index-watcher = id 9, both created 2026-09-02 by API, DSNs on their Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).
-  `enacast/leadhunter` (id 3) is a wrong-realm leftover (H2A-LeadHunter
-  is personal) — 0 events ever; deletion is queued as Oriol's decision
-  in hq `USER_TODO.md`. **A personal app's project goes in `oriolj`** —
+  enacast24h, encasago, enastats}` (enastats = id 13, created 2026-09-10 by API; DSN stored with the hub's EnaCast-tailnet IP because storage-1's containers do not resolve MagicDNS, like the 24H apps there), `oriolj/{talaia, h2a-leadhunter, licita-radar, llm-index-watcher, backupmaker, panotxa}` (panotxa = id 12, created 2026-09-07 by API; takes BOTH the Django backend — migrated off sentry.io SaaS the same day, `SENTRY_DSN` on web+worker+beat — and the PWA's browser events through the tunnel below) (backupmaker = id 11, created 2026-09-06 by API for the two backup loops on mlrtx2 — crashes only, per-job failures stay in metrics; the DSN keeps the MagicDNS host because mlrtx2's containers resolve `infra-monitoring`) (licita-radar = id 8 and llm-index-watcher = id 9, both created 2026-09-02 by API, DSNs on their Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).
+  **No unused projects** (Oriol, 2026-09-10): `enacast/leadhunter` (wrong
+  realm, 0 events) and `enacast/enachat` (created 2026-09-05, never wired —
+  no resource carried its DSN) were deleted by API; recreate a project
+  when its DSN is about to be set, not before. And create with ONE POST:
+  a helper that evaluates the request twice made `enastats-2`. **A personal app's project goes in `oriolj`** —
   check the org before reusing a DSN found on a resource.
 - **One user**: `oriol@smartupsoft.com` (NOT a superuser) — owner of both
   orgs.
