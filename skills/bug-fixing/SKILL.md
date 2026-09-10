@@ -47,6 +47,28 @@ skill; this file is the method.
   findings at once (one error renderer, one retry policy, one FormData serialisation)
   rather than each symptom on its page.
 
+### When the report says "it did X by itself" / "nobody did this"
+Field note (EnaCast, 2026-09-10): an episode "cut by nobody", "uploaded
+directly", "already cut". Every symptom was a *deduction* by some layer, and
+the real cause was a person: a radio user had saved a photo into a raw file
+field of the Django admin from a phone. Before theorising about automation:
+- **Read the action logs first**: Django `django_admin_log` (`LogEntry`
+  by `object_id`: who, when, which fields), the web access log around the
+  timestamps, file mtimes and the first bytes of the suspect file (`od -A x
+  -t x1z | head`). Do it on the real row before reading code for causes.
+- **Distrust assertive UI copy derived from an empty field** ("uploaded
+  directly" = `audio_recorded_url == ""`). Trace the condition to the
+  serializer and list every other state that yields the same value.
+- **A derived artefact must never condemn its source**: when a pipeline
+  flags something "unrecoverable", check *which* file it judged; a bad cut
+  must not invalidate a fine original.
+- **Uploads: extension, `accept` and `file.type` are all caller-supplied.**
+  Sniff bytes on both sides; the client check is for the message, the
+  server check is the guard (ramen `src/lib/fileSniff.ts`, backend
+  `sniff_audio_signature`).
+- **Automatic actions need provenance** (who/what/when) the day they ship,
+  or the next report is "nobody did it".
+
 ## 1. Reproduce BEFORE changing code
 
 ### Run the real stack locally
