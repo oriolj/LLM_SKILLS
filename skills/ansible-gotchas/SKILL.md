@@ -100,6 +100,19 @@ packages, default shell, no prior run's leftovers. For every task ask:
   first a query `command` with `changed_when: false`, then the setter gated
   on `stdout != desired`. Blind setters report `changed` forever and hide
   real drift.
+- **A `failed_when` that matches an error MESSAGE is a fresh-host trap
+  twice over: lowercase it, and unit-test the missing branch.** Module
+  messages are prose with their own capitalisation (`slurp` → `File not
+  found: …`), so `'file not found' not in result.msg` never matches and the
+  "tolerate a missing file, abort on anything else" guard aborts on the
+  missing file too. Nothing shows it on a machine that already has the
+  file — the fixture is the only thing that does. Write
+  `(result.msg | default('') | lower)`, and add a no-connection playbook
+  that slurps a path that cannot exist and asserts both that the task
+  passed and that the message still carries the phrase (an ansible-core
+  rewording must fail the test, not silently flip the guard). Real case:
+  hq `opencode-nan.yml` / `pi-nan.yml`, `--tags opencode,pi` red on every
+  fresh host until 2026-09-10.
 - **Read-only probes need `check_mode: false`** (name may vary by ansible
   version; the module option on the task) so `--check` runs still execute
   them — otherwise every task depending on the probe's `register` explodes
