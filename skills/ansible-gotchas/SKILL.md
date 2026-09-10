@@ -106,8 +106,25 @@ packages, default shell, no prior run's leftovers. For every task ask:
   in check mode with an undefined variable.
 - **`command:` needs `changed_when`** (usually `false` for probes, or a
   condition on output) and often `failed_when: false` for existence checks.
-  In a loop, `failed_when`/`changed_when` are evaluated per item against the
-  current item's result — usable as a per-item assert.
+  In a loop, `failed_when`/`changed_when` ARE evaluated per item against that
+  item's result — usable as a per-item assert — **but only through the
+  task's own `register:` name**. BARE result fields (`rc`, `stdout`, `stat`)
+  are NOT in scope, with or without a loop: they evaluate as *undefined*, and
+  a `| default('')` next to them turns that into a silently wrong verdict
+  rather than an error. Measured on ansible-core 2.20.5:
+
+  | expression in the task's own `changed_when` | works |
+  | --- | --- |
+  | `stdout == 'x'` / `rc == 0` / `stat is defined` (bare) | **no** — undefined |
+  | `r.stat.exists` after `register: r` (looped: current item) | yes |
+  | `ansible_loop.index0` (needs `loop_control: extended: true`) | yes |
+
+  So a per-item "did this file's content change" verdict is
+  `register: after` + `changed_when: after.stat.checksum !=
+  before.results[ansible_loop.index0].stat.checksum`. Written with a bare
+  `stat.checksum` it inverts: every unchanged item reports *changed* and
+  every changed one reports *ok* (shipped 2026-09-10, caught only because
+  the probe run deleted a file and the report stayed green).
 - **Registered loop results** land in `.results`; a skipped task's register
   is a skip-stub — dereferencing `item.json.x` in a later `when` fails the
   item instead of skipping it. Put existence-check and dereference in ONE
