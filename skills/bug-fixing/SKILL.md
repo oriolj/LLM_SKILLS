@@ -77,6 +77,24 @@ for iOS-only reports: the same script inside `mcr.microsoft.com/playwright:v<ver
 with `--network host` and the repo mounted at the same absolute path. Before starting
 a dev server, check whether another session already owns the port.
 
+**"Phone asleep, then woken" bugs in headless Playwright (2026-09-10, Panotxa
+analysis watcher):** CDP `Page.setWebLifecycleState {state:'frozen'}` is a
+**no-op in headless Chromium** — timers kept firing and no `freeze` /
+`visibilitychange` event reached the page, so a "frozen" run measures nothing.
+What works is the signal the app actually consumes: `page.evaluate` that
+redefines `document.hidden` / `document.visibilityState` (configurable
+getters) and dispatches `visibilitychange` — Android Chrome sends exactly
+that on screen off/on, and Capacitor's App web plugin turns it into
+`appStateChange`. Model "Wi-Fi still reconnecting after wake" with a
+`page.route` that aborts every API request plus `navigator.onLine` overridden
+and `offline`/`online` events dispatched; **`page.unroute` needs the SAME
+matcher and handler references** or the abort stays in place and every
+"after" number reads as a failure. Measure wake → DOM-marker-gone with a
+25 ms poll and log every request with an offset from the wake instant — the
+first request after wake tells you whether the code re-checked or waited for
+a timer. Run the same script against the pre-fix bundle (a copy of `dist/`
+served on another port) for the before numbers.
+
 **Not reproducible after a bounded, honest attempt** (both engines, the user's device
 class emulated, every gesture sequence the code path admits, the third-party source
 read for the null path): say so, ship NO speculative fix, leave the tracker issue open,
