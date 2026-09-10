@@ -1139,6 +1139,34 @@ The rules:
   "port is already allocated" and left monitor-1-nc's Alloy down for ~4
   min (2026-09-05). Any new host that publishes 4318 itself gets the same
   override.
+- 🔴 **The endpoint is `http://oj-alloy:4318`, never the host's tailnet IP**
+  (EnaStats, 2026-09-09/10 — one lost day). The alias lives on the
+  `coolify` docker network, which Coolify attaches EVERY resource to; no
+  "Connect to Predefined Network" toggle is involved (it is off on every
+  traced resource). A container that targets `http://<host-tailnet-ip>:4318`
+  instead sends packets that leave the docker bridge and never enter on
+  `tailscale0`, so the host firewall drops them: the SDK bootstraps, log
+  lines carry real `trace_id`s, `enastats_tracing_enabled` reads 1 — and
+  Tempo stays empty, with no error anywhere the app's LOGGING can show.
+  The tailnet address is for DOCKERLESS hosts only. Make the app export
+  its own tracing state (`<app>_tracing_endpoint_configured`,
+  `<app>_tracing_enabled` gauges from the process that serves `/metrics`)
+  so "never started" and "started, cannot export" are distinguishable
+  from outside the box.
+- 🔴 **Coolify compose resources: keep `build: .`, never `build: {context,
+  args}`** (EnaStats, three failed deploys 2026-09-09). With an `args`
+  mapping Coolify rewrites `environment` from a list to a map, and a bare
+  magic item (`- SERVICE_FQDN_WEB_8000`) becomes the key `0` →
+  `non-string key in services.web.environment: 0`, the deploy fails and
+  the OLD stack keeps running — from outside, nothing you pushed has any
+  effect and every symptom looks like a code bug. Check
+  `GET /deployments/applications/<uuid>` (status per commit) BEFORE
+  debugging a deploy that "did nothing". The args block is never needed:
+  Coolify runs `docker compose build --build-arg SOURCE_COMMIT …` with the
+  real sha in the env, so a Dockerfile `ARG SOURCE_COMMIT` receives it on
+  its own (bake it into a file; a compose `SOURCE_COMMIT=${SOURCE_COMMIT:-}`
+  runtime line interpolates EMPTY and would override the image ENV — read
+  env-then-file, EnaStats `EnaStats/release.py`).
 - **Credentials**: none in the app. The agent's :4318 is unauthenticated
   on purpose — tailnet-bound, docker-network-scoped, and the hub-side
   writer credential never leaves the agent. Revoking a host's writer in
