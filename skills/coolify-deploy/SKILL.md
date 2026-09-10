@@ -1804,6 +1804,24 @@ worked:
   the redirector must outlive the last installed old build; ship users a
   new build, then decommission.
 
+
+### A build that crawls is usually the HOST, not Coolify (2026-09-10)
+
+`dpkg` at ~10 min per package inside a Coolify build on storage-1, three builds
+cancelled in a row, an incident fix stuck for an hour — and the cause was the
+host: load 95 on 16 threads from the **monthly `mdcheck` data-check of the HDD
+RAID5** (`mdcheck_continue.timer` resumes it every DAY, at the 200 MB/s
+`speed_limit_max`) on the same spindles as a 259 GB MariaDB datadir, plus a
+2-hour `mariadb-dump | gzip` from the backup runner. Before cancelling or
+re-triggering a slow build: `uptime`, `cat /proc/mdstat`, `ps -eo
+pid,stat,etime,comm | awk '$2 ~ /D/'` (D-state = waiting on IO) on the build
+host, or the Beszel host panel. A data-*check* (array `[UUUU]`, `State:
+active, checking`) can be throttled instantly and harmlessly:
+`echo 30000 > /proc/sys/dev/raid/speed_limit_max` (not persistent). And on a
+compose resource, Coolify's **"restart" is a full redeploy** (pull + build) —
+it does not help when the build is the problem; `docker restart <container>`
+on the host is the only fast lever, and it is Oriol's unless he says otherwise.
+
 ## 8. Failure → cause → fix
 
 | Symptom | Likely cause | Fix |
