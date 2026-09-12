@@ -212,7 +212,22 @@ explicitly; the wizard does not ask *(seen 2026-09-12: fresh leases at
 - `GET https://<console>/api/system` works **without auth** and is the
   fastest way to tell what you are talking to and whether it is set up
   (`deviceState`, `isSetup`, `hasInternet`, `mac`, hardware short name)
-  *(verified 2026-09-12)*.
+  *(verified 2026-09-12)*. **Versions** are not there: classic
+  `stat/sysinfo` gives the Network app (`version`, e.g. `10.6.101`) and
+  UniFi OS (`console_display_version`, `udm_version`); `stat/device`
+  gives the gateway's firmware, kernel and **`port_table`** (which ports
+  are up, at what speed, PoE) *(verified 2026-09-12: UniFi OS 5.1.33,
+  Network 10.6.101 — the firmware every note in this skill was checked
+  on)*.
+- **Adoption**: a UniFi switch/AP never "just appears". A factory-default
+  unit on the same L2 shows in `stat/device` with `adopted: false`
+  (UI: Devices → pending) and needs *Adopt*; a unit previously adopted
+  by another controller keeps informing that one and shows nothing (or
+  "managed by other") until it is factory-reset (hold reset ~10 s) or
+  re-pointed over SSH (`ssh ubnt@<ip>`, then `set-inform
+  http://<gateway>:8080/inform`). A device that is not even a DHCP client
+  (no Ubiquiti OUI in `rest/user`/`stat/sta`) is unpowered, unplugged, or
+  holding a static IP in another subnet (UniFi fallback `192.168.1.20`).
 - **Wizard WAN step over the API** *(verified 2026-09-12 on a
   factory-fresh UCG-Fiber)*: an ISP that needs a VLAN tag (Yoigo/MásMóvil
   fiber in Spain: VLAN 20, DHCP, no PPPoE) makes the wizard stop at *No
