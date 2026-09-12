@@ -158,10 +158,11 @@ Role drops `/opt/observability/{docker-compose.yml,config.alloy,nginx.conf}`
 and runs `docker compose up -d`. Agent updates = bump the pinned image in
 the role, run the play.
 
-**Status (2026-09-06): the role is LIVE on eight hosts** — `logcli labels
+**Status (2026-09-13): the role is LIVE on nine hosts** — `logcli labels
 host` lists coolify-ovh-vps-1, oriolj-nc-1, enacast-ai-fsn1-1,
 monitor-1-nc (the hub runs the same agent since 2026-08-31), storage-1,
-infra-monitoring, **mlrtx2** (the office ML desktop — a Coolify remote
+infra-monitoring, **bikecrm-prod-2** (BikeCRM production, DO droplet, the first
+non-Coolify docker host — enrolled 2026-09-12/13, §6d), **mlrtx2** (the office ML desktop — a Coolify remote
 server deliberately NOT in `servers`, enrolled 2026-09-06 with the
 backupmaker deployment: 79k lines shipped within a minute of the play) and **v5** (THE EnaCast production backend, onboarded
 2026-09-04 the day after an outage investigation had to read its logs
