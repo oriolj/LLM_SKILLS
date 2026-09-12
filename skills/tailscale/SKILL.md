@@ -18,6 +18,53 @@ live estate with the date noted; re-verify anything undated.
 `tail4d837.ts.net` is **dead** — an old SmartupSoft identity. Any doc still
 naming it is stale.
 
+## 0. Direct vs relayed (DERP) — diagnose before touching any router
+
+Tailscale relays through DERP only when UDP NAT traversal fails; a
+relayed peer feels like 40–100 ms extra and throttled throughput. Three
+commands answer "why is this relayed" without guessing
+*(method verified 2026-09-12 from minisforum behind the UCG-Fiber)*:
+
+```sh
+tailscale netcheck            # this side's NAT: UDP, MappingVariesByDestIP, PortMapping, nearest DERP
+tailscale ping --c=5 --timeout=5s <peer>   # "pong … via <ip>:41641" = direct; "direct connection not established" = DERP
+tailscale status --json | jq -r '.Peer[] | select(.Online) | "\(.HostName)\t\(.CurAddr // "-")\t\(.Relay)"'
+```
+
+Reading it:
+
+- **`MappingVariesByDestIP: false`** = easy NAT (endpoint-independent
+  mapping). Direct connections work to any peer that is not itself
+  behind a hard NAT; **no port forward and no UPnP/NAT-PMP is needed on
+  this side**. The UCG-Fiber with UPnP off measures as easy NAT.
+  `MappingVariesByDestIP: true` = hard (symmetric) NAT: forward UDP
+  `41641` to the one host that matters most (or give each LAN host its
+  own `tailscaled --port` and forward each), or enable NAT-PMP so
+  tailscaled can map a port itself.
+- **`PortMapping:` empty** just means no UPnP/NAT-PMP/PCP was offered —
+  irrelevant on easy NAT.
+- Idle peers show only their DERP home (`mad`, `nue`, `fra`) and no
+  `CurAddr`; that is not "relayed", it is "no path negotiated yet".
+  Judge by `tailscale ping` after a few packets, or by `CurAddr` while
+  traffic flows.
+- **A public-IP server that stays on DERP is the server's fault**, not
+  the home router's: its host firewall drops inbound UDP `41641`
+  (Tailscale can still hole-punch out, but a fully blocked port plus a
+  cloud firewall in front leaves only the relay). The estate's
+  `shared/ansible` baseline `firewall.yml` opens `41641/udp` in ufw for
+  exactly this reason — a server that is relayed has not had the
+  baseline applied, or has a provider-side firewall in front.
+  2026-09-12 sample from home: `infra-monitoring` direct via
+  `159.69.48.55:41641`, while `monitor-1-nc`, `storage-1` and
+  `whalehet-01` stayed on DERP `nue`.
+- LAN peers (nuc8i7, the Mac mini) go direct over the LAN address
+  (`via 192.168.7.x:41641`, 3 ms). If a LAN peer is relayed, look at the
+  peer's own firewall or Wi-Fi client isolation on the AP.
+
+What NOT to do: open UPnP on the router "to help Tailscale" (it does not
+need it on easy NAT and it exposes every UPnP-capable device), or
+forward `41641` to a laptop that roams.
+
 ## 1. Node sharing — what it does and does not grant
 
 Sharing is per **device** and per **user**. Both halves matter and people
