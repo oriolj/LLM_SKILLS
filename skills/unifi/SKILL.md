@@ -19,8 +19,12 @@ and must be confirmed with a GET before it is relied on for a write.
 
 ## 1. Credentials
 
-- **API key** — minted in the UniFi UI: Settings → Control Plane →
-  Integrations → Create API Key. Stored in hq as
+- **API key** — minted in the **Network application's** settings:
+  `https://<console>/network/default/settings/control-plane/integrations`
+  → Create API Key *(verified 2026-09-12 on a UCG-Fiber: the UniFi
+  OS-level Settings → Control Plane had no Integrations tab; the Network
+  app's Control Plane does — two menus share the name, send the user the
+  URL, not the breadcrumb)*. Stored in hq as
   `homelab/secrets/unifi.env` (`UNIFI_URL`, `UNIFI_API_KEY`; age
   store, catalogued in hq's root `CLAUDE.md`). Read a key with
   `grep '^UNIFI_API_KEY=' file | cut -d= -f2-`, never `source`, never
@@ -50,10 +54,9 @@ prefix decides which application and which generation of API answers:
 | **Classic** | `/proxy/network/api/s/<site>/` (site short name, `default`) | `{"meta":{"rc":"ok"},"data":[…]}` | the broadest surface: `rest/user` (clients incl. **fixed IP and local DNS record**), `rest/networkconf` (DHCP range/lease/domain), `rest/portforward`, `rest/dynamicdns`, `rest/wlanconf`, `stat/sta`, `stat/health`, `stat/device`, `cmd/stamgr`, `cmd/devmgr` |
 | **v2** | `/proxy/network/v2/api/site/<site>/` | plain JSON | `static-dns` (DNS records), `trafficrules`, `system-log/all` (events; replaces the classic `stat/event` on Network 10.x) |
 
-The same API key authenticates all four *(Integration and classic
-verified 2026-09-12 to answer 401, i.e. they are gated by the key; the
-write calls below were built on that and are confirmed the first time
-the reservations are applied — update this line then)*. Find the site
+The same API key authenticates all four *(verified 2026-09-12: reads on
+Integration and classic, `PUT`/`POST rest/user`, `PUT rest/networkconf`
+and `POST v2 static-dns` all succeeded with only `X-API-KEY`)*. Find the site
 UUID with `GET /proxy/network/integration/v1/sites` (`id` = UUID,
 `internalReference` = classic short name).
 
@@ -102,8 +105,8 @@ It reads `UNIFI_URL` / `UNIFI_API_KEY` from the environment or from
 ## 4. DHCP reservations — restoring leases after a router swap
 
 A fixed IP is a property of the **client** (`rest/user`), not of the
-network. Field names *(from the classic API catalogue; confirmed on the
-first apply)*:
+network. Field names *(verified 2026-09-12: 15 reservations applied with
+exactly these fields, partial PUT bodies accepted)*:
 
 | Field | Meaning |
 |---|---|
@@ -131,6 +134,25 @@ Mechanics:
   `ip -br link` on the host before copying a MAC from an old config.
 - Fixed IPs may sit inside the DHCP range; UniFi does not require them
   to be outside it.
+- **`api.err.FixedIpAlreadyUsedByClient`** (HTTP 400 on the PUT): the
+  address is held by another client's **live lease**, not by a
+  reservation — the error names that client's MAC. Wait for its renewal,
+  move it, or pick another address; an applier must log the failure and
+  continue with the next row instead of aborting *(2026-09-12: the Mac
+  mini's historical `.67` and the fallback `.66` were both live leases of
+  other devices)*.
+- **Local DNS record semantics** *(verified 2026-09-12)*: the record is
+  served exactly as written — `nuc8i7` answers `nuc8i7` and the PTR
+  becomes `nuc8i7.`; `nuc8i7.localdomain` answers the FQDN and the PTR
+  becomes `nuc8i7.localdomain.` — but not both. The network's Domain
+  Name is **not** appended to it. For bare **and** FQDN, keep the client
+  record bare and add a v2 `static-dns` A record for the FQDN (§5).
+  Changes take ~10 s to reach dnsmasq; a `dig` right after the PUT still
+  shows the old answer.
+- **Dynamic leases get no PTR** on the UCG-Fiber *(verified 2026-09-12:
+  `dig -x` on four dynamic leases empty, forward lookup of the DHCP
+  hostname works for some)*. Anything that names devices by reverse DNS
+  (NetAlertX's DIGSCAN) only sees the reserved hosts.
 - The estate's plan file format and applier:
   `homelab/tools/unifi-fixed-ips.py --plan <csv>` (dry run) then
   `--apply`; rows are `mac,ip,name[,dns]`. It also sets the range:
@@ -155,10 +177,13 @@ explicitly; the wizard does not ask *(seen 2026-09-12: fresh leases at
 - DHCP lease hostnames resolve as `<host>` and `<host>.<domain_name>`
   once the network's Domain Name is set. Static names come from the
   per-client Local DNS Record (§4) or from **DNS records**:
-  `GET/POST /proxy/network/v2/api/site/default/static-dns` with
-  `{"record_type":"A","key":"hass.localdomain","value":"192.168.7.105","enabled":true}`
+  `GET/POST /proxy/network/v2/api/site/default/static-dns` with the
+  **full** body — the short one returns 400 *(verified 2026-09-12)*:
+  `{"record_type":"A","key":"hass.localdomain","value":"192.168.7.105","enabled":true,"ttl":0,"port":0,"priority":0,"weight":0}`
   (types A, AAAA, CNAME, MX, TXT, SRV, NS on Network 8.x+; **update =
-  delete + create**). `.local` is mDNS territory and is not served.
+  delete + create**; `DELETE static-dns/<_id>`). The Integration API
+  mirrors them read-only at `sites/<uuid>/dns-records`. `.local` is mDNS
+  territory and is not served.
 - **Reverse DNS (PTR) is not guaranteed.** Tools that name LAN devices
   through `dig -x` against the gateway (NetAlertX's DIGSCAN on the
   estate) lose names when PTR answers are empty. Test on day one:
