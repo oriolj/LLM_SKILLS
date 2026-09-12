@@ -253,6 +253,20 @@ LAN and `:port` tailnet access stay open until you change the bind.
 
 ## 6. Gotchas worth keeping
 
+- **A node freshly re-logged into a tailnet can be reachable one way only**
+  (bikecrm-prod-2, 2026-09-12): the node pinged the hub fine while the hub's
+  netmap showed it with no relay and no path (`tailscale status --json`:
+  `Relay ""`, `CurAddr ""`, stale `LastHandshake`) — every inbound connection
+  timed out for ~20 min. `systemctl restart tailscaled` on the re-logged node
+  re-registered it instantly. Diagnose with `tailscale ping` from BOTH ends
+  before blaming firewalls; and anything that had cached a dead connection
+  (an Alloy agent's WAL push) needs its own restart afterwards.
+- **Containers cannot use MagicDNS on a systemd-resolved-stub host** (Ubuntu
+  22.04, Tailscale's DNS on the tailscale0 link only): Docker hands containers
+  the resolved UPSTREAM resolvers, so `monitor-1-nc` resolves on the host and
+  fails inside every container. Use the literal tailnet IP in container
+  config on such hosts (the estate's documented exception) — Debian 13 hosts
+  do not have this problem.
 - **Key expiry silently kills a node.** Disable key expiry on every server
   node in the admin console (also in `fleet-observability`).
 - **A LAN-only box may still not be on the tailnet.** Check before assuming
