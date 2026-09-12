@@ -1517,6 +1517,59 @@ password (secrets file → rebuild `LOKI_WRITERS` per §6b → hub redeploy →
 `make fleet PLAYBOOK=playbooks/setup-monitoring.yml` in that repo). The
 `host` label still identifies each box. Servers keep per-host writers.
 
+## 6d. Enrolling a non-Coolify docker host (BikeCRM prod, 2026-09-12/13) — three traps
+
+**Ninth reference (smartupsoft scope, LIVE 2026-09-13): BikeCRM backend**
+(`gitlab.com/smartupsoft/bikecrm-backend`, DO droplet `bikecrm-prod-2`, docker compose via
+the repo's own ansible — the estate's first **non-Coolify docker host** with the agent on
+the app's compose network, first **Django-Q** worker (no Celery), first **DO managed
+Postgres/Valkey** with exporters as compose services on the tailnet bind). Repo docs:
+`METRICS.md`, `GRAFANA_AND_METRICS.md`, `PLANS/observability/PLAN.md`; hub
+`grafana/dashboards/smartup/bikecrm/`, `alerting/bikecrm.yml`. What it added:
+
+- **`observability_docker_network: <compose project>_default`** in the inventory puts
+  the agent on the app's network — `http://oj-alloy:4318` then resolves for a plain
+  docker-compose stack exactly as on a Coolify host.
+- 🔴 **Containers on an Ubuntu 22.04 host with the systemd-resolved STUB cannot resolve
+  MagicDNS.** Docker copies the resolved *upstream* list (the provider's resolvers) into
+  containers, and Tailscale's DNS lives on the tailscale0 link only — so the agent's
+  `monitor-1-nc` push URL fails with `loki_write … status_code="-1"` while the HOST resolves
+  it fine. Use the documented literal-IP exception (`observability_loki_push_url` /
+  `observability_otlp_push_url` per host, as monitor-1-nc and jluv-apps-1 already do) and
+  test with `docker run --rm --network observability_default busybox nslookup monitor-1-nc`
+  BEFORE the play. (Debian 13 hosts, where every other agent lives, resolve it.)
+- 🔴 **A node freshly re-logged into the tailnet can be reachable one way only.** The hub's
+  netmap showed the peer with no relay and no path (`tailscale status --json`: `Relay ""`,
+  `CurAddr ""`, stale `LastHandshake`) while the node pinged the hub fine — every scrape
+  timed out and the agent's pushes never left. `systemctl restart tailscaled` on the NODE
+  re-registered it; then **restart Alloy** (`docker compose restart alloy` in
+  `/opt/observability`) — it had wedged on the dead connection (`error tailing WAL`,
+  pushes stuck at -1 even after the path returned). Diagnose from both ends with
+  `tailscale ping` before touching anything else.
+- 🔴 **Prometheus sends the TARGET NAME as the Host header.** A job on
+  `bikecrm-prod-2:9125` hits Django as `Host: bikecrm-prod-2:9125` → 400 DisallowedHost
+  even with the tailnet IP allow-listed. `ALLOWED_HOSTS` needs the MagicDNS short name AND
+  the FQDN as well as the IP (BikeCRM: `EXTRA_ALLOWED_HOSTS` env, comma list).
+- **Django-Q metrics need no exporter and no signal-hook histograms**: the web collector
+  reads the broker (`get_broker().queue_size()`), `django_q.status.Stat.get_all()` (cluster
+  heartbeat = the worker-dead signal), the bounded `Task`/`Schedule` tables (recent outcomes,
+  `next_run` overdue = the healthchecks.io substitute) and Redis counters written by
+  `pre_execute`/`post_execute` (outcomes, wall time, a task-finished heartbeat). The same
+  two signals open/close a CONSUMER root span per task (`q.task <function>`), which is what
+  keeps a worker's SQL from being orphan CLIENT spans.
+- **Managed DB/cache exporters**: `postgres-exporter` / `redis_exporter` as compose services
+  with an env file generated ON THE HOST from the app's own credentials (never through
+  chat), published on `${TAILNET_IP}` — the managed Valkey password lived in `REDIS_PASSWORD`,
+  not in `REDIS_URL` (both the exporter env and the app's metrics client needed it: `redis_up
+  0` / `dependency_up 0` on the first scrape).
+- **LOGGING**: never list `gunicorn.access`/`gunicorn.error` under `loggers` — dictConfig
+  REPLACES a listed logger's handlers, and an entry with none silences the access log even
+  with `disable_existing_loggers: False` (django-house-setup owns the contract; this is the
+  second way to lose the access log).
+- **The ansible deploy lane has no blue-green**: each `docker compose up` on the host is a
+  ~1-minute 504 window that Sentry's frontend project collects as a spike — batch changes,
+  and the fix is the Coolify Dockerfile lane, not fewer metrics.
+
 ## 7. Rollout checklist (per host, in order)
 
 1. Host on the tailnet (`tailscale status`), enrolled in shared/ansible.
