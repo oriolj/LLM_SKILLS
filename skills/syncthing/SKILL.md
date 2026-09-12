@@ -1,6 +1,6 @@
 ---
 name: syncthing
-description: Diagnose and configure Syncthing, recover sync-conflict files or lost note content, and repair or migrate Git repositories inside synced folders. Use for requests such as "why is this device not syncing?", "recover this note", "fix these sync conflicts", "ignore .git", or "heal this repo on Syncthing". Covers live daemon discovery, per-device ignores and versioning, safe recovery, and verified Git history transfer. Ordinary edits to synced files do not require this skill.
+description: Diagnose and configure Syncthing, recover sync-conflict files or lost note content, and repair or migrate Git repositories inside synced folders. Use for requests such as "why is this device not syncing?", "recover this note", "fix/merge/resolve these sync conflicts", "sync-conflict", "duplicate notes with a device suffix", "which version is right", "I lost a note", "ignore .git", "commit hq from this laptop", or "heal this repo on Syncthing". Covers live daemon discovery, per-device ignores and versioning, safe recovery, and verified Git history transfer. Ordinary edits to synced files do not require this skill.
 ---
 
 # Syncthing operations and recovery
@@ -18,6 +18,11 @@ metadata damage before choosing a remedy.
   [file-recovery.md](references/file-recovery.md).
 - **Git under a sync root, missing objects or index/ref conflicts:** read
   [git-repositories.md](references/git-repositories.md).
+- **Oriol's shares, device map, vault-by-vault Git status, the hq "Git only on
+  minisforum" policy and Obsidian triage rules:** read
+  [oriol-estate.md](references/oriol-estate.md). The read-only triage loop for
+  a vault is [assets/sync-conflicts.sh](assets/sync-conflicts.sh)
+  (`list`, `notes`, `git`, `show <note>`, `verify <note>`).
 
 Do not load every reference for a routine connectivity check. If a repository
 has its own runbook and tools, inspect them before replacing their workflow.

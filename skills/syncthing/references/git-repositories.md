@@ -134,14 +134,19 @@ These are local conventions, not defaults for other repositories:
 - Read `git_on_syncthing.md` in hq for the current rollout and recovery record.
   The canonical implementation is `homelab/tools/hq-git-sync.py` in that repo;
   do not duplicate its mutable code into this skill.
-- `make git-protect` installs this device's exclusion after preserving `.git`;
-  `make git-check` validates it and object integrity; `make git-bundle` publishes
-  a verified full artifact. The helper's `import` command creates review refs
+- **Since 2026-09-12 Git for hq lives only on `minisforum-um880`** (Oriol's
+  decision, superseding the per-device-`.git` + bundle handoff of 2026-09-09).
+  Every other device installs the exclusion with `make git-protect` and keeps
+  no `.git`; commits from another device go through `make git-commit MSG=...`,
+  which waits for minisforum to report the share complete and commits over ssh.
+  `make git-check` validates the exclusion; `make git-bundle` on minisforum is
+  the backup artifact. The helper's `import` command still exists for recovery
   and deliberately does not advance the local branch.
 - `hq/.stignore-hq` is included from the parent share's `.stignore` on each
   migrated device. Merely receiving the tracked include is not installation.
-- The September migration covered minisforum, fw13pro and the Mac mini at that
-  time. Verify current devices; do not claim the remaining fleet was migrated.
+- Migrated: minisforum, fw13pro, Mac mini (2026-09-09), xps13wc (2026-09-12,
+  `.git` removed). Verify current devices; do not claim the remaining fleet was
+  migrated.
 - Preserve concurrent sessions' staged and unstaged edits when committing a
   repair. Use an isolated index for task-only commits when needed and compare
   unrelated entries before/after. Recheck HEAD before updating it; a local
