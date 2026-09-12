@@ -61,6 +61,12 @@ or bound only the probe's own connection — `fleet-observability` §5f.
   so `--access-logfile -` produces NOTHING and you debug production
   blind (found 2026-08-31 on Panotxa, mid-incident, with zero request
   visibility — the cookiecutter's production.py shipped `True`).
+- 🔴 **Never list `gunicorn.access` / `gunicorn.error` under `LOGGING["loggers"]`.**
+  dictConfig REPLACES a listed logger's handlers with the ones you list; an
+  entry "to pin the level" with no handlers strips the handler gunicorn gave
+  it (`--access-logfile -`) and silences the access log even with
+  `disable_existing_loggers: False` — the second way to lose it (BikeCRM,
+  2026-09-12, caught on the first prod scrape). Leave gunicorn's loggers alone.
 - 🔴 **Redefine the `django` logger in production, or Django e-mails
   every 500 to `ADMINS`.** `DEFAULT_LOGGING` is applied BEFORE your
   dict and gives `django` a `mail_admins` handler (AdminEmailHandler,
