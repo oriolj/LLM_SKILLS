@@ -252,13 +252,24 @@ explicitly; the wizard does not ask *(seen 2026-09-12: fresh leases at
 - Dynamic DNS: Settings → Internet → WAN → Dynamic DNS, backed by inadyn.
   Providers include DuckDNS, No-IP, Cloudflare, afraid.org, Namecheap,
   EasyDNS and a custom `dyndns`-style URL. Classic object
-  `rest/dynamicdns` (fields reported as `service`, `host_name`, `login`,
-  `x_password`, `server`, `interface` — **GET the object after creating
-  one in the UI before scripting it**). The gateway only updates when
-  the WAN IP changes; after a router swap the ISP usually issues a new
-  lease, so verify the name with `dig +short <ddns-name> @1.1.1.1`
-  against `curl -s ifconfig.me` the same day *(2026-09-12: both old DDNS
-  names were stale after the swap)*.
+  `rest/dynamicdns` *(create verified 2026-09-12)*:
+  `POST rest/dynamicdns {"service":"duckdns","host_name":"oriolj.duckdns.org","login":"nouser","x_password":"<token>","interface":"wan"}`
+  — `_id`, `server: null` come back; edit with a full-object `PUT
+  rest/dynamicdns/<_id>`. `stat/dynamicdns` stayed `[]` for minutes
+  after creation, so **the gateway's own update is not observable from
+  the API**; validate the credential and fix the record immediately
+  with the provider's update URL instead (DuckDNS:
+  `https://www.duckdns.org/update?domains=<sub>&token=<token>&ip=` →
+  `OK`; resolvers cache the old answer for the 60 s TTL). The gateway
+  then only has to work on the *next* WAN change. After a router swap
+  the ISP usually issues a new lease, so check `dig +short <ddns-name>
+  @1.1.1.1` against `curl -s ifconfig.me` the same day *(2026-09-12:
+  both old DDNS names were stale after the swap)*.
+- **Migrating DDNS credentials from OPNsense**: its legacy `<dyndnses>`
+  block stores the DuckDNS **token in `username`** and leaves `password`
+  empty; No-IP uses real `username`/`password`. Read the fields by name
+  (a positional parse put the hostname into the password slot and
+  created a `.duckdns.org` entry with no subdomain — fixed with a PUT).
 - UPnP: keep it off (Settings → Internet → UPnP) unless something
   demonstrably needs it.
 
