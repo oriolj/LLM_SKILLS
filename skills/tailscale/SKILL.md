@@ -217,3 +217,16 @@ LAN and `:port` tailnet access stay open until you change the bind.
 - **`ip route get <100.x>`** tells you whether an address routes via
   `tailscale0` or leaks to the LAN gateway — quick answer to "why does this
   IP not work from here".
+- **`--accept-routes` on, LAN still unreachable → nobody is advertising
+  it.** Don't debug the client; list the routes the tailnet actually
+  offers: `tailscale status --json` → each peer's `PrimaryRoutes` /
+  `AllowedIPs`. Only `/32`s plus `0.0.0.0/0` on the exit nodes means no
+  subnet router exists on *this* tailnet — and a subnet router on another
+  tailnet does not count, even when its node is shared in (§1). Verified
+  2026-09-12: no node on the EnaCast tailnet advertises the home LAN
+  `192.168.7.0/24`; the only candidate (`OPNsenseKiras`) is on the personal
+  tailnet, and nuc8i7 arrives as a share. Workarounds from a laptop: use
+  a home box as exit node (`tailscale set --exit-node=<home-box>
+  --exit-node-allow-lan-access`), or make a home box that is native to
+  the laptop's tailnet advertise the route (`tailscale up
+  --advertise-routes=192.168.7.0/24` + approve in the admin console).
