@@ -1128,11 +1128,30 @@ is only clutter in the dashboard that reads as "service down". Before the
    line (rollback is now a redeploy of the live resource), `USER_TODO.md`
    and the changelog in the same commit.
 
-Quirk met on the same sweep: `GET /applications/{uuid}/logs` on a stopped
+Quirks met on the same sweep: `GET /applications/{uuid}/logs` on a stopped
 app answers `400 {"message":"Application is not running."}` — a crashed
-daemon's last lines are only in `docker logs` on the host (and a
-`/restart` replaces the container, taking them with it). Read before
-restarting when the cause matters.
+daemon's last lines are only in `docker logs` on the host, or in the
+**deployment log** (`GET /deployments/{uuid}` → `logs` JSON, the
+"Container logs:" block after a failed health wait — the API keeps those
+for every failed deploy). And **`/applications/{uuid}/restart` is a `POST`
+now** (`GET` → `405 "This endpoint has changed to a POST request."`);
+same for `/start` and `/stop`. A restart of a Dockerfile app is a full
+rebuild + rolling update, ~3 min, `restart_only: true` on its deployment row.
+
+**A failed Dockerfile deploy is silent for as long as the old container
+lives** (EnaCast AI `update-channels`, 2026-09-10 → 09-12). Coolify's
+rolling update builds the new image, waits the health start period, sees
+`unhealthy`, prints "rolling back to the old container" — the app stays
+`running:healthy` on the OLD commit, nothing pages, and the webhook
+deploys keep failing on every later push until a day the rollback has no
+old container to keep (then `exited:unhealthy`). Two checks that would
+have caught it in a minute: **`git status` before the push that ships a
+new import** (the crash was `ModuleNotFoundError` for a module that was
+`??` untracked in the checkout — the test file importing it was committed,
+the module was not), and after any push **read
+`GET /deployments/applications/{uuid}?take=3` for EVERY app the push
+deploys**, not only the one you worked on — one repo, four Dockerfile
+apps, one of them failing is easy to miss.
 
 ## 5e. Compose stack → Dockerfile apps with the DATA LEFT IN PLACE (accountant 2026-09-01, LeadHunter 2026-09-02)
 
