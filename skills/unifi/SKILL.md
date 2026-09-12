@@ -8,12 +8,15 @@ description: Operate a UniFi gateway (Cloud Gateway Fiber/Max/Ultra, Dream Machi
 Estate context: one UniFi console, the **UniFi Cloud Gateway Fiber** that
 replaced OPNsense as the home router on 2026-09-12 (homelab scope,
 `https://192.168.7.1`, Oriol's personal UI account). Everything specific
-to that migration — the OPNsense inventory, the cutover checks, the
-reservation plan — lives in hq:
-`homelab/docs/network/ucg-fiber-migration.md`, `lan-address-book.md`,
-`ucg-fiber-reservations.csv`, and the applier
+to that LAN lives in hq: the home-network overview
+`homelab/docs/network/README.md`, the server file
+`docs/servers/ucg-fiber.md`, the migration status page
+`ucg-fiber-status.md` (done / pending / problems, kept current in the
+same turn as any change), the runbook `ucg-fiber-migration.md`,
+`lan-address-book.md`, `ucg-fiber-reservations.csv`, and the applier
 `homelab/tools/unifi-fixed-ips.py`. This skill holds the mechanics that
-outlive that migration. Facts marked *(verified YYYY-MM-DD)* were seen on
+outlive that migration — **and every new fact learned on the console
+is written here in the same turn** (Oriol, 2026-09-12). Facts marked *(verified YYYY-MM-DD)* were seen on
 the live console; anything else comes from the references in section 9
 and must be confirmed with a GET before it is relied on for a write.
 
