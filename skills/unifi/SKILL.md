@@ -133,7 +133,14 @@ Mechanics:
   adapter, so it never got the address under either router. Check
   `ip -br link` on the host before copying a MAC from an old config.
 - Fixed IPs may sit inside the DHCP range; UniFi does not require them
-  to be outside it.
+  to be outside it *(the estate keeps UniFi's default `.6`–`.254` and
+  reserves inside it, Oriol 2026-09-12)*.
+- **Removing a reservation / a client**: `DELETE rest/user/<_id>`
+  answers 404 *(verified 2026-09-12)*. Clear the fields with
+  `PUT rest/user/<_id> {"use_fixedip":false,"local_dns_record_enabled":false}`,
+  then drop the entry with `POST cmd/stamgr {"cmd":"forget-sta","macs":[…]}`.
+  Delete the matching `static-dns` record separately (`DELETE
+  static-dns/<_id>` works).
 - **`api.err.FixedIpAlreadyUsedByClient`** (HTTP 400 on the PUT): the
   address is held by another client's **live lease**, not by a
   reservation — the error names that client's MAC. Wait for its renewal,
