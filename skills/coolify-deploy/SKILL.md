@@ -1096,10 +1096,43 @@ unless marked ⚠️; the cut-over itself is documented in the last bullet.
   `Host:` per domain, admin login, TLS reused from `acme.json` → deploy the
   three workers → prove blue-green with a no-op push while `curl`-looping the
   site → keep the old compose resource STOPPED (auto-deploy off) as the
-  rollback for a backup cycle, then delete with `delete_volumes=false` →
+  rollback for a backup cycle, then retire it (checklist below) →
   schedule the DB backup (`POST /databases/{uuid}/backups`, `pg_dump -Fc`
   per DB, `timeout` up to 36000 s — size it for 34 GB, `save_s3` +
   `s3_storage_uuid`).
+
+**Retiring the stopped rollback resource** (EnaCast AI + two homepage
+rollbacks, 2026-09-12). A stopped compose resource stops being a rollback
+the moment the new DB takes a migration the old code lacks — after that it
+is only clutter in the dashboard that reads as "service down". Before the
+`DELETE`, verify from the API, not from memory:
+
+1. `status` starts with `exited` and `fqdn` is `null` — the domains moved.
+2. **Where its volumes are.** `docker_compose_raw` lists them; they live on
+   the host as `<uuid>_<name>`. Three cases: adopted by rename into the new
+   DB resource (§5d — safe), plain orphans (safe), or **bind-mounted by path
+   from the new Dockerfile apps** (EnaCast 24H: the new apps mount
+   `/srv/data/docker/volumes/<old-uuid>_{db-data,recordings-data}/_data`).
+   In the third case do NOT delete yet, not even with `delete_volumes=false`:
+   the data would survive as volumes named after a resource that no longer
+   exists, one `docker volume prune` away from gone. Adopt them into volumes
+   the new apps own first (rename during a short stop), then retire.
+3. Its env block exists in hq `homelab/secrets/coolify-envs*.env` (the
+   `# --- application: <name> (<uuid>)` header) — the deletion drops the
+   generated values for good.
+4. `DELETE /applications/{uuid}?delete_configurations=true&delete_volumes=false&docker_cleanup=false&delete_connected_networks=false`
+   → `{"message": "Application deletion request queued."}`; re-list
+   `/applications` a few seconds later to confirm, and re-check the live
+   siblings' status + one `curl` per domain.
+5. Update the server file, the product's `DEPLOY.md`/`CLAUDE.md` rollback
+   line (rollback is now a redeploy of the live resource), `USER_TODO.md`
+   and the changelog in the same commit.
+
+Quirk met on the same sweep: `GET /applications/{uuid}/logs` on a stopped
+app answers `400 {"message":"Application is not running."}` — a crashed
+daemon's last lines are only in `docker logs` on the host (and a
+`/restart` replaces the container, taking them with it). Read before
+restarting when the cause matters.
 
 ## 5e. Compose stack → Dockerfile apps with the DATA LEFT IN PLACE (accountant 2026-09-01, LeadHunter 2026-09-02)
 
