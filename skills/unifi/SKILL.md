@@ -243,7 +243,9 @@ explicitly; the wizard does not ask *(seen 2026-09-12: fresh leases at
 - Port forwards: `GET rest/portforward` (or `stat/portforward` for the
   effective list); create with `POST rest/portforward` and a body like
   `{"name":"Plex","enabled":true,"pfwd_interface":"wan","src":"any","dst_port":"32400","fwd":"192.168.7.229","fwd_port":"32400","proto":"tcp_udp","log":false}`;
-  toggle with `PUT rest/portforward/<_id>` on the full object. Test from
+  toggle with `PUT rest/portforward/<_id>` on the full object *(that
+  create body verified 2026-09-12 with `proto":"tcp"`; `tcp_udp` for
+  both)*. Test from
   **outside** the LAN (a phone on mobile data, or a cloud host): hairpin
   NAT from inside proves nothing. Every forward is an internet-exposed
   service; Tailscale usually makes SSH forwards unnecessary.
