@@ -12,7 +12,7 @@ live estate with the date noted; re-verify anything undated.
 | Scope | Tailnet | Notes |
 |---|---|---|
 | Personal (oriolj) | `ainu-universe.ts.net` | HTTPS certs **enabled** 2026-09-09 |
-| EnaCast / Enantena | `armadillo-tawny.ts.net` | |
+| EnaCast / Enantena | `armadillo-tawny.ts.net` | HTTPS certs **enabled** (verified 2026-09-13: `CertDomains` populated, cert issued for `internal-1-coolify`) |
 | SmartupSoft | — | its boxes live on the EnaCast tailnet |
 
 `tail4d837.ts.net` is **dead** — an old SmartupSoft identity. Any doc still
@@ -238,6 +238,22 @@ loud when you enable certs, even though nothing is exposed by doing so.
 
 Config lives in tailscaled's state, so `serve` survives reboots. tailscaled
 renews the cert on the 90-day cycle while serve runs.
+
+Three things verified 2026-09-13 (Beszel on internal-1, a Coolify box):
+
+- **Any port works, and a non-443 port coexists with Traefik holding
+  `0.0.0.0:443`**: `tailscale serve --bg --https=8443 http://127.0.0.1:8090`
+  → `https://internal-1-coolify.armadillo-tawny.ts.net:8443`, valid LE cert.
+  Pick a port ≠ 443 when another app already owns the bare hostname (the
+  team homepage on port 80 there); whether serve on 443 wins over a
+  process bound to `0.0.0.0:443` was NOT tested — don't assume either way.
+- **Testing from the box itself proves nothing**: `curl https://<own
+  fqdn>:443` from the host goes through kernel loopback straight to
+  whatever is bound on the port (Traefik's self-signed cert, `ssl_verify
+  18`), never through serve. Verify from a peer.
+- **A shared-in node's `serve` is reachable from the other tailnet**:
+  nuc8i7 (personal tailnet) fetched the URL above with `ssl_verify=0`. So a
+  serve URL on a shared node needs no per-tailnet variant.
 
 ### Wiring an app behind it
 
