@@ -1916,7 +1916,10 @@ any run). The STOP side needs two halves that only work together:
    `traefik.http.services.<svc>.loadbalancer.healthcheck.{path,interval=1s,timeout=900ms,hostname=<a public host>,scheme=http}`
    — `hostname` because Django's ALLOWED_HOSTS rejects the container IP as Host. Coolify
    generates one service per domain (`https-N-<uuid>`); probe each, or point every router at
-   one service first. Reference: `bikecrm-backend/scripts/coolify_zdd_labels.py`. **A
+   one service first. Reference: `bikecrm-backend/scripts/coolify_zdd_labels.py`; the proof is
+   `bikecrm-backend/scripts/bg_write_test.py` (`make prod-zdd-test`: an authenticated write loop
+   into a throwaway tenant while you redeploy; every 2xx must exist exactly once afterwards) —
+   run it after ANY change to labels, the start script, the health view or gunicorn flags. **A
    domains PATCH regenerates `custom_labels` and drops these lines** (same as the oj.* lines)
    — re-apply after any domain change, then one force redeploy.
 3. `stop_grace_period` (API field, 1–3600 s) must exceed the drain + the longest request; it
