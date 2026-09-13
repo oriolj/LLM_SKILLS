@@ -45,7 +45,11 @@ operating) applies to both; only the ids and the credential file differ.
   `oriolj`; the flag picks the secrets file and the `UMAMI_ENACAST_` prefix).
 - Backup: volume schedule `oynvtfe96tqn3s4iwwqx79in` → Coolify S3 storage
   "Backblaze backups" `ooogcgocwc4k8og8o8w0cw8s` (bucket
-  `coolify-backups-enantena`), daily 04:00 UTC, 14 kept. Note hq
+  `coolify-backups-enantena`), daily 04:00 UTC, 14 kept. Objects land at
+  `data/coolify/backups/volumes/<team-slug>/<storage_uuid>/volume-<service_uuid>-postgresql-data-<unix-ts>.tar.gz`
+  (first one 7.6 MB, listed with boto3 using the key pair that
+  `GET /s3-storages/{uuid}` returns — that is how to verify a volume backup
+  ran, there is no GET on the schedule). Note hq
   `docs/backups/umami-enacast-postgres.md`.
 - Websites: **one per surface, named `<Product> · site|docs|app`** (domain =
   the hostname) — 15 created on day one for EnaChat (`enacast.chat`),
