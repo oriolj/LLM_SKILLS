@@ -1941,7 +1941,13 @@ Three more things the adversarial review of that setup caught the same night (al
   receipts — the worker's stop grace must cover *executing + prefetched* tasks, not one task.
   `queue_limit` bounds the prefetch (1 = one executing + one staged); the deploy lane should
   wait for "queue 0 and nothing in flight" before replacing the worker (BikeCRM exposes
-  `bikecrm_q_tasks_in_flight` from the pre/post_execute hooks for exactly this).
+  `bikecrm_q_tasks_in_flight` from the pre/post_execute hooks for exactly this). Make that
+  registry a **lease the executing worker renews** (a thread re-stamping every 30 s; the
+  collector drops entries not renewed for ~150 s), never an age cut-off — hours-long tasks are
+  legitimate. Trap: `pre_execute` runs in the WORKER process, `post_execute` in Django-Q's
+  MONITOR process, so the renewal thread cannot be stopped from `post_execute`; renew with an
+  atomic renew-if-present (Lua `HEXISTS`+`HSET`) and exit on the first miss — the first build
+  re-stamped every finished task forever and the registry sat at 400 entries.
 - **A deploy script must poll the deployment id its trigger returned**, with `curl -f`. Polling
   "the latest deployment" reads a previous `finished` row as success when the trigger was
   rejected; verify the release inside every replaced container, not just the API.
