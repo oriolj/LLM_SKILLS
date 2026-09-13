@@ -1,9 +1,11 @@
 ---
 name: plausible
-description: Plausible analytics for the estate's sites — the shared-account model and (once the key lands) API + embed mechanics. Use when adding analytics to any site, filling a deploy doc's Plausible row, or when the user mentions Plausible. PARKED (Oriol, 2026-08-31): the account's tier has no Sites API, so nothing gets wired for now; a self-hosted instance may come later. Keep for the account model; update when unparked.
+description: Plausible Cloud account notes — PARKED (Oriol, 2026-08-31, tier has no Sites API). For PERSONAL (oriolj) sites the answer is the self-hosted Umami — load the `umami` skill instead. Use this one only when the user mentions Plausible itself or a company-scope analytics decision.
 ---
 
 # Plausible — product analytics (skeleton)
+
+> **2026-09-13: personal sites are on the self-hosted Umami at `stats.oriolj.com`** — the `umami` skill owns adding a site, the tag, the API and the ops. The two tags that pointed at Plausible Cloud (oriolj.com, humans2agents.com) were replaced that day. This file stays for the company-scope decision only.
 
 ## Account model (Oriol, 2026-08-31)
 
