@@ -494,9 +494,14 @@ swapping Decos.
   it comes home (no UDP hairpin). The **tailnet address is the only one
   reachable from both sides**, and at home it is LAN-speed anyway (peers
   on one LAN connect directly over `192.168.x.x:41641`) — so a roaming
-  mosh must use the tailnet; LAN name and public forward are for when
-  Tailscale itself is down. The estate's `m` fish function is the
-  reference, one `HostKeyAlias` for all three paths.
+  mosh must use the tailnet. Oriol's stated priority (2026-09-13) is the
+  opposite trade-off — *not depending on Tailscale when away* — so the
+  estate's `m` goes **public → tailnet → LAN**, with the public tier
+  **skipped when at home** (the LAN name resolves) because the TCP probe
+  would pass through hairpin while the UDP leg would not; `m ts` forces
+  the roaming path. One `HostKeyAlias` for all three. When a user asks
+  for "public first", build in that at-home skip or the function hangs
+  at home.
 
 ## 8. What a UniFi gateway cannot do (plan around it)
 
