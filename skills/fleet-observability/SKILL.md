@@ -1426,6 +1426,38 @@ gateway): `/api/search?q=<traceql>&start&end&limit&spss`,
 datasource proxy (`/api/datasources/proxy/uid/tempo/…`) is the fallback
 when the gateway is down, but needs the admin login.
 
+## 5h. The per-project `make` targets — the same keyboard on every monitored project (Oriol, 2026-09-13)
+
+Every monitored project carries the SAME observability targets in its
+Makefile (global rule in `homelab/claude/CLAUDE-global.md`; reference
+implementation **`bikecrm-backend`**: `Makefile` + `scripts/prod_status.sh`
++ `scripts/promq.py` + `scripts/pg_top_queries.py`; second copy in
+Panotxa's `backend/`). They wrap the estate CLIs (`oj-traces`, `logcli`
+with `~/.config/oj-loki/env`, the hub's Prometheus API on
+`monitor-1-nc:9090`) so an agent can answer "is prod healthy / what is
+slow / which query" from a workstation with no ssh and no Grafana clicks.
+Variables: `SINCE=24h LIMIT=20 P=<project>` (24 h by default — a night's
+worth is the useful "what was slow" window).
+
+| Target | Source | Answers |
+|---|---|---|
+| `make prod-status` | Prometheus + `/health/` | one screen: health, deployed release (`<app>_app_info{version}`), scrape targets, req/s, 5xx ratio, p95, in-flight vs capacity, worker/beat heartbeat + queue + failures, beat schedule ages, dependency probes, DB/Redis, product KPIs, LLM spend, tracing export state. **Run it after every deploy** — it caught a silently absent heartbeat series (an alert on NoData=OK that would never have paged) |
+| `make slow-requests` / `slow-queries [MIN=200ms]` / `routes` / `error-traces` / `trace ID=` | Tempo (`oj-traces`, §5g) | slowest traced requests, slowest SQL spans WITH the statement, p50/p95/rate per route, errored traces, one span tree |
+| `make prod-top-queries [ORDER=total\|mean\|calls]` | `pg_stat_statements` over ssh + `docker exec` | the un-sampled view: cumulative top statements |
+| `make logs-prod` / `logs-worker` / `logs-beat` / `logs-prod-grep Q=` / `logs-prod-errors` / `logs-prod-5xx` / `logs-beta` | Loki (§6) | `{project="<p>", env="prod"}` narrowed by `service` |
+| `make prod-metrics` | the host's `/metrics` | the raw `<app>_*` series |
+
+**Copying them to a new project** (10 minutes): copy the three scripts and
+the Makefile block verbatim, change `P`, `PROD_SSH`, `PROD_WEB_CONTAINER`
+(the Coolify resource uuid prefix) and `HEALTH_URL`, then check every
+PromQL line in `prod_status.sh` against the project's `METRICS.md` — the
+family names (`<app>_app_info`, `<app>_worker_heartbeat…`) follow the app
+prefix, and a line whose series does not exist prints `-`, which is the
+signal to either export the metric or drop the line. `logs-beta` only
+where a beta environment exists. The targets are the reader side of the
+contract in §5e: `GRAFANA_AND_METRICS.md` says what Grafana shows,
+`make prod-status` shows the same numbers in the terminal.
+
 ## 6. `make logs` — prod/beta logs from the dev machine
 
 Workstations are on the tailnet; `logcli` + the `reader` cred give real
