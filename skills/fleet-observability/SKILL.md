@@ -496,7 +496,22 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   And 🔴 **a push to hq-monitoring IS a hub deploy** (GitHub-App source,
   auto-deploy on push — the deployment shows up in `GET /deployments`
   within a minute): never push a scrape job whose endpoint is not live
-  yet, or `hq-target-down` pages ~5 min later. Stage the job commented
+  yet, or `hq-target-down` pages ~5 min later.
+  🔴 **And your push ships everybody's unpushed commits.** Several agent
+  sessions share one clone of hq-monitoring on the desktop; on 2026-09-13 a
+  push of two Licita Radar dashboard files carried another session's local
+  commit whose compose referenced `enajoin_metrics_token` while the env was
+  absent on the hub resource → `environment variable … required by secret …
+  is not set` → the deploy failed with the old stack already stopped → hub
+  down ~12 min (Grafana + Prometheus unreachable) until the token was set from
+  `homelab/secrets/enajoin.env` and a force-redeploy ran. Before EVERY push
+  here: `git fetch && git log --oneline origin/master..HEAD` — if it lists
+  commits that are not yours, read their compose/prometheus diff and make sure
+  every `secrets:` entry they add has its env on the hub resource
+  (`GET /applications/{uuid}/envs`) — or do not push. After a failed hub
+  deploy the fix is always the same: set the missing env (value from hq
+  secrets) and `POST /deploy?uuid=<hub>&force=true`; never edit the compose to
+  paper over it. Stage the job commented
   out (secret + dashboard + OK-on-NoData alerts can go first) and
   uncomment it in a second push once the app answers 401 to a bare
   request (LeadHunter, 2026-09-02 — caught with a follow-up push before
