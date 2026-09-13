@@ -162,7 +162,7 @@ the role, run the play.
 host` lists coolify-ovh-vps-1, oriolj-nc-1, enacast-ai-fsn1-1,
 monitor-1-nc (the hub runs the same agent since 2026-08-31), storage-1,
 infra-monitoring, **bikecrm-prod-2** (BikeCRM production, DO droplet, the first
-non-Coolify docker host — enrolled 2026-09-12/13, §6d), **mlrtx2** (the office ML desktop — a Coolify remote
+enrolled 2026-09-12/13 as a non-Coolify docker host, §6d; Coolify apps on the same box since 2026-09-13, §6e), **mlrtx2** (the office ML desktop — a Coolify remote
 server deliberately NOT in `servers`, enrolled 2026-09-06 with the
 backupmaker deployment: 79k lines shipped within a minute of the play) and **v5** (THE EnaCast production backend, onboarded
 2026-09-04 the day after an outage investigation had to read its logs
@@ -1550,12 +1550,12 @@ password (secrets file → rebuild `LOKI_WRITERS` per §6b → hub redeploy →
 `make fleet PLAYBOOK=playbooks/setup-monitoring.yml` in that repo). The
 `host` label still identifies each box. Servers keep per-host writers.
 
-## 6d. Enrolling a non-Coolify docker host (BikeCRM prod, 2026-09-12/13) — three traps
+## 6d. Enrolling a non-Coolify docker host (BikeCRM prod, 2026-09-12/13 — it became a Coolify host the next day, §6e) — three traps
 
 **Ninth reference (smartupsoft scope, LIVE 2026-09-13): BikeCRM backend**
 (`gitlab.com/smartupsoft/bikecrm-backend`, DO droplet `bikecrm-prod-2`, docker compose via
-the repo's own ansible — the estate's first **non-Coolify docker host** with the agent on
-the app's compose network, first **Django-Q** worker (no Celery), first **DO managed
+the repo's own ansible at the time — the estate's first **non-Coolify docker host** with the agent on
+the app's compose network (until 2026-09-13, when prod moved to Coolify Dockerfile apps on the same droplet — §6e), first **Django-Q** worker (no Celery), first **DO managed
 Postgres/Valkey** with exporters as compose services on the tailnet bind). Repo docs:
 `METRICS.md`, `GRAFANA_AND_METRICS.md`, `PLANS/observability/PLAN.md`; hub
 `grafana/dashboards/smartup/bikecrm/`, `alerting/bikecrm.yml`. What it added:
