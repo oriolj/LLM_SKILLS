@@ -382,7 +382,12 @@ The controller is a free link tester; read it before touching cables
   client's kernel/firmware pairing: `pacman -Q linux* linux-firmware`,
   `uname -r`, `ls /usr/lib/firmware/iwlwifi-*` vs the ucode the kernel
   log says it loaded — a firmware package installed *after* boot means
-  the driver is still running the old ucode until a reboot.
+  the driver is still running the old ucode until a reboot *(this was
+  the whole fault on 2026-09-13: `linux-firmware` upgraded while the
+  laptop stayed up → BE211 on c106 with the new `iwlmld` driver → 18 Mbps
+  TX at a 2.6 Gbps PHY rate; after the reboot c107 loaded and the same
+  kernel gave 457/401. Rebooting, not changing the kernel, fixed it —
+  `uname -r` was unchanged.)*
 - **Radio config review points** (`stat/device` uap `radio_table`): 2.4 GHz
   20 MHz is right; **5 GHz at `ht: 40` is the conservative default — 80 MHz
   doubles 5 GHz throughput** for Wi-Fi 6/7 clients and is the one change
