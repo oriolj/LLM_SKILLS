@@ -28,6 +28,16 @@ result = build_scoring_agent().run_sync(prompt).output   # validated MatchScore
 - **Build prompts in a separate pure function** (`build_scoring_prompt(profile, item) -> str`) so prompt content is unit-testable with zero LLM calls.
 - **Validators as guardrails**: normalize LLM output in `@field_validator` (dedupe, regex-check codes, strip junk) instead of trusting the model or post-processing at call sites.
 - Deps extras matter: `pydantic-ai-slim[google,anthropic]` — the `google` extra brings `google-genai`.
+- **`output_type` is not a convenience, it is the JSON guarantee.** Measured
+  on Panotxa (raw `google-genai`, `response_mime_type="application/json"`,
+  NO `response_schema`, `gemini-3.5-flash-lite`, 2026-09): **3.6 % of
+  responses were not valid JSON** — a stray `-` before a key, an unescaped
+  `"` inside a string — and a 300-line homegrown repair module rescued 1 in
+  11 while being able to silently save a mangled result. JSON *mode* asks
+  for JSON; only a schema (`output_type` here, `response_schema` on the raw
+  SDK) *constrains* the decoder. If you inherit a module that parses LLM
+  JSON by hand, the fix is the schema, not a better repair heuristic —
+  write-up: NutriLens `backend/docs/GEMINI_JSON_FAILURES.md`.
 
 ## PydanticAI 2.x breaking changes (hit in the wild)
 
