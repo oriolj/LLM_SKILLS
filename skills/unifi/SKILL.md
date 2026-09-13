@@ -288,6 +288,12 @@ The controller is a free link tester; read it before touching cables
   enter", which for a mesh AP in backhaul detection can be a port nobody
   expected *(verified 2026-09-13: Deco 2/3 "online" on UCG port 3, 100 %
   ping loss)*.
+- **Group `stat/sta` entries by `last_seen` to reconstruct a transient
+  path.** Clients bridged by a flapping AP/switch all age out at the
+  same second; the `sw_port` they share names the port that path entered
+  through, and the set of hostnames names the floor/room. This is how a
+  four-minute backhaul window was pinned to a specific gateway port
+  after the fact *(2026-09-13; `jq` with `now - .last_seen` per client)*.
 - **A silent link partner that stays silent at 100 Mbps** is, in a
   Deco/mesh house, most often an AP's LAN port **blocked by its own
   loop protection** because a second wired path reaches the same LAN.
