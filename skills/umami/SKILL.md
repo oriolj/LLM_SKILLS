@@ -3,7 +3,7 @@ name: umami
 description: The self-hosted Umami web analytics instances — personal (stats.oriolj.com, oriolj-nc-1) and Enantena/EnaCast (stats.enacast.com, coolify-ovh-vps-1), both Coolify services — add a site and its tag, read stats, operate and back up an instance, and the API quirks of self-hosted Umami v3 (login-JWT auth, no API keys, /api/users GET is 405, password change via POST /api/users/{id}). Use when adding analytics to ANY personal (oriolj) or EnaCast/Enantena/EnaSuite site (EnaChat, EnaInbox, EnaPost, EnaJoin, EnaArchive surfaces), filling a deploy doc's analytics row, when the user mentions Umami / stats.oriolj.com / stats.enacast.com / "which sites have analytics", or when choosing an analytics tool for a new site (SmartupSoft has its own instance — check hq first).
 ---
 
-# Umami — personal web analytics (stats.oriolj.com)
+# Umami — self-hosted web analytics (stats.oriolj.com · stats.enacast.com)
 
 ## Account model (Oriol, 2026-09-13)
 
