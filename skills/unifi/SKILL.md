@@ -388,6 +388,14 @@ The controller is a free link tester; read it before touching cables
   TX at a 2.6 Gbps PHY rate; after the reboot c107 loaded and the same
   kernel gave 457/401. Rebooting, not changing the kernel, fixed it —
   `uname -r` was unchanged.)*
+- **Judge Wi-Fi speed against the negotiated rate, not the box.** Real
+  TCP throughput is ~50–60 % of the PHY rate `iw dev <if> link` /
+  `stat/sta` report (2 streams MCS 11: 40 MHz ≈ 574 → ~300 Mbps; 80 MHz
+  ≈ 1201 → ~650; 160 MHz ≈ 2402 → wire-limited on a 1 Gbps uplink). A
+  client at 60 % of its PHY rate is healthy; one at 1 % has a client-side
+  fault *(2026-09-13: 536/655 LAN on 5 GHz 80 MHz = fine; 18 Mbps on a
+  2.6 Gbps PHY = the stale-firmware bug)*. Internet speed tests sit below
+  the LAN figure by the server's and the tool's own variance.
 - **Radio config review points** (`stat/device` uap `radio_table`): 2.4 GHz
   20 MHz is right; **5 GHz at `ht: 40` is the conservative default — 80 MHz
   doubles 5 GHz throughput** for Wi-Fi 6/7 clients and is the one change
