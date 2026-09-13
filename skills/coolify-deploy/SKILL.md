@@ -1928,6 +1928,23 @@ lines/s into Loki) — filter the health path out of `gunicorn.access` or collap
 service. A `retry` middleware stays a reasonable belt-and-braces against a crashed
 container, but it is not what makes deploys clean.
 
+Three more things the adversarial review of that setup caught the same night (all confirmed, all fixed):
+
+- **Set gunicorn's `--graceful-timeout` explicitly.** Its default is 30 s and `--timeout` is
+  worker silence, not request length: with a 6 s drain the wrapper forwarded SIGTERM and gunicorn
+  killed anything still running 30 s later, inside a 60 s Docker grace. Budget = drain +
+  graceful timeout < `stop_grace_period`, and say what the longest supported request is.
+- **Django-Q queues its STOP behind whatever is already fetched**, and the Redis broker has no
+  receipts — the worker's stop grace must cover *executing + prefetched* tasks, not one task.
+  `queue_limit` bounds the prefetch (1 = one executing + one staged); the deploy lane should
+  wait for "queue 0 and nothing in flight" before replacing the worker (BikeCRM exposes
+  `bikecrm_q_tasks_in_flight` from the pre/post_execute hooks for exactly this).
+- **A deploy script must poll the deployment id its trigger returned**, with `curl -f`. Polling
+  "the latest deployment" reads a previous `finished` row as success when the trigger was
+  rejected; verify the release inside every replaced container, not just the API.
+- And the ordinary bash trap: a `cmd | while read …; do fail=1; done` loop sets `fail` in a
+  subshell — the gate printed FAIL and exited 0. Loop in the parent shell (here-string).
+
 Other facts from the same window:
 - **`POST /deploy?…&force=true` = rebuild WITHOUT cache** (≈ +2 min of pip). Use it only to
   redeploy the same commit after an env/label/domain change; a new commit deploys with cache
