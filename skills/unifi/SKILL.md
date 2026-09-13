@@ -256,6 +256,73 @@ explicitly; the wizard does not ask *(seen 2026-09-12: fresh leases at
   endpoints (`stat/event`, `stat/alarm`, `rest/vpnclient`,
   `rest/vpnserver` — use the v2 system-log and VPN APIs).
 
+## 6b. Reading the physical layer — `stat/device.port_table`
+
+The controller is a free link tester; read it before touching cables
+*(all verified 2026-09-13 on the UCG-Fiber + USW Flex 2.5G 5, Network
+10.6.101)*:
+
+- `stat/device[].port_table[]` per port: `up`, `speed`, `full_duplex`,
+  `autoneg`, `media`, `poe_enable`/`poe_power`, `stp_state`,
+  `rx_bytes`/`tx_bytes`, `rx_packets`/`tx_packets`, `rx_errors`,
+  `rx_dropped`/`tx_dropped`, `tx_broadcast`/`tx_multicast`, and
+  **`uptime` = seconds since the link last came up** — compare with the
+  device's own `uptime` to spot a link that flapped after boot.
+  `port_table[].mac_table` is empty on these models; use `stat/sta`
+  `sw_mac`/`sw_port` to see what hangs off a port instead.
+- **Link up at 1000 + `rx_packets: 0` + `rx_errors: 0`** while `tx_*`
+  grows (the switch flooding broadcast at it) = the far end is silent:
+  the classic **two-pair cable** (pairs 4-5/7-8 open; autoneg on pairs
+  1-2/3-6 still agrees on gigabit) or a peer holding its port blocked.
+  Discriminator: force the port to **100 Mbps FDX** — traffic flows on a
+  two-pair cable, still nothing if the peer is silent. A corrupt cable
+  shows `rx_errors` instead of silence. *(hq case 2026-09-13, the
+  2nd-floor Deco: forced to 100 → still 0 rx → silent peer, cable
+  theory dropped; write-up in hq `homelab/docs/network/deco-backhaul.md`.)*
+- **`stat/sta` can list a client the LAN cannot reach.** A wired entry
+  with `sw_port` set, `last_seen` = now, but `rx_bytes`/`tx_bytes` null
+  and no ARP reply means the gateway's forwarding table learned the MAC
+  on that port (the device emits *something* — discovery/loop-detection
+  frames) while the device has no working IP path. **Always ping before
+  calling a client "online"**, and read `sw_port` as "where its frames
+  enter", which for a mesh AP in backhaul detection can be a port nobody
+  expected *(verified 2026-09-13: Deco 2/3 "online" on UCG port 3, 100 %
+  ping loss)*.
+- **A silent link partner that stays silent at 100 Mbps** is, in a
+  Deco/mesh house, most often an AP's LAN port **blocked by its own
+  loop protection** because a second wired path reaches the same LAN.
+  Trace cables before replacing anything; an unplug-and-watch loop
+  (`stat/sta` `sw_port` + `ping`) names the cable.
+- `rx_dropped` on a gateway port carrying hundreds of GB = congestion at
+  that port's speed, not a cable problem.
+- **Clients behind a third-party AP or unmanaged switch all appear as
+  `is_wired: true` on the AP's/switch's port** — the controller only
+  sees its own cable. 40 "wired" clients on one 1G port = an AP.
+- The Flex Mini 2.5G can be **PoE-powered by the gateway** (UCG port 4
+  PoE+, 3.4 W idle): a PoE renegotiation reboots the switch. Device
+  fields `startup_timestamp`, `adopted_at`, `provisioned_at` date the
+  last boot and adoption.
+- **Port overrides (speed, PoE, profile) are UI-only with the API key on
+  Network 10.6**: `rest/device` and `rest/device/<_id|mac>` answer 404,
+  `rest/portconf` is empty; `stat/device/<mac>` reads fine but
+  `port_overrides` comes back `null`. The Integration API has no port
+  writes either. Send the user to Devices → switch → Ports → port → Link
+  speed. A **Cable Test** button exists on some switch models under the
+  port's settings (TDR: open/short + distance; not a certified tester —
+  [community thread](https://community.ui.com/questions/Interpreting-Unifi-Switch-Cable-Test/14d0604c-8f82-4a78-b954-09e3a27067db)).
+- `v2 system-log/all` with `{"pageNumber":0,"pageSize":60,"categories":[…]}`
+  returned nothing on 10.6.101 — body shape unknown; do not rely on it
+  for link history yet.
+
+**TP-Link Deco mesh behind UniFi**: Decos in AP mode bridge everything,
+so each unit shows as a wired client on the port its cable (or its
+wired parent) uses; a satellite on wireless backhaul appears behind the
+main Deco's port. Ethernet backhaul is auto-detected over the wire and
+falls back to wireless when the wire passes no traffic — a marginal
+cable produces "wired → wireless → wired → dead" flapping, and every
+satellite meshed off that unit drops with it. Swap cables/ports before
+swapping Decos.
+
 ## 7. Port forwards and dynamic DNS
 
 - Port forwards: `GET rest/portforward` (or `stat/portforward` for the
