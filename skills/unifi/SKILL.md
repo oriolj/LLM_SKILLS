@@ -488,8 +488,15 @@ swapping Decos.
   flags instead. Testing mosh non-interactively needs a pty with a size:
   `script -qec "stty rows 24 cols 80; mosh … -- cmd" /dev/null`
   (otherwise `tcgetattr` / a zero-height framebuffer assertion, both
-  artefacts). The estate's `m` fish function is the reference: LAN name →
-  public forward → tailnet, one `HostKeyAlias` for all three.
+  artefacts). **mosh roaming is client-side only**: the server address is
+  fixed for the session, so a session started on a LAN address freezes
+  when the laptop leaves, and one started on the public name freezes when
+  it comes home (no UDP hairpin). The **tailnet address is the only one
+  reachable from both sides**, and at home it is LAN-speed anyway (peers
+  on one LAN connect directly over `192.168.x.x:41641`) — so a roaming
+  mosh must use the tailnet; LAN name and public forward are for when
+  Tailscale itself is down. The estate's `m` fish function is the
+  reference, one `HostKeyAlias` for all three paths.
 
 ## 8. What a UniFi gateway cannot do (plan around it)
 
