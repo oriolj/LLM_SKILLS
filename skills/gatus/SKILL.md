@@ -195,6 +195,14 @@ make logs       # last Coolify deployment log
   workstation, ~100 requests) — expected; do not point it at staging.
 - **The Coolify `custom_labels` field must be base64** — sending `""`
   fails the whole PATCH ("should be base64 encoded"); omit the field.
+- **A removed endpoint can linger on the page after a blue-green deploy.**
+  Both containers share the SQLite volume; the new one deletes stale keys
+  at startup (`Total endpoint keys to preserve: N`), but the OLD container
+  keeps probing for a few seconds and writes the removed endpoint back
+  (seen with `_canary`: 97 on the page after a 96-endpoint deploy). It
+  vanishes at the next restart — `POST /applications/<uuid>/restart` (a
+  ~20 s blip) or the next deploy. `make status` shows it as a group with
+  `0/1`.
 - Kuma → Gatus migration was a no-op: **check the old tool's DB before
   planning a migration** (`sqlite3 kuma.db "select count(*) from
   monitor"`) — the 8-month-old instance had never been set up.
