@@ -1,6 +1,6 @@
 ---
 name: umami
-description: The personal self-hosted Umami web analytics (stats.oriolj.com, oriolj-nc-1, Coolify service) — add a site and its tag, read stats, operate and back up the instance, and the API quirks of self-hosted Umami v3 (login-JWT auth, no API keys, /api/users GET is 405, password change via POST /api/users/{id}). Use when adding analytics to ANY personal (oriolj-scope) site, filling a deploy doc's analytics row, when the user mentions Umami / stats.oriolj.com / "which sites have analytics", or when choosing an analytics tool for a new site (company scopes have their own instances — check hq first).
+description: The self-hosted Umami web analytics instances — personal (stats.oriolj.com, oriolj-nc-1) and Enantena/EnaCast (stats.enacast.com, coolify-ovh-vps-1), both Coolify services — add a site and its tag, read stats, operate and back up an instance, and the API quirks of self-hosted Umami v3 (login-JWT auth, no API keys, /api/users GET is 405, password change via POST /api/users/{id}). Use when adding analytics to ANY personal (oriolj) or EnaCast/Enantena/EnaSuite site (EnaChat, EnaInbox, EnaPost, EnaJoin, EnaArchive surfaces), filling a deploy doc's analytics row, when the user mentions Umami / stats.oriolj.com / stats.enacast.com / "which sites have analytics", or when choosing an analytics tool for a new site (SmartupSoft has its own instance — check hq first).
 ---
 
 # Umami — personal web analytics (stats.oriolj.com)
@@ -13,24 +13,64 @@ description: The personal self-hosted Umami web analytics (stats.oriolj.com, ori
   service `vkqprndaou89yzkza5tmdzxl`, personal Coolify team. Chosen over
   Plausible CE (needs ClickHouse) and Matomo (PHP + MariaDB, cookies by
   default): one Node container, cookieless, sites added by API.
-- **Company scopes do NOT use it**: SmartupSoft has its own Umami on
-  external-1, Enantena has Matomo on whalehet-01, Plausible Cloud stays
-  parked (`plausible` skill). Accounts follow the scope.
+- **Company scopes do NOT use it**: Enantena/EnaCast has its OWN instance
+  (`stats.enacast.com`, section below), SmartupSoft has its own Umami on
+  external-1, Plausible Cloud stays parked (`plausible` skill). Accounts
+  follow the scope. (Enantena's Matomo on whalehet-01 is the legacy tool
+  that the new instance replaces for the EnaSuite surfaces.)
 - Instance doc (ids, domain, backups, status table, the tracked-sites table):
   hq `oriolj/docs/umami.md`. Keep that table current when adding a site.
 - Credentials: hq `homelab/secrets/umami-oriolj.env` — `UMAMI_URL`,
   `UMAMI_ADMIN_USER/PASSWORD` (Oriol), `UMAMI_AGENT_USER/PASSWORD` (login
   `agent`, role admin, for tools). Parse with grep/cut, never `source`.
 
+## Enantena instance (stats.enacast.com) — created 2026-09-13
+
+Same recipe, other account. Everything below (API quirks, adding a site,
+operating) applies to both; only the ids and the credential file differ.
+
+- Server [coolify-ovh-vps-1](../../../../Syncthing/Syncthing-mobile-docs/hq/docs/servers/coolify-ovh-vps-1.md)
+  (the OVH box that already runs the EnaSuite production apps — EnaChat,
+  EnaPost, EnaJoin, EnaInbox, EnaArchive — 24 GB RAM, 18 GB free at the
+  time), **Enantena** Coolify team (`homelab/secrets/coolify.env`): project
+  **Umami** `vamwsj6vm2ltj0xxdrhtbvrt`, service `umami`
+  `0pwjsufkyczteh6ioqjiyopt` (app `tydppzfqtfs7lgy4d9frfut3`, db
+  `3akozpu2athsv1rx0smfxbrp`, storage `gjbxhnwcnlgirwun7fdzov45`).
+- DNS: CDmon A `stats` → `141.95.29.64` on the enacast.com zone (`cdmon.env`,
+  the `cdmon-dns` skill's add-a-new-record path; set-diff verified).
+- Credentials: hq `homelab/secrets/umami-enacast.env` — `UMAMI_ENACAST_URL`,
+  `UMAMI_ENACAST_ADMIN_USER/PASSWORD`, `UMAMI_ENACAST_AGENT_USER/PASSWORD`
+  (login `agent`, role admin). Default `admin`/`umami` rotated at creation.
+- Tool: `hq/homelab/tools/umami-site.py --scope enacast …` (default scope is
+  `oriolj`; the flag picks the secrets file and the `UMAMI_ENACAST_` prefix).
+- Backup: volume schedule `oynvtfe96tqn3s4iwwqx79in` → Coolify S3 storage
+  "Backblaze backups" `ooogcgocwc4k8og8o8w0cw8s` (bucket
+  `coolify-backups-enantena`), daily 04:00 UTC, 14 kept. Note hq
+  `docs/backups/umami-enacast-postgres.md`.
+- Websites: **one per surface, named `<Product> · site|docs|app`** (domain =
+  the hostname) — 15 created on day one for EnaChat (`enacast.chat`),
+  EnaInbox, EnaPost, EnaJoin, EnaArchive (`<product>.enacast.com`,
+  `docs.<product>.enacast.com`, `app.<product>.enacast.com`). The ids are in
+  hq `enantena/docs/umami.md`; the EnaSuite agents tag their surfaces from
+  that table (`umami-site.py --scope enacast tag <domain>` prints the tag).
+- Talaia `umami-enacast/surfaces` (same three checks). Instance doc: hq
+  `enantena/docs/umami.md`.
+- Tag for these sites: `https://stats.enacast.com/script.js`, never
+  `stats.oriolj.com` — company surfaces do not report into the personal
+  instance.
+
 ## Adding a site (the whole job)
 
-1. `hq/homelab/tools/umami-site.py add <domain>` — creates the website and
-   prints the tag. `list` / `tag <domain>` / `stats <domain> --days N` / `rm`.
+1. `hq/homelab/tools/umami-site.py [--scope enacast] add <domain> --name "<Product> · site"`
+   — creates the website and prints the tag. `list` / `tag <domain>` /
+   `stats <domain> --days N` / `rm`.
 2. Put the tag in the site's base layout `<head>`. Astro: `is:inline` so it
    is not bundled; `defer`; nothing else.
    ```html
    <script is:inline defer src="https://stats.oriolj.com/script.js" data-website-id="<id>"></script>
    ```
+   (`stats.enacast.com` for the Enantena instance — the tool prints the
+   right host.)
    Remove any other analytics tag in the same commit (2026-09-13: oriolj.com
    carried Plausible Cloud AND `@vercel/analytics`; both went).
 3. Build, check `grep -c stats.oriolj.com/script.js dist/index.html`, deploy
@@ -83,4 +123,9 @@ those words in URLs. Umami can also rename `script.js`
   now) → the scope's R2. Register note hq `docs/backups/umami-postgres.md`.
 - Upgrade: bump the image tag in the service compose, restart, check
   `/api/heartbeat` and the login page.
-- Talaia `umami/surfaces` (heartbeat, `/script.js`, `/login`) alerts on it.
+- Talaia `umami/surfaces` (heartbeat, `/script.js`, `/login`) alerts on it;
+  `umami-enacast/surfaces` does the same for the Enantena instance.
+- First-boot timing, second data point (Enantena, 2026-09-13): `POST
+  /services/{uuid}/start` → `starting:unknown` for ~40 s → `running:healthy`;
+  Traefik served a self-signed cert until then (an httpx call in that window
+  fails with `CERTIFICATE_VERIFY_FAILED` — not a config error, wait).
