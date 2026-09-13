@@ -342,6 +342,33 @@ The controller is a free link tester; read it before touching cables
   needs an injector — that switch has no PoE output (`port_poe: false`
   on every port).
 
+- **"Wi-Fi is slow" triage, in this order** *(2026-09-13, a Wi-Fi 7
+  laptop reporting 43 Mbps)*: (1) **the ISP line from the gateway
+  itself** — `POST cmd/devmgr {"cmd":"speedtest"}` (returns `[]`
+  immediately), wait ~45 s, read `stat/device` type `udm` →
+  `["speedtest-status"]` (`xput_download`/`xput_upload` in Mbps,
+  `latency`, `server.city`, `rundate`; 944/876 to Barcelona on the Yoigo
+  line); (2) **a wired client** through the same switches (`speedtest-cli
+  --simple`; python speedtest under-reports on gigabit, curl to a single
+  CDN file is worse — Cloudflare's `__down` answers 403 to curl); (3) **the
+  client's association** in `stat/sta`: `radio` (`6e`/`na`/`ng`),
+  `radio_proto` (`be` = Wi-Fi 7), `channel`, `signal` dBm, `tx_rate`/`rx_rate`
+  (negotiated PHY rate in kbps — 2 161 800 = 2.16 Gbps), `satisfaction`,
+  `tx_retries` vs `wifi_tx_attempts`; (4) **the AP's uplink rate right
+  now**: `stat/device` uap `.uplink["rx_bytes-r"]` in B/s — if it is
+  pulling 50 MB/s while the user sees 43 Mbps, the radio path is not the
+  bottleneck. When (1)–(4) are all good the cause is on the client: a VPN
+  (AirVPN/WireGuard caps in exactly that range), the test server, NIC
+  power save, or the driver — check with `iw dev <if> link` (bitrates),
+  `iw dev <if> get power_save`, `nmcli con show --active`.
+- **Radio config review points** (`stat/device` uap `radio_table`): 2.4 GHz
+  20 MHz is right; **5 GHz at `ht: 40` is the conservative default — 80 MHz
+  doubles 5 GHz throughput** for Wi-Fi 6/7 clients and is the one change
+  worth making on a lightly loaded AP (UI: Devices → AP → Radios; not
+  writable with the API key on 10.6); 6 GHz 160 MHz with PMF required is
+  the correct 6E/7 setup; `mlo_enabled` on the WLAN needs a multi-band
+  WLAN (a 6 GHz-only SSID cannot do MLO).
+
 **TP-Link Deco mesh behind UniFi**: Decos in AP mode bridge everything,
 so each unit shows as a wired client on the port its cable (or its
 wired parent) uses; a satellite on wireless backhaul appears behind the
