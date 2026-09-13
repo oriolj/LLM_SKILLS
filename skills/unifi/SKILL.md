@@ -394,7 +394,19 @@ The controller is a free link tester; read it before touching cables
   worth making on a lightly loaded AP (UI: Devices → AP → Radios; not
   writable with the API key on 10.6); 6 GHz 160 MHz with PMF required is
   the correct 6E/7 setup; `mlo_enabled` on the WLAN needs a multi-band
-  WLAN (a 6 GHz-only SSID cannot do MLO).
+  WLAN (a 6 GHz-only SSID cannot do MLO). **320 MHz on 6 GHz**: the U7
+  Pro supports it and ETSI's lower 6 GHz (Spain, country `724`) fits one
+  320 MHz channel, but it only pays once the AP's *wired* uplink exceeds
+  the client's current PHY rate — behind a 1 Gbps switch it changes
+  nothing and halves per-subcarrier power (~3 dB, some range). Decide it
+  with the uplink upgrade, not before.
+- **Radio widths/channels/power are UI-only on Network 10.6 with an API
+  key** *(verified 2026-09-13)*: Integration `PATCH sites/<id>/devices/<id>`
+  → 405, classic `rest/device` → 404; Integration `GET
+  sites/<id>/devices/<id>` does return `interfaces.radios[]`
+  (`frequencyGHz`, `channelWidthMHz`, `channel`, `wlanStandard`) for
+  reading. `GET integration/v1/info` gives `applicationVersion`; there
+  is no `/openapi` endpoint on the console.
 
 **TP-Link Deco mesh behind UniFi**: Decos in AP mode bridge everything,
 so each unit shows as a wired client on the port its cable (or its
