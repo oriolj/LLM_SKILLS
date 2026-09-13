@@ -469,6 +469,27 @@ swapping Decos.
   created a `.duckdns.org` entry with no subdomain — fixed with a PUT).
 - UPnP: keep it off (Settings → Internet → UPnP) unless something
   demonstrably needs it.
+- **Hairpin (NAT loopback) on the UCG-Fiber — TCP yes, UDP no** *(measured
+  2026-09-13, Network 10.6)*: from a LAN client, `<public-ip>:2322/tcp`
+  reached the forwarded host, while a UDP probe to `<public-ip>:60500`
+  inside a forwarded `60000-61000/udp` range never arrived (the same probe
+  to the LAN IP did). Ubiquiti's own port-forwarding article calls
+  loopback to the public IP unreliable. Consequence: anything UDP that
+  clients use from *inside* the house (mosh, WireGuard, game servers)
+  needs a LAN path or split DNS, not the public name. Port ranges are
+  written `"60000-61000"` in both `dst_port` and `fwd_port`.
+- **mosh through a gateway**: forward `60000-61000/udp` alongside the ssh
+  port — mosh-server binds the **first free port from 60001 up**, so a
+  narrow range fills with abandoned sessions (a connected `mosh-server`
+  never times out; 40 stale ones were found on the minisforum). Invoke
+  as `mosh --ssh='ssh -p <port> -o HostKeyAlias=<name>' <real-hostname>`
+  — mosh appends the host to the `--ssh` command and must resolve it for
+  the UDP leg, so ssh-config aliases with `HostName` break it; use `-o`
+  flags instead. Testing mosh non-interactively needs a pty with a size:
+  `script -qec "stty rows 24 cols 80; mosh … -- cmd" /dev/null`
+  (otherwise `tcgetattr` / a zero-height framebuffer assertion, both
+  artefacts). The estate's `m` fish function is the reference: LAN name →
+  public forward → tailnet, one `HostKeyAlias` for all three.
 
 ## 8. What a UniFi gateway cannot do (plan around it)
 
