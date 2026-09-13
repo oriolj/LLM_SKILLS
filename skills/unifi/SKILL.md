@@ -361,6 +361,19 @@ The controller is a free link tester; read it before touching cables
   (AirVPN/WireGuard caps in exactly that range), the test server, NIC
   power save, or the driver — check with `iw dev <if> link` (bitrates),
   `iw dev <if> get power_save`, `nmcli con show --active`.
+- **Separate radio from client with a LAN iperf3** before blaming the AP:
+  `iperf3 -s -D` on a wired 2.5G host, then from the client `iperf3 -c
+  <host>` (client TX) and `-R` (client RX). A negotiated 2.4 Gbps link
+  giving **18 Mbps client→AP and 250 Mbps with hundreds of retransmits
+  AP→client** while the AP reports satisfaction 99 is the client's
+  transmit path (driver/firmware/power save), not the AP *(2026-09-13,
+  Framework 13 with Intel BE211 on the new `iwlmld` op mode, kernel
+  7.3.0-rc2, firmware c107 missing → c106 loaded)*. Over SSH you can
+  read `iw dev <if> link|station dump|get power_save` and the kernel
+  log, but **polkit refuses `nmcli con up` and `iw … set power_save`
+  needs root** — band/power-save experiments need the user at the
+  laptop. Workstations' ufw here admits SSH only on `tailscale0`, so use
+  the MagicDNS name, not the LAN IP.
 - **Radio config review points** (`stat/device` uap `radio_table`): 2.4 GHz
   20 MHz is right; **5 GHz at `ht: 40` is the conservative default — 80 MHz
   doubles 5 GHz throughput** for Wi-Fi 6/7 clients and is the one change
