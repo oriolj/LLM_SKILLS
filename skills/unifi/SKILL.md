@@ -374,6 +374,15 @@ The controller is a free link tester; read it before touching cables
   needs root** — band/power-save experiments need the user at the
   laptop. Workstations' ufw here admits SSH only on `tailscale0`, so use
   the MagicDNS name, not the LAN IP.
+- **The reference-client test ends the argument.** A second capable
+  device on the *same* radio (a Wi-Fi 6E/7 phone on the 6 GHz SSID)
+  running a speed test: line rate there = the AP and its path are fine,
+  and everything left is the slow client's own stack *(2026-09-13: Fold7
+  799/922 on the radio where the laptop got 40/20)*. Then check the
+  client's kernel/firmware pairing: `pacman -Q linux* linux-firmware`,
+  `uname -r`, `ls /usr/lib/firmware/iwlwifi-*` vs the ucode the kernel
+  log says it loaded — a firmware package installed *after* boot means
+  the driver is still running the old ucode until a reboot.
 - **Radio config review points** (`stat/device` uap `radio_table`): 2.4 GHz
   20 MHz is right; **5 GHz at `ht: 40` is the conservative default — 80 MHz
   doubles 5 GHz throughput** for Wi-Fi 6/7 clients and is the one change
