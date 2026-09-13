@@ -360,7 +360,17 @@ The controller is a free link tester; read it before touching cables
   bottleneck. When (1)–(4) are all good the cause is on the client: a VPN
   (AirVPN/WireGuard caps in exactly that range), the test server, NIC
   power save, or the driver — check with `iw dev <if> link` (bitrates),
-  `iw dev <if> get power_save`, `nmcli con show --active`.
+  `iw dev <if> get power_save`, `nmcli con show --active`. **Reading
+  power save on Intel Wi-Fi 7 (BE2xx, `iwlmld`)**: `iw … get power_save`
+  is the live 802.11 state; `nmcli -f 802-11-wireless.powersave con show
+  <profile>` `0` = driver decides, `2` = disabled, `3` = enabled (the
+  per-profile override that survives reconnects);
+  `/sys/module/iwlwifi/parameters/power_save` is the *device* power
+  mode, unrelated to the link, `N` is normal; the real knob is
+  `/sys/module/iwlmld/parameters/power_scheme` — `1` CAM (never sleep),
+  `2` BPS balanced (default), `3` LP aggressive — set via
+  `/etc/modprobe.d/iwlmld.conf` (`options iwlmld power_scheme=1`), and
+  the module is `iwlmld`, not the `iwlmvm` most guides name.
 - **Separate radio from client with a LAN iperf3** before blaming the AP:
   `iperf3 -s -D` on a wired 2.5G host, then from the client `iperf3 -c
   <host>` (client TX) and `-R` (client RX). A negotiated 2.4 Gbps link
