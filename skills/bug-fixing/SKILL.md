@@ -69,6 +69,25 @@ field of the Django admin from a phone. Before theorising about automation:
 - **Automatic actions need provenance** (who/what/when) the day they ship,
   or the next report is "nobody did it".
 
+### Which build is the report from?
+- Map the report's release/version to a branch and a commit BEFORE deciding where the
+  fix goes (`git branch --contains <sha>`). Production and the integration branch can
+  be months apart: a tracker issue that flips to *regressed* may simply be the
+  environment that never received the fix — say so instead of re-fixing, and put the
+  "how do the fixes reach prod" decision in `USER_TODO.md`.
+- A `ModuleNotFoundError` / `ImportError` raised inside a **third-party** frame is a
+  packaging bug (lockfile relock dropped a transitive dependency, image built from a
+  stale lock), not application code. Diff the lockfile between the deployed commit and
+  the fix branch; check the package's declared runtime deps on the registry; restore
+  the entry (or relock) and **verify by building the image** the same way the deploy
+  does. Then still make the feature degrade if it is optional — a suggestion helper
+  must never take the form down with it.
+- The container you run tests in may not be the container serving the app you click
+  through: a shared image tag rebuilt by another checkout, a long-running dev server
+  started from an older image. Check the failing import in BOTH before concluding
+  "cannot reproduce locally" — the test image reproduced a prod bug the dev server
+  could not.
+
 ## 1. Reproduce BEFORE changing code
 
 ### Run the real stack locally
@@ -169,6 +188,12 @@ Same browser path, fixed code. Verify all three outcomes, not only the happy one
    depends on after the events that change them server-side (payments, closes, syncs).
 
 Then confirm in the DB — the UI can lie in both directions.
+
+For customer-facing automations (a WhatsApp button, an email reply bot), "refused with
+a message" means the **customer gets a text back**, never silence: resolve by identity
+only when it is unambiguous (one tenant owns every recent conversation with that
+phone), otherwise tell them what to do, in the language they were last written in — and
+keep the alarm so unresolved cases stay visible.
 
 ## 4. Close the loop
 
