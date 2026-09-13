@@ -329,8 +329,10 @@ The controller is a free link tester; read it before touching cables
   minutes)*. Do this before any cable re-termination.
 - **UniFi APs in the API** (`stat/device` type `uap`, verified 2026-09-13
   on a U7 Pro): `uplink.uplink_remote_port`/`speed` name the switch port
-  and negotiated speed (a 2.5G AP on a 1G-only run shows `1000` — the
-  run, not the AP, is the limit), `num_sta`, `satisfaction`,
+  and negotiated speed (`1000` for a 2.5G AP means **something on the
+  path is 1G** — an unmanaged switch in between is invisible to the
+  controller, so ask what sits at the jack before blaming the cable;
+  2026-09-13: a 1G PoE switch powering the AP), `num_sta`, `satisfaction`,
   `radio_table` (bands `ng`/`na`/`6e`, channel, width) and
   `radio_table_stats` (channel in use, `num_sta`, `cu_total` channel
   utilisation, `tx_power`). Clients carry `ap_mac`, `essid`, `radio`,
