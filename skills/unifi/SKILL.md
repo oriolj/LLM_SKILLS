@@ -320,6 +320,26 @@ The controller is a free link tester; read it before touching cables
   returned nothing on 10.6.101 — body shape unknown; do not rely on it
   for link history yet.
 
+- **Laptop substitution is the decisive physical-layer test.** When a
+  device on a run shows link-up/zero-rx, put a laptop on the same jack
+  and patch: rx flowing with `rx_errors: 0` clears the run, jack, patch
+  and switch port in one move and leaves only the device *(2026-09-13:
+  164 MB / 0 errors for the laptop, 0 frames for the Deco on the same
+  cable; the Deco was replaced and the port carried 300 k packets in 10
+  minutes)*. Do this before any cable re-termination.
+- **UniFi APs in the API** (`stat/device` type `uap`, verified 2026-09-13
+  on a U7 Pro): `uplink.uplink_remote_port`/`speed` name the switch port
+  and negotiated speed (a 2.5G AP on a 1G-only run shows `1000` — the
+  run, not the AP, is the limit), `num_sta`, `satisfaction`,
+  `radio_table` (bands `ng`/`na`/`6e`, channel, width) and
+  `radio_table_stats` (channel in use, `num_sta`, `cu_total` channel
+  utilisation, `tx_power`). Clients carry `ap_mac`, `essid`, `radio`,
+  `rssi`, `satisfaction`. WLANs: `rest/wlanconf` (`wlan_bands`,
+  `security`, `wpa3_transition`, `fast_roaming_enabled` = 802.11r,
+  `bss_transition` = 802.11v). A PoE AP on a **USW Flex Mini 2.5G**
+  needs an injector — that switch has no PoE output (`port_poe: false`
+  on every port).
+
 **TP-Link Deco mesh behind UniFi**: Decos in AP mode bridge everything,
 so each unit shows as a wired client on the port its cable (or its
 wired parent) uses; a satellite on wireless backhaul appears behind the
