@@ -1603,6 +1603,22 @@ Postgres/Valkey** with exporters as compose services on the tailnet bind). Repo 
   ~1-minute 504 window that Sentry's frontend project collects as a spike — batch changes,
   and the fix is the Coolify Dockerfile lane, not fewer metrics.
 
+### 6e. When a compose host becomes a Coolify host (BikeCRM prod, 2026-09-13)
+
+- The app containers move to the `coolify` network: set `observability_docker_network:
+  coolify` in the inventory and re-run the play; in the window itself `docker network
+  connect --alias oj-alloy coolify observability-alloy-1` keeps traces flowing until then.
+- A host-port `/metrics` bind is gone (and publishing a port on a Coolify app disables its
+  rolling updates): the hub job switches to the **public origin with the bearer**
+  (`METRICS_TOKEN` on the app = `<PROJECT>_METRICS_TOKEN` on the hub resource, compose
+  `secrets:` entry, `credentials_file`), same shape as enachat/panotxa. Set the hub env var
+  BEFORE pushing the compose entry — an absent var takes the whole hub down (it did, 20:15–
+  20:33 UTC that evening, from another project's push).
+- Exporters for managed databases stay a plain compose on the host (tailnet binds are fine
+  there; they are not Coolify apps).
+- Traefik's 1 s service probe (zero-downtime recipe, coolify-deploy §7f) writes into the
+  gunicorn access log → Loki; filter the health path or collapse services.
+
 ## 7. Rollout checklist (per host, in order)
 
 1. Host on the tailnet (`tailscale status`), enrolled in shared/ansible.

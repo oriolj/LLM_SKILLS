@@ -1889,6 +1889,68 @@ compose resource, Coolify's **"restart" is a full redeploy** (pull + build) —
 it does not help when the build is the problem; `docker restart <container>`
 on the host is the only fast lever, and it is Oriol's unless he says otherwise.
 
+## 7f. Rolling deploys lose requests at the STOP side — the drain + probe recipe (BikeCRM prod, 2026-09-13)
+
+Coolify's rolling update (docs: "does not guarantee zero downtime") starts the new
+container, waits for health, then **stops the old one immediately**. Traefik's docker
+provider keeps the stopped container in rotation for ~2–3 s, and gunicorn closes its
+listener on the first SIGTERM — so every request routed there is refused. Measured on
+BikeCRM prod with a 4 writes/s loop of authenticated POSTs across forced redeploys:
+
+| Setup | Per redeploy |
+|---|---|
+| Coolify rolling alone | 7 × 502 + one request hung 30 s |
+| + Traefik `retry` middleware (attempts 3) | 1 × 502 + 1 hang (all attempts can hit the dead server inside Traefik's refresh beat) |
+| + app **drain** + Traefik **1 s service probe** | **0 errors** (1575/1575, then 1590/1590 with retry and the 1 s dial-timeout transport removed) |
+
+The START side needs nothing: Traefik only routes to a container once Docker reports it
+**healthy**, so an image `HEALTHCHECK` keeps the booting container out (no 502s at start in
+any run). The STOP side needs two halves that only work together:
+
+1. **App drain** (the web role's start script; gunicorn under a bash wrapper, PID 1 = bash):
+   on SIGTERM touch a flag file, sleep `DRAIN_SECONDS` (6), then forward SIGTERM to gunicorn
+   and `wait` (in-flight requests finish). The health view returns **503** while the flag
+   exists. If the image `HEALTHCHECK` picked its branch by `/proc/1/cmdline`, switch it to
+   `$ROLE` (PID 1 is no longer gunicorn).
+2. **Traefik probes the service every second** via `custom_labels` on the app:
+   `traefik.http.services.<svc>.loadbalancer.healthcheck.{path,interval=1s,timeout=900ms,hostname=<a public host>,scheme=http}`
+   — `hostname` because Django's ALLOWED_HOSTS rejects the container IP as Host. Coolify
+   generates one service per domain (`https-N-<uuid>`); probe each, or point every router at
+   one service first. Reference: `bikecrm-backend/scripts/coolify_zdd_labels.py`. **A
+   domains PATCH regenerates `custom_labels` and drops these lines** (same as the oj.* lines)
+   — re-apply after any domain change, then one force redeploy.
+3. `stop_grace_period` (API field, 1–3600 s) must exceed the drain + the longest request; it
+   lands in `docker inspect .Config.StopTimeout`. `custom_docker_run_options --stop-timeout`
+   is stored and ignored.
+
+Side effects to handle: the 1 s probes land in the gunicorn access log (8 services = 8
+lines/s into Loki) — filter the health path out of `gunicorn.access` or collapse to one
+service. A `retry` middleware stays a reasonable belt-and-braces against a crashed
+container, but it is not what makes deploys clean.
+
+Other facts from the same window:
+- **`POST /deploy?…&force=true` = rebuild WITHOUT cache** (≈ +2 min of pip). Use it only to
+  redeploy the same commit after an env/label/domain change; a new commit deploys with cache
+  and no `force`.
+- **Coolify waits the whole `health_check_start_period` before its first probe** ("Waiting
+  for the start period (180 seconds)…") even when Docker already says healthy. 20 s + more
+  retries (interval 10 s, retries 30) is the fast, safe shape; the image's `--start-interval`
+  only helps Docker's own status.
+- **Server validation refuses a host whose port 80 is taken** ("Port 80 is in use. You must
+  stop the process using this port"), even with `instant_validate: false` earlier. To onboard
+  a box that is already serving: recreate the old Traefik with 443 only (compose override
+  `ports: !override ["0.0.0.0:443:443"]`), validate, then take over. Note compose v5's
+  `up -d traefik` also recreated the dependent `django` service on that stack (30 s of 502)
+  — expect dependency recreation when the compose plugin jumped majors.
+- Registering the server (POST /servers) with the team key already installed made Coolify
+  install `coolify-sentinel` before any validation.
+- Pre-seeding `/data/coolify/proxy/acme.json` with the old Traefik's store (same resolver
+  name `letsencrypt`) served the existing certificates from the first second; Coolify's
+  proxy renewed three of them within a minute anyway.
+- The worker rolled on its own once Coolify detected the image `HEALTHCHECK` (`Custom
+  healthcheck found in Dockerfile`) — with the UI check OFF. The earlier "workers cannot
+  roll" reading was one day's behaviour.
+
 ## 8. Failure → cause → fix
 
 | Symptom | Likely cause | Fix |
