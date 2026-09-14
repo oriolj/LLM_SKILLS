@@ -1060,6 +1060,18 @@ def child_exit(server, worker):  # ALSO required for --max-requests recycling
     multiprocess.mark_process_dead(worker.pid)
 ```
 
+🔴 **A custom OTel `SpanProcessor` must SUBCLASS
+`opentelemetry.sdk.trace.SpanProcessor`, never duck-type it.** The SDK calls
+private hooks added in minor releases (`_on_ending` in 1.3x+ / 1.44) on every
+registered processor. EnaArchive, 2026-09-14: a filter wrapping the Langfuse
+exporter on the shared provider (`_LLMSpansOnly`) lacked `_on_ending`, so
+every TRACED request raised → 500 on the API, admin and tenant sites for
+93 min, while `/healthz` and `/metrics` (excluded from tracing) stayed 200
+and Coolify showed healthy. Subclass, forward every hook to the wrapped
+processor, and keep a test that starts and ends a real span through it.
+A health endpoint that skips the instrumented path cannot catch this class of
+failure — let Talaia hit a traced route.
+
 🔴 **The directory must exist before gunicorn imports this file.** In
 multiprocess mode a module-level `Gauge(...)` writes its mmap file into
 `PROMETHEUS_MULTIPROC_DIR` the moment `gunicorn.conf.py` is imported by the

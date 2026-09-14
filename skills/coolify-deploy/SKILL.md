@@ -699,6 +699,12 @@ service to the same compose** instead of leaving the row red:
   container never goes healthy, and every deploy "rolls back" with no app
   error in the deploy log. Always append `127.0.0.1`/`localhost` in settings
   (the healthcheck is infrastructure, not a spoofable public Host).
+- **Distroless / shell-less images: keep the Coolify UI health check OFF.**
+  Turning it on injects a curl/wget probe that REPLACES the image
+  `HEALTHCHECK` and cannot run without those binaries, so a healthy app goes
+  unhealthy (EnaJoin, 2026-09-14, verified before enabling). The image's own
+  `HEALTHCHECK` (the binary probing itself) is the health check; a status
+  table row says «UI check OFF by design» with this reason.
 - **On a COMPOSE resource the same trap is an outage, and the deployment row
   still says `finished`** (GoalTracker, 2026-09-14, 1 h 35 min of 503): a
   compose deploy has no blue-green to roll back to, so the new container goes
