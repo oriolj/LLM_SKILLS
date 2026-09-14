@@ -87,6 +87,17 @@ company identity in the personal team, so never do it unprompted.
 Until then, personal frontends ship only by the token lane above; a push
 alone deploys nothing, whatever the deploy doc says.
 
+**A token CLI deploy from a git checkout is blocked too** (verified
+2026-09-14, SpineGuard): `vercel deploy --prod` run inside a checkout sends
+`githubCommitAuthor*` meta and Vercel applies the same seat check
+(`readyStateReason: commit author doesn't have permission`). Deploy a
+git-less export instead:
+`D=$(mktemp -d) && git archive HEAD | tar -x -C "$D"`, then `vercel link`
++ `vercel deploy --prod` inside `$D`. (Deploys from a detached worktree also
+carry the meta — use the export.) Also: `output: "standalone"` in
+`next.config` fails on Vercel's Next 16.3 adapter
+(`ENOENT .next/next-server.js.nft.json`); only set it for a Docker image.
+
 ## Verify
 - `curl -sL` each tenant host: 200 + tenant title + the media host in the
   HTML (B2/R2 keys resolving).
