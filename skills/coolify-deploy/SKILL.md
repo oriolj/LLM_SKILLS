@@ -309,6 +309,7 @@ only an `in_progress` row that never finishes is the jam from §6b.
 - **Never define a `networks:` block** in the compose. Two networks → Traefik flips container IPs non-deterministically → intermittent 504 Gateway Timeout.
 - Cross-stack: services in different resources can't resolve each other by service name. Enable **"Connect to Predefined Network"**; hostname becomes `<service>-<resource_uuid>`.
 - 🔴 **Compose vs Dockerfile resources sit on DIFFERENT networks, and only the toggle above bridges them** (EnaStats, 2026-09-10 — one lost day). Verified from Coolify's generated compose (`GET /applications/{uuid}` → `docker_compose`): a **Dockerfile** resource's container joins the destination network `coolify`; a **compose** resource's services get `networks: {<uuid>: null}` — a per-resource bridge ONLY. Anything published as an alias on `coolify` (the host observability agent's `oj-alloy:4318`, a DB resource by uuid hostname) is unreachable from a compose stack until `PATCH /applications/{uuid}` `{"connect_to_docker_network": true}` (the UI's *Connect to Predefined Network*) + a deploy. The **host's tailnet IP is not a workaround** from a container: the traffic is DNATed to a container on another bridge and Docker's inter-bridge isolation drops it — `ConnectTimeout`, no log, nothing to grep (the tailnet address is for dockerless hosts only). Make the app export its own reachability (`<app>_trace_export_batches_total{result}` and the like) so "started, cannot export" is a number, not a silence. Compose resources with dormant tracing (H2A-Accountant, H2A-LeadHunter, FichaChat) need this the day their endpoint is set — `fleet-observability` §5f.
+  ⚠️ **Not universal — check before toggling** (2026-09-14): EnaCast's backend compose resource on v5 (`osowsc8g00400ss8gokwcsgc`, created 2025-10, `connect_to_docker_network: null`) has every service on BOTH `coolify` and its `<uuid>` network, and resolves DB resources by uuid hostname already (`docker inspect <c> --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'` + `getent hosts <db-uuid>` inside the container). Older compose parsing versions attach it; a toggle + compose redeploy there would have been a stop→start of production for nothing.
 - App must listen on **0.0.0.0**, not localhost.
 - **502 on a small VPS is usually missing swap, not config.** `free -m` first; add a swapfile + `vm.swappiness=10`, persist in fstab/sysctl.d.
 
@@ -624,6 +625,58 @@ service to the same compose** instead of leaving the row red:
   rows (names), the healthchecks.io check, the `rclone lsl` one-liner and
   the `pg_restore` recipe, last verified execution + last restore test.
   Reference: `agents/accountant/DEPLOY.md` «Backups».
+
+## 5a1. TimescaleDB as a Coolify Postgres resource (EnaCast content events, 2026-09-14)
+
+Everything below verified live on Coolify Cloud against v5.enacast.com.
+
+- **A custom image on `POST /databases/postgresql` works**: `"image":
+  "timescale/timescaledb:2.30.0-pg17"` (pin the full tag — verify it on Docker
+  Hub, never `latest-pg17`), plus `postgres_user`/`postgres_db`; omit
+  `postgres_password` and Coolify generates an alphanumeric one (safe inside
+  `internal_db_url`). Volume `postgres-data-<uuid>` at
+  `/var/lib/postgresql/data`, network `coolify`, no port bindings with
+  `is_public: false`. The image's init scripts create the extension in the
+  database and preload it — do NOT pass `postgres_conf` (a custom config file
+  would drop `shared_preload_libraries=timescaledb`).
+- **`limits_memory` is how you size it**: the image runs `timescaledb-tune`
+  at first init from the cgroup limit. `limits_memory: "8g"` → `shared_buffers
+  2GB`, `effective_cache_size 6GB`, 16 background workers on a 16-core host.
+  With no limit it tunes for the WHOLE host (25 % of 62 GB for a DB that holds
+  megabytes, next to MariaDB's buffer pool).
+- 🔴 **`ALTER SYSTEM SET shared_preload_libraries = 'a,b'` bricks the
+  container**: the single literal is written as ONE library name
+  (`'"timescaledb,pg_stat_statements"'` in `postgresql.auto.conf`) → `FATAL:
+  could not access file "timescaledb,pg_stat_statements"` → restart loop, and
+  no SQL can undo it. The correct form is separate literals: `ALTER SYSTEM SET
+  shared_preload_libraries = 'timescaledb', 'pg_stat_statements';`. Repair on
+  the host: `docker volume inspect postgres-data-<uuid>` → edit
+  `postgresql.auto.conf` to `shared_preload_libraries = 'timescaledb,
+  pg_stat_statements'` (keep a `.bak`, `chown/chmod --reference` it back to
+  uid 70 mode 600 — a root-owned file is its own outage), `docker restart`.
+- **A Coolify restart request returns before the old container is gone**:
+  a wait loop on `docker ps … "(healthy)"` right after `POST
+  /databases/{uuid}/restart` matches the OLD container and races. Wait for a
+  new `StartedAt`, or poll `docker ps --format '{{.Status}}'` for `Up … (healthy)`
+  after seeing `Restarting`/`Exited`.
+- **Scheduled backups work unchanged** (`POST /databases/{uuid}/backups`,
+  `backup_now: true` → first execution `success` + `s3_uploaded: true` in
+  ~20 s for an empty DB). Object key on B2:
+  `data/coolify/backups/databases/<team-slug>-<team-id>/<name>-<uuid>/pg-dump-<db>-<epoch>.dmp`.
+- **Restore a Timescale dump with the hooks, into the SAME image**: `CREATE
+  EXTENSION timescaledb; SELECT timescaledb_pre_restore();` → `pg_restore
+  --no-owner --no-privileges` → `SELECT timescaledb_post_restore();`, then
+  check `timescaledb_information.hypertables` (chunks) and row counts. Roles
+  (an exporter login) are not in a single-DB dump — recreate them. In a
+  throwaway `timescale/timescaledb` container, wait for `PostgreSQL init
+  process complete` in `docker logs` before connecting: `pg_isready`
+  passes on the image's temporary init server seconds before it shuts down.
+- **Exporter**: create a `pg_monitor` login role for it (`CREATE ROLE x LOGIN
+  PASSWORD … IN ROLE pg_monitor`, fed through `docker exec -i … psql` STDIN
+  so the password never lands in an argv), the split `DATA_SOURCE_*` env from
+  §7c, and on a host with no firewall the DOCKER-USER guard BEFORE the first
+  deploy (v5 got `/usr/local/sbin/docker-user-tailnet-only.sh` + a oneshot
+  unit with `PartOf=docker.service`, idempotent via `-m comment`, IPv4 + IPv6).
 
 ## 5a. postgres:18 in compose — the volume-layout trap (TimeTracker forensics, 2026-08-30)
 
