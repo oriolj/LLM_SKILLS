@@ -2130,3 +2130,31 @@ also UI-only) is the other half of the same disk budget.
 - `watch_paths: backend/**` means a docs-only commit under that path
   (e.g. `backend/docs/*.md`) builds and deploys the whole set. Batch docs
   with code, or accept the ~5 GB of images per set on a small disk.
+
+## Maintenance-window release on Dockerfile apps (schema-incompatible migrations) — BikeCRM 2026-09-14
+
+The rolling lane is wrong when a migration renames/drops columns or tables the running code
+reads: the new container migrates at boot while the old container (and the worker) still
+serve, so both 500 until the swap. What worked (~4 min API outage, no rollback):
+
+1. `POST /applications/{worker}/stop?docker_cleanup=false`, then the api — poll `status`
+   until `exited:*`. Traefik answers 404 on the domains from here.
+2. `PATCH /applications/{api} {"health_check_start_period": 1200, "health_check_retries": 60}`
+   — Coolify SLEEPS `start_period` before its first health look and then retries only
+   1 s apart, so the whole boot migrate must fit inside the sleep or the deploy is judged
+   unhealthy mid-migration with the renames already committed.
+3. `POST /deploy?uuid={api}&force=true`, poll `GET /deployments/{du}` (its `logs` field is a
+   JSON list of entries; grep the migrate/gate lines) — or `docker logs -f` the new container
+   on the host; build from cache took ~2 min, the migration ~1 min on 443k rows.
+4. Verify with the worker still stopped (the migration is the only writer left), then deploy
+   the worker (`docker_images_to_keep: 2` keeps the previous image on the host), then PATCH
+   the budget back (20 / 30).
+5. Recovery when the migration gate raises: the container exits and the deploy fails with
+   the earlier migrations committed; run the reverse migration as a one-off of the NEW image
+   with the env of the stopped container (`docker inspect --format '{{range .Config.Env}}…'`
+   — Coolify keeps no env file on the host), reset the branch and redeploy the old code.
+   A `git push` deploys nothing when `is_auto_deploy_enabled` is false, so merging to the
+   deployed branch before the window is safe.
+
+Script + runbook: bikecrm-backend `scripts/services_revamp_window.sh`,
+`docs/services_revamp_deploy_runbook.md`.
