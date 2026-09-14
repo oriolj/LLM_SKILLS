@@ -157,6 +157,20 @@ once it is fixed.
 - Flows that leave undeletable data belong in low-frequency suites (BikeCRM's
   daily `invoicing`), never in a 10-minute one.
 - Suites are black box: they never import the monitored project's code.
+- **Browser journeys: read the component before a test clicks anything on
+  prod** (BikeCRM, 2026-09-14). Merely *opening* `/pos/orders/create` saved an
+  order, and a payment button paid the whole pending amount in one click, no
+  dialog — which, with auto-invoicing, would have left an undeletable invoice
+  every 30 min. Explore navigation-only first, then with writes whose cleanup
+  runs in a `finally`; in the suite, capture every object the UI creates from
+  its 201 response (allowlisted resources) and delete it through the API,
+  asserted, with the janitor as the net. Check the backend's side-effect
+  conditions in code (`bikecrm/general` pays only a sheet the API confirms is
+  open; it never pays a sale).
+- **Frontend build drift is checkable without a frontend change** when the
+  bundle carries a build stamp: `bikecrm/bundles` reads `{commit, branch,
+  release, builtAt}` out of the live `main-*.js` and compares brands, skipping a
+  mismatch younger than a deploy.
 
 ## Scheduling
 
