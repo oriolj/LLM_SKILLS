@@ -1060,6 +1060,17 @@ def child_exit(server, worker):  # ALSO required for --max-requests recycling
     multiprocess.mark_process_dead(worker.pid)
 ```
 
+🔴 **The directory must exist before gunicorn imports this file.** In
+multiprocess mode a module-level `Gauge(...)` writes its mmap file into
+`PROMETHEUS_MULTIPROC_DIR` the moment `gunicorn.conf.py` is imported by the
+master — before any hook runs. If the start script does not `mkdir -p` it
+first (or the config creates it after building the collectors), the master
+dies with `FileNotFoundError` and the container crash-loops. EV price map,
+2026-09-13: ~10 h of 503 (Traefik `no available server`, no containers at
+all on the host) from exactly this ordering; Talaia paged hourly all night.
+Create and wipe the dir in the entrypoint (see §5 above), or lazily build the
+gauges inside `when_ready`.
+
 Why it's safe: the gauges are constructed pre-fork, but `prometheus_client`
 re-keys the mmap file by pid on first use after fork, so each worker
 inc/decs its own file; `livesum` sums live pids, and `mark_process_dead` in

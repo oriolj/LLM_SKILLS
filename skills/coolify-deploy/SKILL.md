@@ -699,6 +699,21 @@ service to the same compose** instead of leaving the row red:
   container never goes healthy, and every deploy "rolls back" with no app
   error in the deploy log. Always append `127.0.0.1`/`localhost` in settings
   (the healthcheck is infrastructure, not a spoofable public Host).
+- **On a COMPOSE resource the same trap is an outage, and the deployment row
+  still says `finished`** (GoalTracker, 2026-09-14, 1 h 35 min of 503): a
+  compose deploy has no blue-green to roll back to, so the new container goes
+  unhealthy on `400 DisallowedHost` from its own loopback probe, Traefik drops
+  it (`no available server`), and `GET /deployments/applications/{uuid}`
+  reports `finished`. An `ALLOWED_HOSTS` env on the resource REPLACES the
+  settings default, so "the default has localhost" protects nothing — append
+  loopback in code, after reading the env, with a regression test. **After
+  every deploy you trigger, the evidence is the public URL answering 200 and
+  the resource/container `healthy` — never the deployment row.** Same class,
+  same day (EV price map, ~10 h of 503): a gunicorn config that built
+  Prometheus multiprocess collectors before creating `PROMETHEUS_MULTIPROC_DIR`
+  crash-looped the web container; Talaia paged hourly all night, nobody was
+  reading. A deploy an agent starts late in a session must be watched to
+  healthy before the session ends.
 - **Persistent storage by API**: `POST /applications/{uuid}/storages` with
   `type` ∈ **`persistent`** (volume/bind; add `host_path` for a bind mount)
   or **`file`** (inline `content` + `mount_path` — the container path;
