@@ -166,15 +166,15 @@ enrolled 2026-09-12/13 as a non-Coolify docker host, §6d; Coolify apps on the s
 server deliberately NOT in `servers`, enrolled 2026-09-06 with the
 backupmaker deployment: 79k lines shipped within a minute of the play) and **v5** (THE EnaCast production backend, onboarded
 2026-09-04 the day after an outage investigation had to read its logs
-with `docker logs` over ssh); smartup-nbg1-1 and jluv-apps-1 are staged.
+with `docker logs` over ssh); **smartup-nbg1-1** (the SmartupSoft Coolify box — FichaChat prod, BikeCRM beta, Umami — enrolled 2026-09-14 with `--tags observability,swap,beszel` once its tailnet path was back; the play's first apply died on an `apt-get update` that had hung for ~150 days holding the apt lists lock — check `pgrep -a apt-get` + `ps -o etime` before blaming the role, kill the stale `apt.systemd.daily` tree, expect unattended-upgrades to then catch up in one big batch); jluv-apps-1 is staged.
 The role ships **logs + traces** (2026-09-05: journald + docker with the
 full label relabeling, WAL, tailnet bind on :12345; OTLP intake on :4318
 with tail sampling and forward to Tempo — §5f); the hub's `alloy`
 Prometheus job scrapes each agent's SELF-metrics, and host metrics are
 Beszel's job (scope boundary above) — do not read "host metrics scraped"
 as a promise of `node_*` series. Still planned: `oj.metrics.port` app
-discovery. Fleet state 2026-09-05 after the trace roll-out: every host
-above except smartup-nbg1-1 (tailnet dead) carries the trace lane.
+discovery. Fleet state 2026-09-14: every host above carries the trace lane
+(smartup-nbg1-1 joined last, 2026-09-14).
 Per new host, in this order (§6b has the traps): generate a password
 (alnum only — no `:` or `,`), add `LOKI_AGENT_PASSWORD_<HOST>` to
 `homelab/secrets/loki-agents.env`, rebuild the hub app's `LOKI_WRITERS`
