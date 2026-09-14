@@ -12,7 +12,7 @@ description: Operate the estate's GlitchTip (self-hosted Sentry-compatible error
   2026-09-07); API + ingest also on `http://infra-monitoring:8000`
   (tailnet-only both), Coolify containers `web-/worker-ecsgwgsccsgwk40ss0og4gsc`
   on the `infra-monitoring` host.
-- **Orgs partition it per realm**: `enacast` (pre-existing) and `oriolj`
+- **Orgs partition it per realm**: `enacast` (pre-existing), `oriolj` and `smartupsoft` (id 3, team `smartupsoft`, created 2026-09-14 with the shell recipe below; first project `fichachat` id 26, DSN on the three FichaChat Coolify apps)
   (created 2026-08-31). smartupsoft: create when first needed (recipe
   below). Projects (2026-09-02): `enacast/{enacast-backend, enacast-ai,
   enacast24h, encasago, enastats}` (enastats = id 13, created 2026-09-10 by API; DSN stored with the hub's EnaCast-tailnet IP because storage-1's containers do not resolve MagicDNS, like the 24H apps there), `oriolj/{talaia, h2a-leadhunter, licita-radar, llm-index-watcher, backupmaker, panotxa}` (panotxa = id 12, created 2026-09-07 by API; takes BOTH the Django backend — migrated off sentry.io SaaS the same day, `SENTRY_DSN` on web+worker+beat — and the PWA's browser events through the tunnel below) (backupmaker = id 11, created 2026-09-06 by API for the two backup loops on mlrtx2 — crashes only, per-job failures stay in metrics; the DSN keeps the MagicDNS host because mlrtx2's containers resolve `infra-monitoring`) (licita-radar = id 8 and llm-index-watcher = id 9, both created 2026-09-02 by API, DSNs on their Coolify apps with the MagicDNS host — oriolj-nc-1 is on the EnaCast tailnet and its containers resolve `infra-monitoring`).

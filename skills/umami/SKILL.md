@@ -5,6 +5,16 @@ description: The self-hosted Umami web analytics instances — personal (stats.o
 
 # Umami — self-hosted web analytics (stats.oriolj.com · stats.enacast.com)
 
+
+> **SmartupSoft scope (added 2026-09-14)**: its own instance at
+> `https://umami.smartupsoft.com` (Coolify service `uwk0kkoc80kkwsoo8soc4o4w`
+> on external-1.coolify.smartupsoft.com, `umami:postgresql-latest`), creds in
+> `homelab/secrets/umami-smartupsoft.env` (`UMAMI_SMARTUPSOFT_*`),
+> `umami-site.py --scope smartupsoft`. Found with the Umami DEFAULT login and
+> zero sites after 8 months; https answered 503 until the service was
+> restarted (its Traefik labels only had an http router). First sites:
+> «FichaChat · landing» / «FichaChat · app». Tag host: `umami.smartupsoft.com`.
+
 ## Account model (Oriol, 2026-09-13)
 
 - **Personal (oriolj) sites → this instance**, self-hosted on
