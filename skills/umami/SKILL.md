@@ -24,9 +24,11 @@ description: The estate's ONE self-hosted Umami web analytics instance (stats.or
 - Tool: `hq/homelab/tools/umami-site.py list|add|tag|stats|rm` (default and
   only real scope `oriolj`; `--scope enacast|smartupsoft` are accepted and
   print a note — they map to the same instance).
-- **Alias hostname `stats.enacast.com`** (since the 2026-09-14 merge): a
-  second domain on the same Coolify service; CDmon A record `stats` →
-  `159.195.114.24`. Exists so the enasuite tags already committed with
+- **Alias hostnames `stats.enacast.com` and `stats.smartupsoft.com`** (since
+  2026-09-14): extra domains on the same Coolify service (`PATCH /services/{uuid}`
+  body `{"urls": [{"name": "umami", "url": "https://a,https://b,https://c"}]}` —
+  a bare string or a list of strings is rejected); CDmon A records `stats` →
+  `159.195.114.24` in the enantena and the personal (`smartupsoft.com`) accounts. Exists so the enasuite tags already committed with
   `https://stats.enacast.com/script.js` keep collecting without a redeploy.
   **New tags always use `https://stats.oriolj.com/script.js`**; move old
   ones over on the surface's next deploy.
