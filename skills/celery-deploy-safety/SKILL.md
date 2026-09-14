@@ -108,6 +108,19 @@ CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", 
 - **A cheap dispatcher that spawns a chain, under global `acks_late`.** Redelivered after a worker loss between `chain(...).apply_async()` and the ack ⇒ two chains, and the ASR stage of each `delete()`s the other's rows. Fix: `@shared_task(acks_late=False)` on the dispatcher alone (it has nothing worth redelivering) + claim the row with a **conditional UPDATE** (`.filter(pk=…).exclude(status="processing").update(status="processing")`; 0 rows ⇒ duplicate, return) — no lock, no generation table.
 - **Check-then-send dedupe on a log row written after the provider call** (monthly report emails: `EmailLog` marker). Two overlapping runs both compute the same todo list; a worker lost after "Resend accepted" but before the log write resends next run. Fix both halves: `cache.add` lock per (job, period) so one runner exists, and write the marker row **before** the send, deleting it if the send raises (`send_email(log_first=True)`). A DB unique constraint is the stronger form when the log table is dedicated.
 
+### A migration that installs beat rows must bump `PeriodicTasks` (EnaCast, 2026-09-14)
+
+`django_celery_beat`'s `DatabaseScheduler` reloads only when `PeriodicTasks.last_update` changes, and a
+data migration's historical models fire no signals. On a compose deploy the web container migrates while
+`celery_beat` is already booting, so beat loads the schedule WITHOUT the new rows and never runs them
+(`total_run_count` stays 0) until the next deploy. End every schedule-installing `RunPython` with:
+```python
+PeriodicTasks = apps.get_model('django_celery_beat', 'PeriodicTasks')
+PeriodicTasks.objects.update_or_create(ident=1, defaults={'last_update': timezone.now()})
+```
+Already deployed without it: `PeriodicTasks.update_changed()` from a shell; beat picks it up within seconds.
+After any deploy that adds a schedule, check the beat log for "Sending due task <name>".
+
 ## Verify (do this, don't assume)
 
 1. Unit-test the sweep: backdate `updated_at` via `queryset.update()` (bypasses `auto_now`), mock the workflow dispatchers, assert: stale row re-dispatched with the right variant, fresh row untouched, 24h row parked terminal, second sweep blocked by the cache lock. **No test infra in the repo?** Don't let that block verification — a sweep test needs no Postgres: point `DATABASE_URL=sqlite://` and run pytest against the project's local venv (`uv pip install --python .venv/bin/python pytest pytest-django` if missing). Add minimal `[tool.pytest.ini_options]` with `DJANGO_SETTINGS_MODULE` to `pyproject.toml`.

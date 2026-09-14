@@ -440,6 +440,58 @@ crash-loop on the same error. `"PASSWORD": env("REDIS_PASSWORD", default=None) o
 Make the health endpoint round-trip the cache (set/get, 503 on failure) so
 the rolling-update gate catches it instead of five months of silence.
 
+## 3c. Real client IP behind Coolify's proxy — the double-proxy trap (EnaCast v5, 2026-09-14)
+
+**Symptom:** the app sees ONE private address (`172.x`) for every request. Per-IP dedup counts one
+visitor, DRF anonymous throttles share one bucket, anti-bot per-IP caps trip for everyone, GeoIP and
+datacenter checks resolve nothing — all silently. EnaCast ran like this from the 2025-11-02 compose
+migration until 2026-09-14, found only because a new analytics store hashed 575 events to one IP.
+
+**Cause:** an in-stack reverse proxy between Coolify's edge and the app writes ITS peer — the edge
+container — into the headers: Caddy `header_up X-Forwarded-For {remote_host}` / `X-Real-IP {remote_host}`,
+nginx `proxy_set_header X-Real-IP $remote_addr`. Not the edge's fault.
+
+**Edge behaviour (Coolify defaults, no trusted IPs):** Traefik deletes client `X-Forwarded-*`/`X-Real-Ip`
+from untrusted peers and sets them to the socket peer; Coolify's Caddy (caddy-docker-proxy) replaces
+`X-Forwarded-For` with the socket peer. Either way the app gets ONE unspoofable hop, so **switching the
+server's proxy (Caddy ↔ Traefik) fixes nothing** and costs a server-wide routing outage plus cert
+re-issue. Cloudflare orange-cloud in front turns that hop into a Cloudflare IP: configure Traefik
+`forwardedHeaders.trustedIPs` (Cloudflare ranges) or Caddy `trusted_proxies` + `client_ip_headers
+CF-Connecting-IP` at the edge — never Traefik `forwardedHeaders.insecure` (it trusts client headers).
+
+**Verify in 2 minutes:** `curl -s -H 'X-Forwarded-For: 1.2.3.4' 'https://<host>/<path>?probe=<rand>'`, then
+read the inner proxy's access log for that probe (Caddy logs `client_ip` and the upstream headers) or the
+app's view. Expect your real public IP only — not `1.2.3.4`, not `172.x`.
+
+**Fix — in-stack Caddy ≥ 2.8** (`trusted_proxies_strict` is 2.8+; tested with `caddy:2.8-alpine`: edge IP,
+appended spoofed hop and no header all resolve right):
+```caddyfile
+{
+    servers {
+        trusted_proxies static private_ranges
+        trusted_proxies_strict   # right-to-left: first untrusted hop is the client
+    }
+}
+:80 {
+    reverse_proxy web:8000 {
+        header_up X-Real-IP {client_ip}
+        header_up X-Forwarded-For {client_ip}
+    }
+}
+```
+**Fix — in-stack nginx:** `set_real_ip_from 172.16.0.0/12; set_real_ip_from 10.0.0.0/8; real_ip_header
+X-Forwarded-For; real_ip_recursive on;` then `proxy_set_header X-Real-IP $remote_addr;` and
+`proxy_set_header X-Forwarded-For $remote_addr;` (after realip, `$remote_addr` is the client).
+Best of all: no in-stack proxy — whitenoise for static, Coolify routes straight to gunicorn.
+
+**App-side hop rule:** take the rightmost hop none of our proxies added; left-most is safe only while
+every proxy overwrites. DRF: set `NUM_PROXIES=1` (unset, the throttle ident is the whole XFF string).
+django-ipware ≥ 5 defaults to left-most (`proxy_order='right-most'`) and returns a TUPLE `(ip, routable)`
+— code that treats it as a string stores `"('1.2.3.4', True)"`-shaped garbage.
+
+**After fixing, expect per-IP counters to jump** (dedup, uniques) — that is the correction, not a
+traffic spike. Say so to whoever reads the numbers.
+
 ## 4. Persistent storage — the data-loss chapter
 
 **Rule zero: every path that must survive a redeploy needs an explicit Persistent Storage entry in the Coolify UI.** A Dockerfile `VOLUME ["/data"]` does NOT save you — Docker creates a fresh **anonymous** volume (64-char hash name) on every container create; the old one orphans and the app boots empty.
@@ -712,6 +764,17 @@ Everything below verified live on Coolify Cloud against v5.enacast.com.
   container stays down forever (TimeTracker: dead May→Aug unnoticed).
   `restart: unless-stopped` on every service, always. And set
   `watch_paths` even on compose apps: every deploy is an outage there.
+
+- **Exporter custom queries** (`PG_EXPORTER_EXTEND_QUERY_PATH` + a Coolify file storage, `type: file`):
+  metric names are `<top-level key>_<column>` with **no `pg_` prefix** (`timescaledb_hypertable_size_bytes`,
+  not `pg_timescaledb_…`) — check a local run before writing dashboards. The login role needs `SELECT` on
+  every table the queries read (grant after the app's migrations create them). 🔴 **`PATCH
+  /applications/{uuid}/storages` updates Coolify's copy of a file storage but NOT the file on the host, and
+  a redeploy does not rewrite it**: after an API edit, also write
+  `/data/coolify/applications/<uuid>/<mount path>` on the server and restart the container, then confirm
+  with the exporter's `pg_exporter_user_queries_load_error{hashsum=…}` (2026-09-14).
+- **Map "no rows" to a large age, not `-1`**, in freshness queries (`coalesce(extract(epoch …), 86400)`):
+  a `> 3600` stale alert never fires on `-1`, so a pipeline dead for a day would go quiet.
 
 ## 5b. Field notes from a full API-only onboarding (server -> app, 2026-08-25)
 
