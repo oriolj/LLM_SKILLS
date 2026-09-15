@@ -129,7 +129,9 @@ tier — the written record — through Resend SMTP `smtp.resend.com:587`
 Grafana is the cross-watch (`hq-monitoring/grafana/provisioning/alerting/gatus.yml`):
 `gatus-scrape-absent` (important) when the `gatus` job vanishes from
 Prometheus, `gatus-endpoint-red-30m` (email) when a surface has failed
-every probe for 30 min — the case where Pushover/Resend themselves broke.
+every probe for 30 min — a second notice, NOT a cover for Pushover/Resend
+breaking (Grafana sends through the same ones). The provider-ignored case
+is caught by `make deploy`'s prove step.
 And Gatus watches the hub back (`config/shared/hq-monitoring.yaml`).
 
 ## 4. The deploy loop
