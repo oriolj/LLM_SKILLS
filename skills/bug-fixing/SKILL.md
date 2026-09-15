@@ -254,3 +254,16 @@ keep the alarm so unresolved cases stay visible.
 - Query-plan changes may reorder rows with equal sort keys. Compare full
   payloads using a deterministic secondary key or compare tied groups; don't
   mistake an unspecified tie order for changed row data.
+
+### Identity upserts and writable metadata (2026-09-15)
+
+- A successful external upsert is not identity proof. Reproduce the case where the
+  stable external key is missing but an email matches an archived/former user.
+  Prefer explicit create or update by a verified record ID, including background
+  provisioning paths; a lookup followed by email-upsert still has a race.
+- If a guard requires stored bindings, test accounts that predate the binding
+  migration. Supply an adoption procedure backed by independently verified IDs;
+  editable slugs or emails cannot serve as ownership evidence.
+- Treat arbitrary JSON metadata as user-controlled when its serializer is writable.
+  A revocation/grant ledger belongs in server-owned state. Test API replacement of
+  the JSON followed by the actual expiry task, with pre-existing paid features.
