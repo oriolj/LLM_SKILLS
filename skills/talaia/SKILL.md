@@ -1,6 +1,6 @@
 ---
 name: talaia
-description: Add or change synthetic smoke-test monitoring for any project in the estate using Talaia (the watchtower — scheduled black-box pytest suites against PRODUCTION, SQLite history, Pushover alerts, status UI at talaia.oriolj.com). Use when asked "is this project monitored?", "make sure all projects are monitored", "add smoke tests / uptime checks / synthetic monitoring for X", when a new project is deployed or a domain/hostname changes, when a Talaia alert fires and its suite needs triage, or when the user mentions Talaia, suite.yml, smoke suites, or a status page. Covers the two suite tiers (credential-free `surfaces` vs test-account flow suites), the coverage audit against hq's mother list, the safety rules for writing against production, schedule staggering, and the deploy path.
+description: Add or change synthetic smoke-test monitoring for any project in the estate using Talaia (the watchtower — scheduled black-box pytest suites against PRODUCTION, SQLite history, Pushover alerts, tailnet status UI; talaia.oriolj.com is the marketing site). Use when asked "is this project monitored?", "make sure all projects are monitored", "add smoke tests / uptime checks / synthetic monitoring for X", when a new project is deployed or a domain/hostname changes, when a Talaia alert fires and its suite needs triage, or when the user mentions Talaia, suite.yml, smoke suites, or a status page. Covers the two suite tiers (credential-free `surfaces` vs test-account flow suites), the coverage audit against hq's mother list, the safety rules for writing against production, schedule staggering, and the deploy path.
 ---
 
 # Talaia — synthetic monitoring for the whole estate
@@ -22,7 +22,7 @@ stay there.
 only documented decisions.**
 
 `backend/../docs/COVERAGE.md` maps every project in hq
-[`docs/projects.md`](https://github.com/oriolj/hq) either to its suite or to
+`~/Syncthing/Syncthing-mobile-docs/hq/docs/projects.md` (local, Syncthing; hq has no Git remote) either to its suite or to
 the reason it deliberately has none. A project present in the mother list but
 in neither column of COVERAGE.md is the failure this whole repo exists to
 prevent, so the audit is cheap on purpose:
@@ -103,7 +103,7 @@ Chrome UA, because bot filters otherwise make the check measure the filter.
 
 Do not guess hostnames — probe, and record what you find. Sources in order:
 the project's own `DEPLOY.md` / `docs/09-deploy-and-ops.md`, then hq
-`docs/projects.md` and `docs/domains.md`, then `grep -r` the repo for its own
+`docs/projects.md` and `docs/domains.md`, then `rg` the repo for its own
 domain, then the Coolify API. Hostname conventions are NOT uniform
 (`budget-buddy.api.oriolj.com` is hyphenated while its landing
 `budgetbuddy.oriolj.com` is not), and health paths are not either — `/health/`,
@@ -123,7 +123,7 @@ follow it — point the surface at the page it lands on. And an app root that
 **legitimately 404s** (a per-tenant product like EnaArchive) means the tenant
 page, not the root, is the real check.
 
-🔴 **A 404 on `/` is not proof a project cannot be monitored — read its
+**A 404 on `/` is not proof a project cannot be monitored — read its
 URLconf before writing it off** (EnaStats, 2026-09-08). It had sat in
 `COVERAGE.md`'s "deliberately not monitored" table because
 `/`, `/healthz` and `/api/` all 404'd, and hq carried a matching TODO about
@@ -172,10 +172,50 @@ once it is fixed.
   release, builtAt}` out of the live `main-*.js` and compares brands, skipping a
   mismatch younger than a deploy.
 
+## Reviewing BikeCRM results and test changes
+
+Read the repo's `docs/COVERAGE.md` and `DEPLOY.md` for current coverage and pending
+changes. Do not infer deployed coverage from the local working tree. Compare
+`talaia_app_info{version}` with the deployed source and inspect the latest
+individual test results, including skips, retries and timestamp freshness.
+BikeCRM has six suites: `surfaces`, `backend`, `general`, `invoicing`, `beta`,
+and `bundles`. The browser suite now has real journeys, not just a login form.
+
+The 2026-09-15 browser/build hardening is implemented and manually verified but
+was still pending deployment at that review; consult `DEPLOY.md` before claiming
+it is scheduled. It adds these reusable checks:
+
+- Verify the browser's actual API origin and its own authenticated sandbox
+  business before allowing writes, and require the verified token on mutations.
+  A separately authenticated httpx client does not verify the browser session.
+  Read a response body outside Playwright response callbacks when also using
+  `expect_response`: nested synchronous waits can re-enter its event handling.
+- Clean up in per-journey fixture teardown, even after an assertion fails.
+  Unreadable creation IDs and unsuccessful cleanup must fail explicitly; attempt
+  all tracked deletions before reporting failures. Keep the janitor as fallback.
+- Reload saved service-sheet/sale records and assert their visible prices and
+  payment states. SkooterP's separate login check blocks business writes.
+- Validate frontend commit and timestamp fields even when both brands match.
+  Reject invalid/unknown commits, missing timezones and future timestamps;
+  mismatched valid builds skip only within the 90-minute deployment grace.
+
+`general` tags its run with the backend release. `bundles` has no `version_url`:
+it reads frontend build stamps directly. Neither proves what bundle an existing
+customer's cached browser is using.
+
+A status-only request normally needs fresh scheduled results, not another
+invoice-producing run. Use the daily invoice result when it is within cadence,
+and report its timestamp/release. For an authorized one-off production run,
+use `docker exec` in the existing UI container (SSH to
+`root@100.97.219.99`, port `1922`; discover the current container name).
+Never start a second scheduler with `docker compose run scheduler`. Local
+`uv run` needs `--env-file .env`; it does not load dotenv automatically.
+
 ## Scheduling
 
-`talaia crontab` emits one supercronic line per enabled suite. Every suite gets
-its own minute offset so nothing thunders:
+`talaia crontab` emits one supercronic line per enabled scheduled suite. Allow
+at most two suite starts per minute across the fleet, and stagger suites of
+the same project. `backend/tests/test_schedule.py` enforces that contract:
 
 ```bash
 cd ~/git/oriolj/talaia/backend && uv run talaia crontab
@@ -207,7 +247,7 @@ any app whose health endpoint reports a version.
 cd ~/git/oriolj/talaia/backend
 uv run talaia list                      # discovery
 cd projects/<project>/<suite> && uv run --project ../../.. python -m pytest . -q
-cd ~/git/oriolj/talaia/backend && uv run talaia run <project>/<suite>   # full path: DB + alerts
+cd ~/git/oriolj/talaia/backend && uv run --env-file .env talaia run <project>/<suite>   # DB + alerts
 uv run python -m pytest tests -q        # harness tests
 ```
 
@@ -251,9 +291,12 @@ sync`.
 6. **After the fix**: watch `talaia_suite_up` flip, remove the `USER_TODO.md`
    item, and correct the project's deploy-history rows from the Coolify data.
 
-Alerting today is one Pushover push on up→down plus cooldown re-alerts
-(`backend/talaia/alerts.py`); nothing escalates to emergency priority, so a
-22:18 alert can wait until morning — a known gap, not a bug.
+Alert priority is suite-wide: `0` normal, `1` high, `2` emergency. Emergency
+suites confirm once after 60 seconds, replacing ordinary retries; a recovered
+confirmation sends a normal short-outage warning. Configuration errors stay
+low priority. Cooldowns, recovery cancellation and failed-delivery retries are
+implemented. Read the repo's `docs/ALERTING.md` before changing alert behavior;
+failed-run counters are not counts of delivered notifications.
 
 ## Where things live
 
@@ -262,8 +305,8 @@ Alerting today is one Pushover push on up→down plus cooldown re-alerts
 | Repo | `~/git/oriolj/talaia` — `backend/` (monitor), `comercial-website/`, `public-docs/` |
 | Coverage inventory | `docs/COVERAGE.md` |
 | Ops record | `DEPLOY.md` |
-| Status UI | tailnet + the domain in `DEPLOY.md`; basic auth (`TALAIA_UI_*`) |
-| Shared fixtures | `backend/talaia/smoketest/` (`surfaces.py`, `bikecrm.py`, `enacast.py`) |
+| Status UI | `http://100.97.219.99:8611` (tailnet); optional basic auth, currently off; verify `DEPLOY.md` |
+| Shared fixtures | `backend/talaia/smoketest/` (`surfaces.py`, `bikecrm.py`, `bikecrm_browser.py`, `enacast.py`) |
 | Suites | `backend/projects/<project>/<suite>/` — leaf dirs only |
 | Related skills | `healthchecks-io` (heartbeats), `fleet-observability` (logs/metrics — a different question from "does the product work"), `coolify-deploy` |
 

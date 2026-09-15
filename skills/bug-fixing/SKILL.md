@@ -167,6 +167,12 @@ attempt starts further along. A guard added "just in case" hides the next real e
 
 ## 2. Fix
 
+- For N+1 reports, measure query growth with a small and larger fixture set before
+  editing the view; hold cache state constant and distinguish the offending table
+  from unrelated queries. A read optimization also needs unchanged response values
+  and stored-row snapshots (including financial denorms/ledger balances where relevant).
+  With generic relations, preserve explicit tenant/workshop filters and test the
+  same object ID under two content types; an unscoped prefetch can silently change totals.
 - Load the project's guardrail docs/skills for the area first (legal/financial
   invariants, sync invariants) — a correct-looking fix can still corrupt records.
 - Fix the **mechanism**, not the symptom; apply it to the sibling code found in step 0.
@@ -234,3 +240,17 @@ keep the alarm so unresolved cases stay visible.
   reproduced" — and refresh the pointer to both in every repo's `CLAUDE.md` when the
   loop changes. The next bug is faster only if the write-up exists; a session can end
   at any moment.
+
+### CPU alerts: separate execution, planning and request lifetime (2026-09-14)
+
+- Read the alert's actual resource and evaluation interval first: a managed-DB
+  CPU alert cannot be reconciled using application-host CPU alone.
+- When DB spans are slow but statement execution metrics look cheap, inspect
+  local `EXPLAIN (ANALYZE, BUFFERS)` planning time. Many joins, including
+  inherited-model tables, can cost much more to plan than to execute.
+- Reproduce polling leaks through repeated SPA navigation and a virtual clock.
+  Reloading the browser destroys every subscription and hides the failure.
+  Assert both that active views refresh and that destroyed views stop.
+- Query-plan changes may reorder rows with equal sort keys. Compare full
+  payloads using a deterministic secondary key or compare tied groups; don't
+  mistake an unspecified tie order for changed row data.
