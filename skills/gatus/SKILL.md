@@ -136,22 +136,35 @@ And Gatus watches the hub back (`config/shared/hq-monitoring.yaml`).
 
 ```
 cd ~/git/oriolj/hq-monitoring/gatus
-make validate   # docker build + REAL startup with placeholder secrets → /health 200 + "Validated N endpoints"
-make deploy     # validate → commit+push gatus/ → POST /deploy → poll → curl /health → make status
-make status     # per-group up/down + failing endpoints, from the public JSON API
+make validate   # docker build + REAL startup, placeholder secrets, --network none → /health + "Validated N endpoints"
+make deploy     # validate → commit+push gatus/ → wait for the webhook deploy of that commit → prove → make status
+make status     # per-group up/down + failing endpoints (?pageSize=1: newest result only)
 make logs       # last Coolify deployment log
+make restart    # restart the container
 ```
-(also `make gatus-validate|gatus-deploy|gatus-status` from the repo root).
+(also `make gatus-<target>` from the repo root). Coolify API access goes
+through hq `homelab/tools/coolify-lib.sh`, `coolify-deploy.sh` and
+`coolify-restart.sh` — never a hand-rolled curl with its own token grep.
 
 - Gatus has **no `--check` flag**: the only validator is a real start. An
   invalid config exits before `/health` answers; `make validate` fails on
   that with the log. Placeholder credentials make Gatus *ignore* the
   provider (`Ignoring provider=pushover due to error=application-token
   must be 30 characters long`), so a validation run can never page.
-- A push touching `gatus/**` also deploys through the GitHub App webhook
-  (`watch_paths: gatus/**`, ~40 s from push to healthy). `make deploy`
-  additionally forces the deploy and waits for it, so "deployed" is a
-  fact, not a hope.
+- **Push OR trigger, never both.** A push touching `gatus/**` deploys
+  through the GitHub App webhook (`watch_paths: gatus/**`, ~70 s from push
+  to finished). The first `make deploy` also POSTed `/deploy`, which
+  rolled the container out twice per change (seen 2026-09-15: an API and
+  a webhook deployment of the same commit one second apart). `make
+  deploy` now waits for the deployment row whose `commit` is the pushed
+  SHA, and triggers by API only when nothing under `gatus/` was pushed.
+- **`prove` after every deploy** checks three things: `/health`; both
+  providers in the live container log (`configuredProviders=[email
+  pushover]` from `GET /applications/<uuid>/logs` — Gatus silently
+  ignores a provider with an empty credential, so a wiped env var would
+  mute all paging while `/health` stays green); and live endpoint count ≤
+  validated count, restarting the container when the old blue-green
+  container wrote a removed endpoint back.
 - **Every endpoint change is a container restart.** Result history lives
   in SQLite on the `/data` volume (`storage.type: sqlite`) precisely so
   history survives those restarts; it is a cache, not a source of truth —
@@ -182,17 +195,23 @@ make logs       # last Coolify deployment log
 
 - **Upstream image is `FROM scratch`** (no shell, no wget): Coolify's UI
   health check has nothing to exec and would roll every deploy back. The
-  estate image copies the upstream binary onto `alpine` with a
-  `HEALTHCHECK` on `wget http://127.0.0.1:8080/health`, nonroot uid 65532,
-  `/data` pre-created and chowned so the empty named volume inherits it.
+  estate image copies the upstream binary onto `alpine`, nonroot uid
+  65532, `/data` pre-created and chowned so the empty named volume
+  inherits it. **Coolify's UI check is the one that gates the swap**
+  (the deploy log shows "Attempt 1 of 10"), so the image has no
+  HEALTHCHECK of its own; its start period is 3 s on the resource (Gatus
+  answers `/health` in ~1 s — the old 15 s was slept in full per rollout).
 - **`alerting.pushover.title` is a fixed string** — `[ENDPOINT_NAME]`
   placeholders are NOT expanded there (only in bodies/custom providers).
   Leave it unset: the default is `Gatus: <group>/<name>`.
 - **`/api/v1/endpoints/statuses` lists only endpoints that have a result
   yet** for the first seconds after start; count endpoints from the log
   line `Validated N endpoints`, not from the API, in validation.
-- **A validation run probes the real URLs** (harmless GETs from your
-  workstation, ~100 requests) — expected; do not point it at staging.
+- **Validate with `--network none`.** Parsing happens before any probe,
+  so an offline start proves the config; with a network it sent ~100 GETs
+  to production from the workstation per run. Health is checked with
+  `docker exec … wget`, and the container is removed with `docker rm -fv`
+  (the image declares `VOLUME /data`; without `-v` every run leaked one).
 - **The Coolify `custom_labels` field must be base64** — sending `""`
   fails the whole PATCH ("should be base64 encoded"); omit the field.
 - **A removed endpoint can linger on the page after a blue-green deploy.**

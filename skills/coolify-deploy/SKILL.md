@@ -1373,7 +1373,23 @@ copy-envs / deploy-new / cutover / shrink-compose, idempotent, `--dry-run`).
 
 **A `git push` to a connected repo ALREADY deploys.** Calling
 `POST /deploy?uuid=…` on top just queues a second, redundant build of the
-same commit. Push *or* trigger — never both.
+same commit. Push *or* trigger — never both. To wait for the webhook
+deploy from a script, poll `GET /deployments/applications/<uuid>` for the
+row whose `commit` equals the pushed SHA (`is_webhook: true`), never "the
+newest row": hq `homelab/tools/coolify-deploy.sh --commit <sha>` does
+exactly that and falls back to an API trigger after 90 s.
+
+**A Compose deploy removes the old containers BEFORE it starts the new
+ones**, so an SSH drop between the two steps leaves those services DOWN,
+not on the old version. Seen 2026-09-15 on hq-monitoring (monitor-1-nc,
+SSH through a Cloudflare Tunnel): the log reads `Removing old containers`
+(grafana, loki-gateway) → `Starting new application` → `Deployment failed:
+Command execution failed (exit code 255): mkdir -p
+/data/coolify/applications/<uuid>` "with no error output". Grafana was
+unreachable ~5 min until an API redeploy of the same commit started every
+container. After any Compose deploy, check the deployment status, not
+only the push: `failed` here means an outage, and the fix is a plain
+redeploy (the config is not at fault).
 
 **Blue-green means both versions serve at once during the swap.** The old
 and new containers both carry `traefik.enable=true`, so Traefik
