@@ -294,3 +294,7 @@ keep the alarm so unresolved cases stay visible.
 - When changing an existing counter's meaning, use a new namespace or a scoped
   transition plan. Already polluted counters otherwise survive the code fix;
   document that a fresh namespace grants existing users a fresh quota window.
+- Before a live negative signup smoke test, verify provider configuration in that
+  environment without exposing its secret. A missing-token request may create a
+  real signup when no provider is configured; use a guaranteed rejection instead.
+  Check persistence separately from HTTP status and record environment differences.
