@@ -278,3 +278,19 @@ keep the alarm so unresolved cases stay visible.
   during rolling deployments. Protecting a reserved JSON key at the API boundary
   can preserve the existing storage contract; reload under a row lock to prevent
   stale serializers from restoring an older ledger.
+
+
+### Public signup capacity and bot rejection (2026-09-15)
+
+- A rate-cap alert can be caused by gate ordering: replay rejected bot requests
+  followed by a legitimate form submission before raising the cap. Separate
+  admission quotas from request-abuse controls; rejected forms must not consume
+  admission quota or reserve another applicant's email throttle.
+- When verified captcha permits overflow past a shared cap, represent provider
+  verification separately from disabled configuration. A caller-supplied token
+  or a truthy non-boolean provider response is not successful verification.
+- A shadow success response proves nothing about persistence: assert the pending
+  signup and verification email for the real applicant, and neither for bots.
+- When changing an existing counter's meaning, use a new namespace or a scoped
+  transition plan. Already polluted counters otherwise survive the code fix;
+  document that a fresh namespace grants existing users a fresh quota window.
