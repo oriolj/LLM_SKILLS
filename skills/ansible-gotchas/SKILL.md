@@ -46,6 +46,27 @@ packages, default shell, no prior run's leftovers. For every task ask:
   *by construction* — a per-task `when` is something someone must remember.
   Same for `become: yes`: prefer per-task (auditable) but if a whole block is
   privileged, gate the block.
+- **`tags:` on a dynamic `include_tasks` tags the INCLUDE ONLY — the tasks
+  inside need `apply: {tags: [...]}`, or `--tags foo` runs nothing.** The
+  recap looks fine (`included: … ok=1`), the feature's artifacts never
+  appear. Role-level and block-level tags DO reach included tasks (they
+  come through the parent block), which is why full runs and `--tags
+  <role>` hide it. Write every tag-scoped include as
+  `include_tasks: {file: x.yml, apply: {tags: [foo]}}` + `tags: [foo]`
+  on the include itself (both: the include must be selected AND its
+  content tagged); nested includes inside x.yml inherit the applied tag.
+  If the include carries a tag the inner tasks set themselves (a
+  `dictation` subset inside a `gnome` include), that is fine — the
+  invariant is "every tag on the include reaches at least one inner
+  task". Real case (hq, 2026-09-15): six includes documented as "runs
+  alone via `--tags X`" (btrfs, smart, swap, firewall, whisper, snapper)
+  had run nothing alone for weeks; found only because the snapper
+  roll-out was verified by artifact (`systemctl list-timers`) instead of
+  by recap. Guard it with a structural unit test that walks every
+  `include_tasks` and asserts tags ⇒ apply (hq
+  `playbooks/test-include-tags.yml`), and re-read the "verify the
+  ARTIFACT, not the recap" rule below — it is the only thing that catches
+  this class at run time.
 - **Tag-scoped entry points must be self-contained.** If `--tags foo` is a
   documented way to run a feature alone, everything it needs (its own
   package, its own dirs) must be inside the tagged task file — not inherited
@@ -335,7 +356,8 @@ errors; filters bind tighter than `+`.
 - [ ] Every `command`/binary: installed by an earlier task or probed.
 - [ ] Every optional integration (unit, dir, package): probe +
       `failed_when: false`, or an explicit gate.
-- [ ] Blocks gated once; tag-scoped paths self-contained; `always:` restores
+- [ ] Blocks gated once; tag-scoped paths self-contained; every tagged
+      `include_tasks` also carries `apply: {tags: …}`; `always:` restores
       anything stopped or staged.
 - [ ] Probes are `changed_when: false` + check-mode-safe; setters fire only
       on difference.
