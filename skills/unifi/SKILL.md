@@ -467,6 +467,15 @@ swapping Decos.
   empty; No-IP uses real `username`/`password`. Read the fields by name
   (a positional parse put the hostname into the password slot and
   created a `.duckdns.org` entry with no subdomain — fixed with a PUT).
+- **Wake-on-LAN from the controller** *(verified 2026-09-15, Network 10.6.101)*:
+  `POST cmd/devmgr {"cmd":"wake-client","mac":"<client mac>"}` answers
+  `200 []` and the gateway broadcasts the magic packet on the client's
+  network (it is what the UI's *Wake* button on an offline client
+  calls). `cmd/stamgr` with `wake-client` or `wol` → `api.err.NotFound`.
+  The gateway sits on the same L2 as any LAN workstation, so it is a
+  second sender, not a stronger one: a box that ignores a
+  `192.168.x.255:9` magic packet from a LAN host ignores this one too
+  (freenas, 2026-09-15 — WOL unset in its BIOS/OS or physically off).
 - UPnP: keep it off (Settings → Internet → UPnP) unless something
   demonstrably needs it.
 - **Hairpin (NAT loopback) on the UCG-Fiber — TCP yes, UDP no** *(measured
