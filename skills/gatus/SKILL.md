@@ -203,6 +203,14 @@ make logs       # last Coolify deployment log
   vanishes at the next restart — `POST /applications/<uuid>/restart` (a
   ~20 s blip) or the next deploy. `make status` shows it as a group with
   `0/1`.
+- **No per-endpoint links** (verified upstream 2026-09-15): rows are not
+  clickable, the endpoint `ui` struct only has hide flags + badge
+  thresholds; the only links are `ui.link` (logo) and `ui.buttons`
+  (global header row). Upstream TwiN/gatus#106 open since 2021, #1219
+  closed as its duplicate; maintainer plans `endpoints[].ui.links` "in
+  the next year or so" (2026-08-18). Use `ui.buttons` for the consoles
+  (Grafana, Beszel, GlitchTip, Talaia — set 2026-09-15) and a homepage
+  for a linked per-surface list. Do not build around a per-endpoint link.
 - Kuma → Gatus migration was a no-op: **check the old tool's DB before
   planning a migration** (`sqlite3 kuma.db "select count(*) from
   monitor"`) — the 8-month-old instance had never been set up.
