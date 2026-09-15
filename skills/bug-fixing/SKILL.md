@@ -267,3 +267,14 @@ keep the alarm so unresolved cases stay visible.
 - Treat arbitrary JSON metadata as user-controlled when its serializer is writable.
   A revocation/grant ledger belongs in server-owned state. Test API replacement of
   the JSON followed by the actual expiry task, with pre-existing paid features.
+
+- A local user table may include customer contacts as well as employees. Before a
+  production identity adoption, check active/unarchived state, tenant and actual
+  staff/owner role as well as historical identity evidence. Name/email agreement
+  does not establish that the account can hold the intended role. If verification
+  disproves a mapping, reverse the scoped change immediately, preserve its audit
+  history, and record whether any session or data access occurred.
+- Before adding a security ledger column, test mixed old/new processes and inserts
+  during rolling deployments. Protecting a reserved JSON key at the API boundary
+  can preserve the existing storage contract; reload under a row lock to prevent
+  stale serializers from restoring an older ledger.
