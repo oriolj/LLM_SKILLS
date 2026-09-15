@@ -485,7 +485,19 @@ swapping Decos.
   as `mosh --ssh='ssh -p <port> -o HostKeyAlias=<name>' <real-hostname>`
   — mosh appends the host to the `--ssh` command and must resolve it for
   the UDP leg, so ssh-config aliases with `HostName` break it; use `-o`
-  flags instead. Testing mosh non-interactively needs a pty with a size:
+  flags instead. **"mosh did not make a successful connection … verify
+  that UDP port 60001 is not firewalled" with the ssh leg working = look
+  at the HOST firewall before the gateway** *(2026-09-15)*: the estate's
+  ufw roles allowed tcp/22 and `tailscale0` but not 60000-61000/udp, so
+  the forward delivered the packets and the box logged `[UFW BLOCK] …
+  DPT=60001` (`journalctl -k | grep "UFW BLOCK"` is the one-line proof;
+  the forward's `stat/portforward` `rx_packets` — lazily refreshed,
+  re-read after a few seconds — shows the gateway matched them). Verify a
+  forward outside-in without leaving the house: a python UDP listener on
+  the target (unprivileged, any port in the range), then from a VPS
+  `echo x > /dev/udp/<public-ip>/<port>` (bash builtin, no `nc`). Rule
+  since then: wherever a firewall allows ssh it allows mosh's range.
+  Testing mosh non-interactively needs a pty with a size:
   `script -qec "stty rows 24 cols 80; mosh … -- cmd" /dev/null`
   (otherwise `tcgetattr` / a zero-height framebuffer assertion, both
   artefacts). **mosh roaming is client-side only**: the server address is
