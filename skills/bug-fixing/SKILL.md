@@ -81,7 +81,11 @@ field of the Django admin from a phone. Before theorising about automation:
   the fix branch; check the package's declared runtime deps on the registry; restore
   the entry (or relock) and **verify by building the image** the same way the deploy
   does. Then still make the feature degrade if it is optional — a suggestion helper
-  must never take the form down with it.
+  must never take the form down with it. If a later unrelated relock drops the same
+  required package again, declare it explicitly instead of relying on another
+  manual lock repair. Add dependency-consistency and critical SDK import checks
+  after installation in the image build. Tests in an existing container do not
+  validate the new lock or image.
 - The container you run tests in may not be the container serving the app you click
   through: a shared image tag rebuilt by another checkout, a long-running dev server
   started from an older image. Check the failing import in BOTH before concluding
