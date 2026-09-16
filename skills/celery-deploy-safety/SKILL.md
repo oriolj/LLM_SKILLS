@@ -128,3 +128,24 @@ After any deploy that adds a schedule, check the beat log for "Sending due task 
 3. Staging fire-drill: start a slow task, redeploy mid-run. Expected: worker exits within `stop_grace_period`; the new worker's boot sweep (or broker redelivery) resumes it; the row reaches a terminal state; no duplicate side effects.
 4. Settings smoke: `python -c "...django.setup(); print(settings.CELERY_TASK_ACKS_LATE, settings.CELERY_TASK_ALWAYS_EAGER, type(cache).__name__)"` inside the container — OR offline via the local venv with throwaway env (`DJANGO_SETTINGS_MODULE=config.settings.production SECRET_KEY=x REDIS_URL=... .venv/bin/python -c "..."`). Print `ALWAYS_EAGER` too: a `"1" if DEBUG else "0"` default in `base.py` is evaluated *before* `production.py` sets `DEBUG=False`, so prod silently runs every task inline in gunicorn (caught on EnaArchive 2026-08-29; the fix pattern is in the coolify-deploy skill, «Django split settings»).
 5. **Talking to the right stack?** Before trusting any live `docker compose ... exec`/`ps` check, confirm the project name. Two repos that both live in a dir named `backend` (or any shared basename) derive the *same* Compose project, so `-f thisproject.yml exec` can silently hit the *other* stack's containers — you'll read stale/foreign settings and chase ghosts. Tell-tale: the `ps` service names don't match the compose file you passed. Pin `COMPOSE_PROJECT_NAME`, or fall back to the offline venv smoke test in #4.
+
+## Process health with setproctitle
+
+When `setproctitle` is installed, Celery rewrites its argv after startup to
+`[celeryd: <hostname>:MainProcess] ...`. A `/proc/*/cmdline` probe that only matches
+`celery ` passes during startup, then fails even while the worker answers a broker
+ping. Match the retitled **parent**, as well as the launch command:
+
+```sh
+for p in /proc/[0-9]*/cmdline; do
+  head -z -n2 "$p" 2>/dev/null | tr '\0' ' ' |
+    grep -qE '(^|/)celery |^\[celeryd:.*:MainProcess\]' && exit 0
+done
+exit 1
+```
+
+Use `$$p` inside Compose YAML to escape Compose interpolation. Test after the
+startup grace period with the actual installed packages. A process probe does
+not prove broker connectivity; use a one-off `celery inspect ping` during rollout,
+never as the recurring container healthcheck. Verified with Celery 5.6.3 and
+setproctitle on BikeCRM, 2026-09-16.
