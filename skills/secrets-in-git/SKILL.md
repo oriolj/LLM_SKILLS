@@ -1,6 +1,6 @@
 ---
 name: secrets-in-git
-description: Manage credentials for PRIVATE PERSONAL repos by committing them age-encrypted, so every machine (and every agent session) has the same secrets after a clone — without a secret manager. Use when the user asks "can we commit the .env encrypted", "where do I put this API key / token / password", "add a secret to hq", "version the secrets", "share .env between my machines via git", "back up the Coolify envs", "rotate this token", when a token that used to work returns 401/403, when a fresh clone or new host is missing its secrets, when an agent needs a credential that "should be somewhere", or when writing/reviewing a Makefile encrypt/decrypt target, a secrets/ .gitignore, or an ansible task that deploys a credential. Covers the whole lifecycle: the store layout (one dir, one file per provider×scope, deny-all gitignore with !*.enc, any extension, directories as one tarball), the two modes and how to choose (sops+age keypair = per-value diffs + agents can encrypt/decrypt autonomously; age -p passphrase = nothing on disk but interactive-only, agents can neither encrypt nor decrypt — Oriol's repeated explicit choice for hq, honor it), the once-per-run passphrase Makefile (util-linux script pty), the FILE= single-file re-encrypt rule (age output is randomised — a full re-encrypt destroys the diff), make secrets-status (the only freshness check an agent can run), the agent handoff (plaintext + catalog entry + USER_TODO item; never the value in chat; the auto-mode classifier refuses secret writes — stop after ONE refusal), the CLAUDE.md catalog contract (keys by NAME, account/scope, dates, lifetime, consumers, parse rule), token lifetimes and rotation (30-day Coolify tokens, IP-locked Cloudflare tokens, write-once tunnel tokens, "went through chat → rotate"), exporting secrets that exist only in a SaaS store (Coolify env backup per team), and deploying from the store (ansible reads the controller's decrypted plaintext with a stat + warn-and-skip; servers never see the passphrase). HARD SCOPE LIMIT — personal private repos ONLY, never professional repos public OR private; those get a real secret manager.
+description: "Manage credentials for PRIVATE PERSONAL repos by committing them age-encrypted, so every machine (and every agent session) has the same secrets after a clone — without a secret manager. Use when the user asks \"can we commit the .env encrypted\", \"where do I put this API key / token / password\", \"add a secret to hq\", \"version the secrets\", \"share .env between my machines via git\", \"back up the Coolify envs\", \"rotate this token\", when a token that used to work returns 401/403, when a fresh clone or new host is missing its secrets, when an agent needs a credential that \"should be somewhere\", or when writing/reviewing a Makefile encrypt/decrypt target, a secrets/ .gitignore, or an ansible task that deploys a credential. Covers the whole lifecycle: the store layout (one dir, one file per provider×scope, deny-all gitignore with !*.enc, any extension, directories as one tarball), the two modes and how to choose (sops+age keypair = per-value diffs + agents can encrypt/decrypt autonomously; age -p passphrase = nothing on disk but interactive-only, agents can neither encrypt nor decrypt — Oriol's repeated explicit choice for hq, honor it), the once-per-run passphrase Makefile (util-linux script pty), the FILE= single-file re-encrypt rule (age output is randomised — a full re-encrypt destroys the diff), make secrets-status (the only freshness check an agent can run), the agent handoff (plaintext + catalog entry + USER_TODO item; never the value in chat; the auto-mode classifier refuses secret writes — stop after ONE refusal), the CLAUDE.md catalog contract (keys by NAME, account/scope, dates, lifetime, consumers, parse rule), token lifetimes and rotation (30-day Coolify tokens, IP-locked Cloudflare tokens, write-once tunnel tokens, \"went through chat → rotate\"), exporting secrets that exist only in a SaaS store (Coolify env backup per team), and deploying from the store (ansible reads the controller's decrypted plaintext with a stat + warn-and-skip; servers never see the passphrase). HARD SCOPE LIMIT — personal private repos ONLY, never professional repos public OR private; those get a real secret manager."
 ---
 
 # Secrets in git — the committed encrypted store (personal repos only)
@@ -277,9 +277,10 @@ asking for one that is already committed. Each bullet says:
   root permission), IP lock (personal Cloudflare token: workstation
   egress IP, rotated every 30 days), no expiry (AWS IAM key), write-once
   (Cloudflare tunnel tokens — only needed to seed a host);
-- **what a failure means**: a 401/403 on a token that used to work =
-  expired or rotated → ask Oriol for a new one, never retry or work
-  around it;
+- **what a failure means**: a 401/403 on a token that used to work can mean
+  expiration, rotation, an IP restriction, or an account/scope mismatch.
+  Diagnose with available policy and non-secret network evidence before
+  requesting replacement; never blindly retry or work around restrictions;
 - **consumers**: which ansible role/tag deploys it and where it lands on
   the target, which tool or script reads it, which hub/app holds the same
   value under which name (a metrics token lives in the app's Coolify env
@@ -312,6 +313,17 @@ Correct a stale bullet in place; never append a contradicting one.
   seed `/etc/cloudflared/cloudflared.env` once): the secrets file may be
   empty between provisions; that is not an error and not a reason to ask
   for the token unless a host is being (re)provisioned.
+
+### Cloudflare error 10000: check the IP restriction before requesting scopes
+
+An active token can still return 401/error 10000 because its client-IP allowlist
+excludes the workstation's current outbound IP. Do not infer missing permissions
+from that error alone. Compare the provided token policy's account resource and
+permissions with the configured account, then check outbound IP via Cloudflare's
+`/cdn-cgi/trace`. Ask the owner to update the authorized IP filter when it differs;
+do not route around it, remove the filter, or request rotation without evidence.
+The [Verify Token endpoint is exempt from client-IP filtering](https://developers.cloudflare.com/fundamentals/api/how-to/restrict-tokens/),
+so an active verification response does not prove service endpoint access.
 
 ## Exporting from SaaS stores
 
