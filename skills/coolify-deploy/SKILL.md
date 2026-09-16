@@ -1,7 +1,13 @@
 ---
 name: coolify-deploy
 description: >-
-  Deploy, configure and operate applications on Coolify (self-hosted PaaS) without repeating known outages. Use when creating or reviewing ANY Coolify resource (Dockerfile app, Compose stack, static site), writing a docker-compose meant for Coolify, choosing between Dockerfile and Compose resource types, wiring Coolify env vars / magic variables (SERVICE_PASSWORD_*, SERVICE_FQDN_*, SOURCE_COMMIT), setting up Persistent Storage / volumes, or when the user reports "502 Bad Gateway", "504 intermittent", "data disappeared after redeploy", "deploy takes forever / containers take 30s to stop", "unable to open database file", "env var not applying", "rolled back on first deploy", "deploy does nothing / already queued for this commit", "the app is stuck on an old commit", or asks "how do I deploy this to Coolify", "set up the Coolify resource", "why did the volume reset", or needs to deploy an app whose repo has NO git remote / whose content is too sensitive for GitHub or a registry (the git-less docker-image + rsync pattern). Covers the Dockerfile-over-Compose blue-green rule, Traefik/networking traps (no ports, no custom labels, no networks: block), env var syntax + the empty-string default-wipe trap, anonymous-volume data loss + recovery, nonroot bind-mount chown, healthcheck design, PID-1 signal handling, and prod-host operating rules (no repo checkout, container-name instability, detached one-offs).
+  Deploy, configure and troubleshoot Coolify applications. Use for resource creation,
+  Dockerfile versus Compose deployment, environment variables and build secrets,
+  domains and Traefik routing, storage permissions and persistence, health checks,
+  release verification, blue-green rollout and rollback, slow deploys, stale releases,
+  missing runtime configuration, 502/504 errors, lost data and git-less image deployments.
+  Includes account scoping, production-host rules, PID-1 signals, network and label
+  traps, deployment tracking and post-deploy validation.
 ---
 
 # Coolify deployments
