@@ -309,3 +309,23 @@ keep the alarm so unresolved cases stay visible.
   For server 4xx feedback, scope `htmx:beforeSwap` handling to the intended error
   target; HTMX does not swap error responses by default. Verify visible feedback,
   retained form values, no duplicate alerts, and clearing after a valid selection.
+
+
+### Cold startup and failed polling (2026-09-16)
+
+- Capture both browser `pageerror` and console errors. Framework error handlers
+  can consume exceptions before Playwright emits `pageerror`; a visible control
+  does not prove its surrounding form initialized. Reproduce with an empty
+  application cache and delayed account/profile responses, then assert actual
+  form values, save/refusal feedback, draft retention and teardown.
+- For failures after a sleeping tab resumes, inspect the shipped service worker:
+  it may synthesize HTTP 504 when fetch rejects. Compare request duration and
+  simultaneous endpoint failures with server logs before blaming database latency.
+- Verify recovery after restoring connectivity, not just the first failure:
+  an RxJS error can terminate the outer polling subscription permanently.
+  Keep retry inside the read mechanism, bound its backoff, avoid overlapping wake
+  and timer requests, cancel listeners on unsubscribe, and show stale-data feedback.
+- Provider rejection tests must assert persisted business state and every channel
+  outcome. An absent secondary channel is not a successful delivery. A sender
+  formatting fix does not resolve provider registration or destination permissions;
+  document that operational boundary explicitly and never send a customer probe.
