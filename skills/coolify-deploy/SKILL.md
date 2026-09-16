@@ -18,7 +18,7 @@ from hq `docs/projects.md` / `docs/servers/` and use that scope's account:
 |---|---|---|---|
 | enantena / enacast | Enantena's Coolify Cloud team | `homelab/secrets/coolify.env` (`COOLIFY_API_TOKEN`) | `coolify/coolify-enantena.pub` |
 | oriolj (personal) | Oriol's personal Coolify (manages jluv-apps-1) | `homelab/secrets/coolify-oriolj.env` (`COOLIFY_ORIOLJ_API_TOKEN`, `COOLIFY_ORIOLJ_API_URL` if self-hosted) — to be created | `coolify/coolify-oriolj.pub` — to be created |
-| smartupsoft | its own | not in hq yet | — |
+| smartupsoft | SmartupSoft Coolify Cloud team | [hq scope catalog](../../../../../Syncthing/Syncthing-mobile-docs/hq/CLAUDE.md#secrets-age-passphrase): `homelab/secrets/coolify-smartupsoft.env` (`COOLIFY_SMARTUPSOFT_API_TOKEN`, `COOLIFY_SMARTUPSOFT_API_URL`), verified 2026-09-16 | Consult the project deployment doc |
 
 - A personal server or a personal project **never** goes into the Enantena
   team, and vice-versa. The token at hand is not the token to use.
