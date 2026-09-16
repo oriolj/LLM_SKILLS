@@ -329,3 +329,22 @@ keep the alarm so unresolved cases stay visible.
   outcome. An absent secondary channel is not a successful delivery. A sender
   formatting fix does not resolve provider registration or destination permissions;
   document that operational boundary explicitly and never send a customer probe.
+
+### Provider policy failures and partial notification success (2026-09-16)
+
+- Read the provider's exact numeric error and current destination policy before
+  fixing sender/input syntax. Syntactically valid identifiers may require prior
+  registration; a code fix cannot grant account permissions. Search excerpts do
+  not prove a policy's effective date when the opened primary page omits it.
+- Reproduce the real notification button AND automatic failed-delivery callback
+  with the provider mocked. An HTTP 200 plus a success toast may accompany a
+  failed provider result and a wrongly persisted notification flag. Verify all
+  three: response, visible feedback and database state.
+- Give send helpers an explicit acceptance contract; swallowed exceptions and
+  implicit `None` must not become success. Preserve sanitized diagnostics for
+  sibling callers when introducing a return value. Test total failure, one-channel
+  acceptance and full acceptance; partial success deserves explicit feedback.
+- Classify known permanent provider-policy failures separately from throttling,
+  transport errors and provider 5xx. Acknowledge permanent callback failures once
+  while preserving the diagnostic; retain transient retry semantics. Never try a
+  second sender after an ambiguous acceptance, or test through customer messages.
