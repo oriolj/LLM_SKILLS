@@ -298,3 +298,14 @@ keep the alarm so unresolved cases stay visible.
   environment without exposing its secret. A missing-token request may create a
   real signup when no provider is configured; use a guaranteed rejection instead.
   Check persistence separately from HTTP status and record environment differences.
+
+### Template responses and HTMX validation (2026-09-16)
+
+- A `TemplateView.get_context_data()` method must return a dictionary. Returning
+  an HTTP error response there masks a missing object with a template-rendering
+  500. Resolve the object and return any branded error response at the view boundary.
+- HTMX may send a request before a jQuery `submit` guard runs. Cancel its
+  `htmx:beforeRequest` event for client validation and keep server validation.
+  For server 4xx feedback, scope `htmx:beforeSwap` handling to the intended error
+  target; HTMX does not swap error responses by default. Verify visible feedback,
+  retained form values, no duplicate alerts, and clearing after a valid selection.
