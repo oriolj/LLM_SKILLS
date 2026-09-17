@@ -794,6 +794,23 @@ any new provisioning file needs one extra restart to take effect. Verify
 with the unauthenticated `/metrics`: `grafana_alerting_rule_group_rules`
 lists every live group.
 
+**The same applies to contact-point INTEGRATIONS.** Dropping an integration
+from `contactpoints.yml` leaves it live (file provisioning upserts by uid,
+never prunes): the `sysadmin-pushover` integration removed on 2026-08-31
+kept paging every `warning` rule at p0 until 2026-09-17, unnoticed
+because Grafana's `grafana_alerting_notifications_total` resets on each
+redeploy. Remove with a **`deleteContactPoints:` tombstone** (`orgId` +
+`uid`) in a file that stays, redeploy, then verify with
+`GET /api/v1/provisioning/contact-points` — send `X-Grafana-Org-Id: 1`,
+the admin's default org is another one and the list comes back `[]`.
+Audit what actually reached the phone from Loki, not from the counter:
+`{host="monitor-1-nc", service="grafana"} |= "ngalert.notifier"
+|= "integration=pushover"` (the hub ships its own containers) — each
+send logs `receiver=` and the `aggrGroup` alertname, via the *"Truncated
+message"* warning our >1024-rune messages trigger; enable
+`[unified_alerting.notification_history]` (Loki backend) for a complete
+record.
+
 **Alert provisioning files DID load on a plain Coolify redeploy** (2026-08-28,
 `licita-radar.yml`: `grafana_alerting_rule_group_rules{rule_group="hq;licita-radar"} 7`
 right after the deploy, no extra restart) — the "one extra restart" note
