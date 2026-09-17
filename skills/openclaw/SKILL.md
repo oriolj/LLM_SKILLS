@@ -19,7 +19,7 @@ behaves differently.
 
 | VM | Scope | LAN IP | Channels (2026-09-17) |
 |---|---|---|---|
-| petraclaw | personal (oriolj) | `192.168.7.73` | Telegram |
+| petraclaw | personal (oriolj) | `192.168.7.73` | Telegram **only** — no personal Slack exists, decision 2026-09-17; never stage Slack here |
 | emmaclaw | Enantena / EnaCast | `192.168.7.217` | Telegram + Enantena Slack (8 channels, one is an invoices-inbox → Holded purchase-draft flow) |
 | blakeclaw | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram + SmartupSoft Slack (app Blake; DMs Oriol + Enric, `#seaotter2026` no-mention, `#general` on mention) |
 
