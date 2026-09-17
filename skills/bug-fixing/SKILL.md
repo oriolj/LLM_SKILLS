@@ -352,3 +352,30 @@ keep the alarm so unresolved cases stay visible.
   transport errors and provider 5xx. Acknowledge permanent callback failures once
   while preserving the diagnostic; retain transient retry semantics. Never try a
   second sender after an ambiguous acceptance, or test through customer messages.
+
+### Layout bugs: measure the scale, then verify with numbers (2026-09-17, Ramen schedules grid)
+
+- A "column X is not aligned with element Y" report is almost always two
+  scales: one thing sized in px, the other in percent of a DIFFERENT box.
+  Check what `absolute inset-0` resolves against — inside a container with
+  `overflow: auto` + `max-height`, it is the visible viewport, not the
+  scrollable content. Derive every vertical value from ONE constant in a
+  pure module, unit-test the invariant "label offset === block offset for
+  the same minute", then read the DOM: `style.top` of the block wrapper vs
+  the hour label (the fix was accepted when both printed 1248px).
+- Remote Chrome (the extension runs on another machine): `localhost` and
+  `*.localhost` show an error page and `localStorage` throws. Use a host
+  already listed in `next.config.ts` `allowedDevOrigins` (Ramen:
+  `http://minisforum-um880:3203`); other hostnames load but Next blocks its
+  own chunks and the app never hydrates ("Loading…" forever, no console
+  error). Inject the API token with the JS tool on that origin.
+- A local backend that answers 500 `Unknown column …` on `/get_user/` is
+  behind on migrations from a sibling session's branch: `make migrate` in
+  the backend repo, then retry — not a Ramen bug.
+- Another session may be editing the same repo. `git status` before AND
+  after subagents run; commit only your hunks (for JSON catalogs and
+  release notes, build the staged blob as HEAD + your block and
+  `git update-index --cacheinfo` it) and leave the rest in the tree.
+- Native `<select>` + React: the `find` tool cannot pick an option and
+  Enter submits the form (useful: it proved the "select a program" refusal).
+  Set the value with the prototype setter + a bubbling `change` event.
