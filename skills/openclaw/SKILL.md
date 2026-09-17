@@ -21,7 +21,7 @@ behaves differently.
 |---|---|---|---|
 | petraclaw | personal (oriolj) | `192.168.7.73` | Telegram |
 | emmaclaw | Enantena / EnaCast | `192.168.7.217` | Telegram + Enantena Slack (8 channels, one is an invoices-inbox → Holded purchase-draft flow) |
-| blakeclaw | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram; SmartupSoft Slack plugin installed, tokens pending |
+| blakeclaw | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram + SmartupSoft Slack (app Blake; DMs Oriol + Enric, `#seaotter2026` no-mention, `#general` on mention) |
 
 All three on **2026.9.4** since 2026-09-17. emmaclaw is the only one that
 also loads secrets from a unit drop-in (`openclaw-gateway.service.d/
@@ -73,7 +73,10 @@ EOF'
 ```
 
 `plugins.entries.*.config` also carries keys (Brave) — redact it the same
-way if you print it. Prefer `openclaw config get <path>` for single values.
+way if you print it. `openclaw config get <path>` is safe for non-secret
+paths; on a secret field it returns a `__OPENCLAW…` placeholder, not the
+value — so a script that needs the real bot token must read the JSON5
+file (comment-stripped) as above, on the box, and never print it.
 
 ## Updating (the procedure that worked, with the trap)
 
@@ -227,7 +230,14 @@ migration is one-way), `gateway install --force`, restart. Untested.
    Tokens → Generate* with `connections:write` → `xapp-…`; *Install App →
    Install to Workspace* → Bot User OAuth Token `xoxb-…`; his member ID
    (`U…`, profile → ⋯ → Copy member ID) for the DM allowlist.
-3. Stage on the box so he only fills a file: `~/slack-setup/{slack-app-
+3. Tokens: if Oriol pastes them in chat (he did on 2026-09-17), write them
+   straight to the box over ssh inside a heredoc, `config patch`, then
+   ALSO into hq `homelab/secrets/slack-<scope>.env` (0600, gitignored) with
+   a catalog entry in hq `CLAUDE.md` and a USER_TODO line to encrypt +
+   rotate — never into a doc, and grep every command output for
+   `xoxb|xapp` before it lands in the transcript (`sed -E
+   's/(xoxb|xapp)[^ ]*/<redacted>/g'`). Otherwise stage on the box so he
+   only fills a file: `~/slack-setup/{slack-app-
    manifest.json,tokens.env.example,apply.sh}` — `apply.sh` backs up the
    config, `openclaw config patch --file` a JSON5 with
    `channels.slack = {enabled, mode:"socket", botToken, appToken,
@@ -236,14 +246,27 @@ migration is one-way), `gateway install --force`, restart. Untested.
    nativeTransport:true}}`, restarts, prints `channels status`. Tokens
    never go through chat; `tokens.env` is deleted after apply (they live
    in `openclaw.json`).
-4. Channels: invite the bot, then `openclaw config set
+4. Channels. Resolve ids on the box with the bot token
+   (`conversations.list?types=public_channel,private_channel` — the
+   manifest has `channels:read`/`groups:read`; `auth.test` first). The bot
+   **cannot join by API** (`conversations.join` → `missing_scope
+   channels:join`, not in the manifest) — Oriol runs `/invite @<bot>` in
+   each channel. Then `openclaw config set
    channels.slack.channels.<CHANNEL_ID> '{enabled:true,requireMention:true}'`
-   per channel; `requireMention:false` + a `systemPrompt` turns a channel
-   into an inbox flow (emmaclaw's FACTURES REBUDES channel is the model:
-   extract invoice data, one allowed write — a Holded purchase DRAFT).
-5. Verify: `openclaw channels status` → `Slack default: enabled,
-   configured, running, connected, … health:healthy`; a DM from the
-   allowlisted user gets a reply; journal shows `[slack]` lines.
+   per channel (JSON5 literal is accepted; `config get
+   channels.slack.channels` shows the map) and restart the gateway;
+   `requireMention:false` + a `systemPrompt` turns a channel into an inbox
+   flow (emmaclaw's FACTURES REBUDES channel is the model: extract invoice
+   data, one allowed write — a Holded purchase DRAFT). Same-named
+   channels from earlier years exist (`seaotter2025` vs `seaotter2026`) —
+   match the exact name.
+5. Verify: `openclaw channels status --probe` → `Slack default: enabled,
+   configured, running, connected, bot:config, app:config, works`
+   (2026.9.4 wording; older printed `health:healthy`); journal `[slack]
+   socket mode connected`; `config get channels.slack.allowFrom` lists
+   the member ids; a DM from an allowlisted user gets a reply. Right
+   after a restart Telegram may show `disconnected` for a few seconds —
+   re-probe before calling it broken.
 
 HTTP mode (`signingSecret`, `webhookPath`) needs a public URL — not for
 LAN-only claws.
