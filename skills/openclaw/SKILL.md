@@ -8,10 +8,12 @@ description: Operate the estate's OpenClaw agent VMs (petraclaw = personal, emma
 **What OpenClaw is, the risks and the estate state live in hq
 [`shared/docs/openclaw.md`](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/openclaw.md)**;
 per-box facts in `hq/docs/servers/<name>.md`
-([blakeclaw](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/blakeclaw.md)
-exists; petraclaw/emmaclaw pending). This skill is the *mechanics*. Verified
-on blakeclaw 2026-09-17 (2026.7.1-2 → 2026.9.4); update the notes here when
-a step changes.
+([petraclaw](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/petraclaw.md),
+[emmaclaw](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/emmaclaw.md),
+[blakeclaw](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/blakeclaw.md)).
+This skill is the *mechanics*. Verified on all three 2026-09-17
+(2026.7.1-2 → 2026.9.4); update the notes here the same turn a step
+behaves differently.
 
 ## The estate model — one VM per scope, accounts follow the scope
 
