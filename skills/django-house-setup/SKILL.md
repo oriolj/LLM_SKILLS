@@ -206,6 +206,18 @@ that silently never raises is wrong for two consumers. The house contract:
    DRF's stock `OrderingFilter` without `ordering_fields` orders by any
    serializer field and 500s on method-backed ones.
 
+## Startup configuration checks must be executed
+
+Registering a Django system check in `AppConfig.ready()` does not run it.
+Verified with Django 4.2: `migrate` requests no system checks; `collectstatic`
+requests only checks tagged `staticfiles`; Gunicorn loading WSGI does not run
+management-command checks. A required CAPTCHA/provider configuration check can
+therefore exist and pass tests while never gating production startup.
+Give feature checks a tag and invoke `python manage.py check --tag <feature>`
+explicitly in the relevant start script before serving traffic. Feature-disabled
+checks should return no errors. Test both the missing-config error and the tag
+used by startup; do not infer execution from registration alone.
+
 ## Health endpoints per role (owned here)
 
 - **web**: `/health/` view returning db+cache status
