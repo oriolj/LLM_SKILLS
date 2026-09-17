@@ -21,7 +21,13 @@ a step changes.
 | emmaclaw | Enantena / EnaCast | `192.168.7.217` | Telegram + Enantena Slack (8 channels, one is an invoices-inbox → Holded purchase-draft flow) |
 | blakeclaw | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram; SmartupSoft Slack plugin installed, tokens pending |
 
-Proxmox VMs on the home `proxmox` host (`.179`), Ubuntu 25.04, **LAN only**
+All three on **2026.9.4** since 2026-09-17. emmaclaw is the only one that
+also loads secrets from a unit drop-in (`openclaw-gateway.service.d/
+override.conf` → `EnvironmentFile=~/.openclaw/secrets/openclaw.env`:
+Slack bot token, Trello, Ramen creds) — `gateway install --force` keeps
+the drop-in.
+
+Proxmox VMs 100 / 102 / 101 on the home `proxmox` host (`.179`), Ubuntu 25.04, **LAN only**
 (no Tailscale, no public DNS). `ssh oriol@<name>` works by name from the
 workstations with the usual key; `root@` too; sudo asks a password. Each VM
 holds ONLY its scope's keys (model provider, Slack, Telegram, Brave) — never
@@ -69,6 +75,14 @@ way if you print it. Prefer `openclaw config get <path>` for single values.
 
 ## Updating (the procedure that worked, with the trap)
 
+0. **Pre-flight the model, not just the channels**: `journalctl --user -u
+   openclaw-gateway --since "2 days ago" | grep -c OAuthRefreshFailureError`
+   and `openclaw models status`. emmaclaw had answered nothing for 27 h
+   (Codex OAuth refresh 401, `model-fallback … auth_permanent next=none`)
+   while `health` and `channels status` were green. Also `chmod 600
+   ~/.config/systemd/user/openclaw-gateway.service` (and delete any
+   `.bak`) **before** `update` — the updater then installs the new unit
+   itself instead of failing on `[unsafe-permissions]`.
 1. **Release notes first**: `gh api repos/openclaw/openclaw/releases
    --paginate -q '.[] | select(.tag_name|test("^v2026\\.9")) | .body'`
    and grep `Breaking`. Versions are CalVer; `npm view openclaw dist-tags`
@@ -79,30 +93,50 @@ way if you print it. Prefer `openclaw config get <path>` for single values.
 2. **Backup on the box**: `tar --exclude=npm --exclude='*.sqlite-wal' -czf
    ~/backups/openclaw-pre-<ver>-$(date -u +%Y%m%dT%H%M%SZ).tgz -C ~ .openclaw`
    and `cp -a ~/.openclaw/openclaw.json ~/backups/openclaw.json.pre-<ver>`.
-   ~64 MB; `~/.openclaw` is ~2 GB mostly `npm/` cache.
+   64 MB on blakeclaw, 475–576 MB on the other two (workspace `media/`);
+   `~/.openclaw` is 2–5 GB, mostly `npm/` cache and media.
 3. `openclaw update --dry-run`, then `openclaw update 2>&1 | tee
    ~/backups/openclaw-update-<ver>.log`.
-4. **THE TRAP** — on our units the updater's own doctor step fails
-   (`Doctor could not enter maintenance… Gateway service ownership or
-   shutdown could not be verified`), reports `Update Result: ERROR`, yet
-   the package IS swapped and the service IS restarted — **on the new
-   version, which refuses to start**: `Gateway failed to start: OpenClaw
-   state database schema migration required (audit-events-v2)`. The
-   gateway is down from this moment. Do not re-run `update`; finish by
-   hand:
+4. **THE TRAP (not deterministic)** — on blakeclaw and emmaclaw the
+   updater's own doctor step failed (`Doctor could not enter maintenance…
+   Gateway service ownership or shutdown could not be verified`), it
+   reported `Update Result: ERROR`, yet the package WAS swapped and the
+   service WAS restarted — **on the new version, which refuses to
+   start**: `Gateway failed to start: OpenClaw state database schema
+   migration required (audit-events-v2)`, unit `failed`, `status=78/CONFIG`.
+   On petraclaw (same shape) the same command reported `Update Result:
+   OK`, ran the migrations itself and the gateway came up — with two
+   cosmetic tails: `Gateway install blocked: … [unsafe-permissions]` (the
+   664 unit, see step 0) and `Doctor failed: ERR_MODULE_NOT_FOUND …
+   doctor-health-*.js` (the old CLI process importing chunks the swap
+   removed). Either way, do not re-run `update`; run the doctor once:
    ```bash
    systemctl --user stop openclaw-gateway.service
    openclaw doctor --fix --yes 2>&1 | tee ~/backups/openclaw-doctor-<ver>.log
    systemctl --user reset-failed openclaw-gateway.service
    systemctl --user start openclaw-gateway.service
    ```
-   Doctor migrates: agent DB v1→v19, config keys the new schema rejects
-   (`meta.lastTouchedAt`, `agents.defaults.imageGenerationModel`,
-   `agents.defaults.memorySearch`, `gateway.tailscale.resetOnExit` → moved
-   to SQLite state), device pairings (`devices/*.json` → `.migrated`),
-   `HEARTBEAT.md` → cron scratch, `TOOLS.md` merged into `AGENTS.md`,
-   exec approvals, config audit log. It also disables unusable skills
-   (`model-usage` on blakeclaw) and writes `openclaw.json.bak`.
+   Doctor migrates (when the updater did not already): agent DB v1→v19,
+   shared state to v15 + STRICT typing, config keys the new schema
+   rejects (`meta.lastTouchedAt` → SQLite, `agents.defaults.memorySearch`
+   → `memory.search`, `imageGenerationModel` → `mediaModels.image`,
+   `gateway.tailscale.resetOnExit` removed, legacy model map →
+   `agents.defaults.modelPolicy.allow`), **auth profiles → SQLite** (this
+   is what revived emmaclaw's expired-looking Codex auth), channel
+   `allowFrom` entries and pairing requests → SQLite (they also stay in
+   the file), device pairings (`devices/*.json` → `.migrated`, imported at
+   the next gateway start), cron store → SQLite (`cron/jobs.json` →
+   `.migrated`; doctor's "Cron store normalized at …/jobs.json" wording is
+   stale), `HEARTBEAT.md` → cron scratch, `TOOLS.md` merged into
+   `AGENTS.md`, exec approvals, config audit log, provider catalogs. It
+   refreshes the `codex` plugin itself, disables unusable skills
+   (`model-usage` everywhere), prunes orphaned Codex session bindings
+   (182 on petraclaw) and writes `openclaw.json.bak` (older ones rotate to
+   `.bak.1…`). If the updater already migrated, a second doctor prints no
+   `Auto-migrated` lines — that is fine. The session store moves from
+   `sessions.json` to `agents/main/agent/openclaw-agent.sqlite`. **The
+   workspace git repo is left dirty** (`HEARTBEAT.md`/`TOOLS.md` deleted,
+   `AGENTS.md`/`MEMORY.md` modified) — do not commit it unasked.
 5. **Unit reinstall** — `openclaw daemon status` will say the service is
    "out of date or non-standard" (old `OPENCLAW_SERVICE_VERSION`,
    `KillMode=control-group`, unsafe 664 perms). `gateway install --force`
@@ -116,19 +150,39 @@ way if you print it. Prefer `openclaw config get <path>` for single values.
 6. **Plugins are pinned** to the version they were installed with and do
    not follow the core (`brave is pinned to @openclaw/brave-plugin@2026.7.1`).
    `openclaw plugins update <id>` only tells you so; use the package spec:
-   `openclaw plugins update @openclaw/brave-plugin@latest`, then restart.
+   `openclaw plugins update @openclaw/brave-plugin@latest` (and
+   `@openclaw/slack@latest` where Slack is installed), then restart.
    `daemon status` shows `Plugin version drift: N active official plugin
    not on gateway <ver>` until every one is done. Plugin ids ≠ package
-   names (`brave` = `@openclaw/brave-plugin`, `slack` = `@openclaw/slack`).
+   names (`brave` = `@openclaw/brave-plugin`, `slack` = `@openclaw/slack`);
+   `codex` is refreshed by doctor and stays on the unpinned spec
+   `@openclaw/codex` (the security audit's "unpinned npm specs" warning is
+   about that and pre-exists). Until the Slack plugin is updated the
+   journal repeats `[channels] failed to load configuredState checker for
+   slack: plugin module path not found` at each boot — expected noise.
 7. **Verify — all of these, not one**:
    - `journalctl --user -u openclaw-gateway --since "2 min ago"` shows
      `[gateway] http server listening (N plugins: …)` and `[gateway] ready`
-     with the expected plugin list (brave is a capability plugin and is
-     NOT in that list — that is normal).
+     with the expected plugin list (17–18 entries on 2026.9.4 incl.
+     brave, slack where installed; blakeclaw's first boots listed only 6
+     and still worked — the count is not a pass/fail signal, the named
+     channel plugins are).
    - `openclaw health` (channels `configured`, event loop `ok`; a
      `degraded` event loop in the first seconds after boot is cold start).
-   - `openclaw status --deep` → channel rows `OK`, tasks `no issues · audit
-     clean`.
+   - `openclaw status --deep` → channel rows `OK`; tasks `no issues ·
+     audit clean` — or N "issues" whose timestamps all predate the update
+     (2026.9 imports the legacy cron run log; check `openclaw tasks list
+     --json` before calling them regressions). A Telegram row `WARN …
+     requireMention=false … Bot API privacy mode` is a new 2026.9 lint on
+     unchanged config, not a regression.
+   - `openclaw channels status --probe` → each channel `…, works`. On
+     2026.9.4 the plain `channels status` no longer prints
+     `health:healthy` or `in:/out:` ages and shows `token:***` — do not
+     grep for the old wording. Slack: journal `[slack] socket mode
+     connected` and no auth errors; "socket mode reports N active
+     connections" is stale sockets after rapid restarts, pre-existing.
+   - `openclaw models status` → the provider `status=usable`, and the next
+     `Heartbeat (main)` run in `openclaw cron list` says `ok`.
    - a real turn: `openclaw agent -m "Reply with exactly: <HOST> OK <ver>"
      --timeout 90` and one that needs web search ("find the current
      OpenClaw version on npm") to prove the Brave key survived.
@@ -136,8 +190,17 @@ way if you print it. Prefer `openclaw config get <path>` for single values.
      send ok`); nobody needs to message the bot for the update to be
      proven, but a DM from Oriol's phone is the end-to-end check.
    - `openclaw daemon status` — only the nvm warnings should remain.
+     `Capability: read-only` is what 2026.9.4 prints on every claw (was
+     `admin-capable`); commands still work — a renamed field, not a loss.
+   - For a Slack claw, dump the redacted `channels.slack` before and after
+     and diff: channel ids, `allowFrom`, every `systemPrompt` must be
+     byte-identical (they were on emmaclaw).
 8. Record: hq changelog line, the server file's Services row (version,
    date), and anything new here.
+
+2026.9.4 also creates managed cron jobs on first boot — `Heartbeat
+(main)` 30 m, `Memory Dreaming Promotion` 03:00, `Skill collection
+review` 7 d — next to the user's jobs; expected.
 
 Leftover warnings that are cosmetic: "Gateway service uses Node from a
 version manager" (no system Node; the unit pins the absolute nvm path, so
