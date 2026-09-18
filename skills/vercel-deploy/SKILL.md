@@ -94,11 +94,19 @@ alone deploys nothing, whatever the deploy doc says.
 git-less export instead:
 `D=$(mktemp -d) && git archive HEAD | tar -x -C "$D"`, then `vercel link`
 + `vercel deploy --prod` inside `$D`. (Deploys from a detached worktree also
-carry the meta — use the export.) Reference implementation, wired as
-`make deploy-prod` (2026-09-18, H2A Accountant):
-`humans2agents/agents/accountant/scripts/deploy_frontend.sh` — token from the
-hq secrets file, export, link, deploy, curl the alias, warn on a dirty tree,
-`--ref` for another commit. Copy it per project (project/scope/alias at the top). Also: `output: "standalone"` in
+carry the meta — use the export.) **The estate lane (2026-09-18): every Vercel project's repo has `make
+deploy-prod`** (plus `deploy-app` / `deploy-landing` / `deploy-frontend` /
+`deploy-docs` where a repo has several surfaces), which calls hq
+`homelab/tools/vercel-deploy.sh --project <name> [--scope <team>] [--root
+<app subdir>] [--alias <host>] [--check-path <path>] [--ref <commit>]`: export,
+link, `vercel deploy --prod`, curl the alias, dirty-tree warning. Tokens,
+per scope, in hq `homelab/secrets/`: `vercel-oriolj.env`
+(`ORIOLJ_VERCEL_TOKEN`, personal team, the tool's default for `--scope
+oriolj-personal-team`); EnaCast has no token, the CLI login `enacast` is the
+account (pass no `--scope`); BikeCRM / SmartupSoft tokens do not exist yet
+(`vercel-bikecrm.env` / `vercel-smartupsoft.env`, asked in those repos'
+USER_TODO). A new Vercel project gets the target and a CLAUDE.md line on day
+one (project name from `vercel project ls --scope <team>`). Also: `output: "standalone"` in
 `next.config` fails on Vercel's Next 16.3 adapter
 (`ENOENT .next/next-server.js.nft.json`); only set it for a Docker image.
 
