@@ -279,6 +279,44 @@ migrated into SQLite state by doctor (config `allowFrom` entries were
 moved). `[telegram] Plugin command "/dashboard" conflicts…` and "menu text
 exceeded … budget" at startup are harmless.
 
+## Cron jobs and where their output goes (2026.9.4)
+
+Two kinds, and the difference decides whether a reminder reaches anyone:
+
+- `sessionTarget: isolated` + `agentTurn` payload + `delivery: {mode:
+  announce, channel, to}` — the runner delivers the final text to a fixed
+  destination (`openclaw cron edit <id> --announce --channel telegram --to
+  <chat id> --best-effort-deliver`). Deterministic. petraclaw's jobs are
+  built this way (`announce telegram:5095664`).
+- `sessionTarget: main` + `systemEvent` payload — the event is injected into
+  the main session at the next heartbeat and **the model decides whether
+  and where to send** with the message tool; `delivery` is refused for
+  main-session jobs (`cron channel delivery config is only supported for
+  sessionTarget="isolated"`). Emma's *Ampliació de capital* and Blake's
+  three BikeCRM checks are this kind.
+
+**Trap (emmaclaw, 2026-09-18, first run after the update)**: with no
+destination in the payload the model passed `telegram` as the target and
+2026.9.4's message tool resolved it as the username **`@telegram` =
+"Telegram News", chat `-1001005640892`** → `403 Forbidden: bot is not a
+member of the channel chat`, and Emma DMed Oriol a Catalan apology
+instead of the reminder. Before the update the same job had defaulted to
+his DM. The next manual run picked the DM again — it is a guess per run.
+Fix applied: the payload text now ends with an explicit "LLIURAMENT: …
+chat_id 5095664 (target telegram:5095664), no other destination". Rule:
+**every main-session job that must reach a human names the exact
+destination (`telegram:<chat id>` / `slack:channel:<id>`) in its payload**;
+or make it isolated + announce when it does not need the main session's
+memory. Diagnose with the file log (`/tmp/openclaw/openclaw-<date>.log`,
+subsystem `gateway/ws` carries the `chat_id`) — the journal line does not
+show the chat id. Verify a Telegram id with the Bot API on the box:
+`getChat?chat_id=@name` (public channels) — never from a workstation with
+the token.
+
+`openclaw cron run <id>` runs a job now (a real send — the human gets a
+duplicate reminder); `cron show <id>` prints `last delivery` only for
+isolated jobs.
+
 ## Useful commands
 
 ```
