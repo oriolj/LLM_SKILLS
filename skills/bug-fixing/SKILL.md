@@ -404,3 +404,49 @@ keep the alarm so unresolved cases stay visible.
   evidence that the server accepted the file). Before/after with `git stash`
   of the fixed files while the dev server hot-reloads worked as described
   above; the pre-fix run printed the exact refusal text from the catalog.
+
+### Cleared inputs that never reach the form (2026-09-18, Ramen schedule validity dates)
+
+- "Emptying the field does nothing on save" + "the form refuses for a value
+  I can't see" are one mechanism: a wrapped widget that only forwards
+  non-empty selections. flatpickr fires `onChange([])` on Backspace/Delete,
+  and a `set('minDate'|'maxDate')` that excludes the current date **filters
+  `selectedDates` and blanks the input without firing `onChange` at all**.
+  Compare `input.value` with what the PATCH body carries — the repro was
+  "input shows '', body carries the old date, backend 200".
+- Repro the three paths, not one: clear; modify via the calendar (was fine);
+  move the start past the end (the bound-drop path). The last one showed an
+  error banner my generic selector missed — read the after-save screenshot
+  before calling a path "no error".
+- Headless Playwright when the package wants a browser build that is not
+  cached (`Executable doesn't exist at …chromium_headless_shell-NNNN`): do
+  not `npx playwright install`; pass `executablePath` pointing at an existing
+  `~/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell`.
+- Ramen's UI language follows the test radio (radiotest = Spanish): locate by
+  the `es` catalog strings, and the schedule list prints dates `en-US`
+  ("Sep 1, 2026"), not `dd/mm/yyyy`. The running dev server on :3203 was
+  local-backed (`/proc/<pid>/environ`) even though `.env.local` names prod.
+
+### "The editor ignores my setting" can be the renderer's sanitiser (2026-09-18, EnaCast news links)
+
+- Report: "open in new tab" ignored + `www.google.com` opens as a relative
+  URL. Walk the editor in the browser and read the DOM it produces BEFORE
+  touching it: the ramen editor already emitted `target="_blank"
+  rel="noopener noreferrer"`; the attribute died in the public site's
+  `DOMPurify.sanitize()` (default allow-list has no `target`). Every
+  `set:html` body goes through a sanitiser — grep for it in the renderer
+  repo whenever an attribute "does not survive publishing". Fix with one
+  shared policy module (`ADD_ATTR: ['target']` + an
+  `afterSanitizeAttributes` hook forcing `rel`), and check the sibling
+  renderers (episode descriptions had the same gap). Also check what the
+  config actually adds: `ADD_TAGS: ['audio','source']` was dead — already
+  in DOMPurify's defaults; a 3-line node one-liner against the installed
+  package settles it.
+- The href half was the editor's: a relative href needs normalising at
+  insert time (`src/lib/linkHref.ts`), not on the site.
+- Headless walk against the running ramen dev server: the login form is
+  on `/` (not `/signin`), the toolbar language followed the account
+  (Catalan for `oriol.radiotest` here — list `button` texts first, then
+  pick labels from that catalog). Reading the `.ProseMirror a` attributes
+  after "Inserir enllaç" gives before/after evidence without saving, so
+  nothing lands on production through the :3203 proxy.
