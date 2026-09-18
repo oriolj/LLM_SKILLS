@@ -48,6 +48,15 @@ happen on minisforum — from any other device, `make git-commit MSG="..."`
 in hq waits for minisforum to report 100 % completion of the share and then
 commits over ssh. This supersedes the 2026-09-09 bundle-handoff workflow;
 `make git-bundle` on minisforum remains the backup/recovery artifact.
+When `make git-commit` fails with "has not converged … completion=99.x,
+needItems=N" and the local `/rest/db/remoteneed` lists old files unrelated
+to the work, it is the stale-delta-index case in
+[operations.md](operations.md) § Diagnose — reset the local delta index IDs,
+not the files. Until then, the intent of the gate can be met by hand:
+`sha256sum` the exact paths on both sides over ssh, and when they match run
+the same `git add -A -- <paths> && git commit -F -` on minisforum. The
+minisforum GUI listens on `127.0.0.1:8080`, not the default 8384, and its
+login shell is fish — pipe bash scripts into `ssh … bash -s`.
 The hq runbook is `git_on_syncthing.md` in hq.
 
 Per-device state, 2026-09-12: minisforum (git owner, ignore verified),

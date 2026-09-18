@@ -51,6 +51,24 @@ is not an identity check.
   announce an object the sender has not indexed. Bound retries and examine the
   source/error after a failed rescan instead of repeatedly restarting services.
 
+- **A peer stuck below 100 % completion with `needItems` it does not itself
+  need is a stale delta index, not missing data.** Symptom (fw13pro →
+  minisforum, 2026-09-18): `GET /rest/db/completion?folder=&device=` on the
+  local side reported 99.88 % / 17 items for three days, `/rest/db/remoteneed`
+  listed files the peer had last modified itself, while on the peer
+  `/rest/db/file` showed local = global, valid, and `/rest/db/need` was
+  empty; on the local side that file's `availability` list simply lacked the
+  peer. Index updates travel as sequence-numbered deltas, so entries dropped
+  across a reconnect are never resent and a restart of either side does not
+  help (tested). Fix, local device only, no data touched: stop the service,
+  run `syncthing serve --no-browser --no-restart --debug-reset-delta-idxs`
+  once (v2 spelling; the v1 flag was `--reset-deltas`), wait for the
+  completion to reach 100 % (a 16 k-item share took ~40 s), stop it and
+  start the service again. The log line to expect is `Reinitializing delta
+  index IDs`, followed by `Peer has a new index ID` per folder. Do not
+  "touch" the peer's files to force a re-announce: that rewrites mtimes on
+  every device for a metadata-only problem.
+
 For Oriol's managed Linux laptops, inspect `powerprofilesctl get` and
 `syncthing-power-guard.service`: the guard stops Syncthing in `power-saver`,
 which can persist even after charging. Confirm this host actually uses the
