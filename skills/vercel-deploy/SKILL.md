@@ -94,7 +94,11 @@ alone deploys nothing, whatever the deploy doc says.
 git-less export instead:
 `D=$(mktemp -d) && git archive HEAD | tar -x -C "$D"`, then `vercel link`
 + `vercel deploy --prod` inside `$D`. (Deploys from a detached worktree also
-carry the meta — use the export.) Also: `output: "standalone"` in
+carry the meta — use the export.) Reference implementation, wired as
+`make deploy-prod` (2026-09-18, H2A Accountant):
+`humans2agents/agents/accountant/scripts/deploy_frontend.sh` — token from the
+hq secrets file, export, link, deploy, curl the alias, warn on a dirty tree,
+`--ref` for another commit. Copy it per project (project/scope/alias at the top). Also: `output: "standalone"` in
 `next.config` fails on Vercel's Next 16.3 adapter
 (`ENOENT .next/next-server.js.nft.json`); only set it for a Docker image.
 
