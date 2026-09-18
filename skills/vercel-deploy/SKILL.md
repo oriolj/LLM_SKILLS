@@ -220,6 +220,19 @@ routes), not only ISR. Reference run and numbers:
   storm (measured 30-70 a minute before, 2-9 after). Leading + trailing edge per
   (tenant, scope): first purge at once, a burst folded into ONE trailing purge; two cache
   keys and one delayed task (`enacast_backend/cache_purge/tasks.py` `send_purge`).
+- **Watch the chain, or a long TTL fails silently.** With 300 s a broken purge heals itself;
+  with 3600 s a rotated secret or a dead worker leaves every tenant an hour stale and nothing
+  says so. What EnaCast runs: the sender records every purge outcome, a beat **canary** purges
+  a reserved tenant name every 5 min through the whole path (scope chosen so the receiver
+  does exact DELs, no SCAN), and a public, secret-free health view answers 503 on N
+  consecutive failures / no success for 15 min / purging disabled; Gatus probes it. Treat a
+  200 whose body reports a failed step as a failure. (`enacast_backend/cache_purge/health.py`)
+- **Get an adversarial review BEFORE raising the TTL, not after** (we did it after). What it
+  found that tests and a green end-to-end check did not: tags derived from the URL path miss
+  real dependencies (an article embedding an episode, a footer linking pages), models with
+  no purge strategy (theme config, streams, child rows like gallery pictures), writes that
+  bypass `post_save` (M2M `.set()`, `QuerySet.update()`), a cache fill already in flight
+  when the purge lands, and a purge endpoint answering 200 on a partial failure.
 - **A long TTL is a bug detector:** with 300 s a missing invalidation heals before anyone
   reports it; with 3600 s it gets reported. Choose it on purpose, and keep clock-driven
   routes short.
