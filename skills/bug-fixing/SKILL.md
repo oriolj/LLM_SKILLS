@@ -379,3 +379,28 @@ keep the alarm so unresolved cases stay visible.
 - Native `<select>` + React: the `find` tool cannot pick an option and
   Enter submits the form (useful: it proved the "select a program" refusal).
   Set the value with the prototype setter + a bubbling `change` event.
+
+### Upload sniffs: a container header is not the codec (2026-09-18, EnaCast XFrame MP3)
+
+- A client's "valid MP3 refused since the validation change" was a RIFF/WAVE
+  file whose `fmt ` chunk declared MPEG layer III (`wFormatTag 0x0055`):
+  radio automation (XFrame) exports MP3 that way, and a sniff that refuses
+  every `RIFF` header (right for WebP/AVI/PCM wav) refused it. Sniff the
+  container AND the codec tag inside it; keep the refusal for PCM wav.
+- Check BOTH sides before blaming the server: here the backend accepted the
+  file all along (mutagen finds frames behind the 44-byte header) and only
+  the browser-side check refused it; the server half of the fix was
+  canonicalising the stored file (`ffmpeg -c:a copy`, no re-encode) before
+  ID3 tagging, because tags were being written in front of a RIFF header.
+- Build the fixture with ffmpeg instead of asking for the client's file:
+  `ffmpeg -f lavfi -i sine=frequency=440:duration=3 -c:a libmp3lame -b:a 256k -f wav x.mp3`
+  reproduces the header byte-for-byte (`od -A x -t x1z | head`), and
+  `ffprobe -show_entries stream=codec_name:format=format_name` confirms
+  `mp3` inside `wav`.
+- A "local" dev server can proxy PRODUCTION (ramen's `.env.local` pointed
+  `ENACAST_API_URL` at enacast.com): a re-walk that submits creates a real
+  row. Read the env before submitting, use the designated test tenant only,
+  and delete the row afterwards (the create's 201 on prod was still useful
+  evidence that the server accepted the file). Before/after with `git stash`
+  of the fixed files while the dev server hot-reloads worked as described
+  above; the pre-fix run printed the exact refusal text from the catalog.
