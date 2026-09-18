@@ -1,6 +1,6 @@
 ---
 name: vercel-deploy
-description: Deploy Next.js apps to Vercel from a monorepo — the house rule (Next.js → Vercel, never a Coolify resource), CLI-in-monorepo mechanics, tenant custom domains + DNS, git-connection prerequisites. Use when deploying or updating any Next.js app (EnaArchive tenant sites and future ones), when `vercel` CLI errors with "Personal Account", "Login Connection", or creates a stray project, when attaching a tenant host to a Vercel project, or when wiring the CNAME for a Vercel-hosted host at CDmon/Cloudflare. Also: pinning the function REGION next to the backend (vercel.json `regions`, the `x-vercel-id` edge::function header), why `vercel logs` / the runtime-logs API cannot show past errors, and the server-side `fetch failed` trap (undici hides the cause in `error.cause.code`; narrow retry policy). Field notes from the EnaArchive cut-over (2026-08-29) and the Ramen login incident (2026-09-03); grows with each deploy.
+description: Deploy Next.js apps to Vercel from a monorepo — the house rule (Next.js → Vercel, never a Coolify resource), CLI-in-monorepo mechanics, tenant custom domains + DNS, git-connection prerequisites. Use when deploying or updating any Next.js app (EnaArchive tenant sites and future ones), when `vercel` CLI errors with "Personal Account", "Login Connection", or creates a stray project, when attaching a tenant host to a Vercel project, or when wiring the CNAME for a Vercel-hosted host at CDmon/Cloudflare. Also: pinning the function REGION next to the backend (vercel.json `regions`, the `x-vercel-id` edge::function header), why `vercel logs` / the runtime-logs API cannot show past errors, and the server-side `fetch failed` trap (undici hides the cause in `error.cause.code`; narrow retry policy). Field notes from the EnaArchive cut-over (2026-08-29) and the Ramen login incident (2026-09-03); grows with each deploy. Also when caching SSR/API responses at Vercel's CDN with long TTLs and purging them on content change (Vercel-Cache-Tag, invalidateByTag, "edit does not show", "how do I purge the Vercel cache").
 ---
 
 # Vercel deployments (Next.js)
@@ -177,4 +177,35 @@ Testing gotcha: undici refuses "bad ports" (9, 25, 6000, …) with
 `fetch failed: bad port` **before** connecting — a dead-backend test must use
 a closed high port (`127.0.0.1:65123` → `ECONNREFUSED`), or it exercises the
 wrong branch.
+
+## CDN cache: long TTLs + purge by tag (verified in production, EnaCast astro, 2026-09-18)
+
+Works for ANY response of a Vercel Function (Astro/Next/other SSR pages and API
+routes), not only ISR. Reference run and numbers:
+`EnaCast/enacast-astro/docs/cdn-purge.md` (+ the probe route
+`src/pages/api/cache-probe/index.ts`, copy it to test another project).
+
+- **Cache:** `CDN-Cache-Control: public, s-maxage=<s>` (or `Vercel-CDN-Cache-Control`).
+  **Tag:** `Vercel-Cache-Tag: a,b` on the same response (128 tags, 256 bytes each, no
+  commas, case-sensitive; stripped before the browser). A tag on an uncached response
+  does nothing.
+- **Purge from inside the project**, no token, not billed: `@vercel/functions`
+  `invalidateByTag(tag)` (next request gets the OLD copy, re-render in background:
+  measured two `STALE` responses, ~1 s) or `dangerouslyDeleteByTag(tag)` (next request
+  waits and gets the NEW content: `REVALIDATED`). Delete for narrow tags an editor is
+  watching, invalidate for broad ones (stampede). Operator lever:
+  `vercel cache invalidate --tag <t> --yes`. REST API needs a token, 16 tags per call.
+- **Tags are per project + environment, not per host.** The cache KEY includes the host,
+  so a multitenant site has one entry per tenant domain, and one tag purges them all.
+- **The deployment id is in the cache key.** Every deploy starts with an empty CDN cache
+  (refills lazily), and "I redeployed and it was fresh" is NOT a purge test. Test by
+  changing the data behind the page: `MISS` → `HIT` → change → still `HIT` old → purge →
+  new. Put a per-render random id in the body; it is the proof, more than the header.
+- **Purge LAST.** Whatever renders right after the purge is cached for the whole TTL, so
+  every cache under the page (backend caches, app Redis, and any IN-PROCESS memo that a
+  purge on one instance cannot reach on another) must already be fresh or purge-coherent.
+- **Browsers cannot be purged:** HTML that relies on purging sends
+  `Cache-Control: public, max-age=0, must-revalidate` and lets the CDN cache.
+- **Clock-driven content** (scheduled publish, expiry) fires no save, so no purge: short
+  TTL on that route or a scheduled purge.
 
