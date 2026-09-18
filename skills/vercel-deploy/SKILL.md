@@ -233,6 +233,14 @@ routes), not only ISR. Reference run and numbers:
   no purge strategy (theme config, streams, child rows like gallery pictures), writes that
   bypass `post_save` (M2M `.set()`, `QuerySet.update()`), a cache fill already in flight
   when the purge lands, and a purge endpoint answering 200 on a partial failure.
+- **`vercel deploy --prod` can build and NOT promote** (EnaCast astro, 2026-09-18, the sixth
+  production deploy of the evening): the deployment went `Ready` in a minute, the CLI kept
+  waiting for 17 minutes, production stayed on the previous build, and a git-triggered build of
+  an OLDER commit sat in Initializing/Building behind it. `vercel inspect https://<prod-domain>`
+  names the deployment that really serves production (the `vercel ls` list does not);
+  `vercel promote <deployment-url> --yes` fixed it in 13 s. After any deploy, check the domain,
+  not the deployment. And when the project is git-connected, **push the commit you deploy by
+  CLI**: a later git build of the unpushed-behind branch would otherwise take production back.
 - **A long TTL is a bug detector:** with 300 s a missing invalidation heals before anyone
   reports it; with 3600 s it gets reported. Choose it on purpose, and keep clock-driven
   routes short.
