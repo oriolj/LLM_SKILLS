@@ -1637,6 +1637,23 @@ api.resend.com; curl's default UA happens to pass).
   unreachable; `ip_previous` keeps the old value. Create the DNS record
   first, then change the field.
 
+### Cancel a queued deployment; env values by API (EnaCast, 2026-09-18)
+
+- `POST /api/v1/deployments/{deployment_uuid}/cancel` → `{"status":"cancelled-by-user"}`.
+  Used seconds after a trigger whose `git push` turned out to have been REJECTED (origin
+  was ahead): Coolify builds the remote branch head, so the deploy would have shipped
+  without the change and cost a 503 window for nothing. **Check the push landed
+  (`git rev-parse HEAD` = `origin/<branch>`) BEFORE `POST /deploy`.**
+- `POST /applications/{uuid}/envs` with `"is_literal": true` stores the value wrapped in
+  single quotes (`real_value` reads back `'…'`, two characters longer). Existing rows on
+  that resource were unquoted, so the rows were re-sent with `PATCH …/envs` and
+  `"is_literal": false` (fine for values with no `$`). Each POST creates the production
+  row AND a preview twin. Build the JSON body in a file from the secret file and pass
+  `--data @file`, so the value never appears in a command line or in the transcript.
+- On a compose resource every env row reaches EVERY service, listed in the compose
+  `environment:` or not (verified: rows absent from the compose file were present in the
+  running containers).
+
 ### More API facts, verified 2026-08-28 (four products in one afternoon)
 
 - `POST /databases/redis` **`redis_conf` must be base64** (plain text →

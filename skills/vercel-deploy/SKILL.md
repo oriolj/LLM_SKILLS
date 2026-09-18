@@ -208,4 +208,19 @@ routes), not only ISR. Reference run and numbers:
   `Cache-Control: public, max-age=0, must-revalidate` and lets the CDN cache.
 - **Clock-driven content** (scheduled publish, expiry) fires no save, so no purge: short
   TTL on that route or a scheduled purge.
+- **Running it for real (EnaCast, live since 2026-09-18, 3600 s TTL):** one policy module
+  maps route families to tags AND purge scopes to tags, used by both the middleware that
+  tags and the endpoint that purges, so they cannot drift (`cdnCachePolicy.ts` + unit test).
+  Purge order inside the endpoint: bump a per-tenant **purge epoch** in Redis (each warm
+  instance reads it once per request and drops its in-process copies of that tenant),
+  delete the app-cache keys, delete the CDN tags, then a soft `invalidateByTag` ~20 s later
+  via `waitUntil` for renders that started before the purge. Measured: create / edit /
+  unpublish visible on the first request, ~1 s after the save.
+- **Throttle the sender.** Background pipelines that save rows constantly turn into a purge
+  storm (measured 30-70 a minute before, 2-9 after). Leading + trailing edge per
+  (tenant, scope): first purge at once, a burst folded into ONE trailing purge; two cache
+  keys and one delayed task (`enacast_backend/cache_purge/tasks.py` `send_purge`).
+- **A long TTL is a bug detector:** with 300 s a missing invalidation heals before anyone
+  reports it; with 3600 s it gets reported. Choose it on purpose, and keep clock-driven
+  routes short.
 
