@@ -27,6 +27,7 @@ from hq `docs/projects.md` / `docs/servers/` and use that scope's account:
 | oriolj (personal) | Oriol's personal Coolify (manages jluv-apps-1) | `homelab/secrets/coolify-oriolj.env` (`COOLIFY_ORIOLJ_API_TOKEN`, `COOLIFY_ORIOLJ_API_URL` if self-hosted) — to be created | `coolify/coolify-oriolj.pub` — to be created |
 | smartupsoft | SmartupSoft Coolify Cloud team | [hq scope catalog](../../../../../Syncthing/Syncthing-mobile-docs/hq/CLAUDE.md#secrets-age-passphrase): `homelab/secrets/coolify-smartupsoft.env` (`COOLIFY_SMARTUPSOFT_API_TOKEN`, `COOLIFY_SMARTUPSOFT_API_URL`), verified 2026-09-16 | Consult the project deployment doc |
 
+- **Never `source` these `.env` files in a shell** (2026-09-19, EnaCast deploy): the Enantena token contains a `|`, so `source coolify.env` runs the tail of the token as a command and the variable stays empty — the deploy call answers `Unauthenticated` and a polling loop waits on nothing. Read the value with a parser: `python3 -c "print(next(l for l in open(f) if l.startswith('COOLIFY_API_TOKEN=')).split('=',1)[1].strip())"`, or `grep '^COOLIFY_API_TOKEN=' file | cut -d= -f2-`. The same applies to every file under `homelab/secrets/`.
 - A personal server or a personal project **never** goes into the Enantena
   team, and vice-versa. The token at hand is not the token to use.
 - If the scope's credentials are not in `homelab/secrets/`, **stop and add
