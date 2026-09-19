@@ -294,6 +294,19 @@ LAN and `:port` tailnet access stay open until you change the bind.
 - **`ip route get <100.x>`** tells you whether an address routes via
   `tailscale0` or leaks to the LAN gateway — quick answer to "why does this
   IP not work from here".
+- **`--accept-routes` on a laptop SITTING ON the advertised LAN breaks
+  everything that laptop serves to LAN devices** (fw13pro, 2026-09-19, an
+  evening lost serving an ISO to an iLO). Table 52 (`rule 5270`) beats
+  `main`, so `ip route get <lan-ip>` says `dev tailscale0` even for the
+  directly connected subnet; the laptop's outbound still works (detoured
+  and SNAT'ed through the subnet router), but a LAN peer's SYN arrives on
+  `wlan0` while the reply route points at `tailscale0` — `rp_filter`
+  drops it as a martian before the firewall, so ufw logs nothing and
+  `ss` shows nothing. It impersonates a firewall bug perfectly. Check
+  `ip route get <lan-ip>` FIRST; fix with `ip rule add to <lan>/24 lookup
+  main priority 5000` or `tailscale set --accept-routes=false` while on
+  that LAN. A subnet router also SNATs, so LAN devices see the ROUTER's
+  address, not the laptop's — allowlists by client IP break too.
 - **`--accept-routes` on, LAN still unreachable → nobody is advertising
   it.** Don't debug the client; list the routes the tailnet actually
   offers: `tailscale status --json` → each peer's `PrimaryRoutes` /
