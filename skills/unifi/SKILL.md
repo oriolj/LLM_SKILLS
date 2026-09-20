@@ -159,6 +159,20 @@ Mechanics:
   record bare and add a v2 `static-dns` A record for the FQDN (§5).
   Changes take ~10 s to reach dnsmasq; a `dig` right after the PUT still
   shows the old answer.
+- **A client's local DNS record replaces its lease hostname** *(verified
+  2026-09-20)*: the `.151` NAS announced the DHCP hostname `truenas`,
+  which resolved while its record was also `truenas`; the moment the
+  record became `truenas-personal`, bare `truenas` stopped answering
+  (PTR followed within ~10 s). So renaming a client's record renames
+  the box for the whole LAN — set the machine's own hostname to match,
+  or keep the old name as a `static-dns` A record for the transition.
+- **Renaming a client = one partial PUT** on `rest/user/<_id>` with
+  `name` + `local_dns_record` (send `use_fixedip`/`fixed_ip`/`network_id`
+  along, per rule 2). The controller can hold a half-state — `fixed_ip`
+  set with `use_fixedip: false` (an iLO entry, 2026-09-20; probably a UI
+  edit abandoned before *Apply*) — which the same full PUT repairs. The
+  skill script prints the PUT result already unwrapped (a list, not the
+  `{meta,data}` envelope).
 - **Dynamic leases get no PTR** on the UCG-Fiber *(verified 2026-09-12:
   `dig -x` on four dynamic leases empty, forward lookup of the DHCP
   hostname works for some)*. Anything that names devices by reverse DNS
