@@ -315,6 +315,12 @@ The controller is a free link tester; read it before touching cables
   (`stat/sta` `sw_port` + `ping`) names the cable.
 - `rx_dropped` on a gateway port carrying hundreds of GB = congestion at
   that port's speed, not a cable problem.
+- **"Which port is this host on, and at what speed" is one `stat/sta` read**:
+  `sw_mac` + `sw_port` + `wired_rate_mbps` per client, then the switch's
+  `port_table[port_idx].speed` and `uptime` (seconds since link-up — a small
+  value says the cable was just re-plugged) *(2026-09-20: truenas-personal on
+  the USW Flex 2.5G 8 PoE port 3 at 1000, link 78 min old, the switch's own
+  uplink 2500 — settled a "which hop is 1G" question in one call)*.
 - **Clients behind a third-party AP or unmanaged switch all appear as
   `is_wired: true` on the AP's/switch's port** — the controller only
   sees its own cable. 40 "wired" clients on one 1G port = an AP.
@@ -346,7 +352,7 @@ The controller is a free link tester; read it before touching cables
   and negotiated speed (`1000` for a 2.5G AP means **something on the
   path is 1G** — an unmanaged switch in between is invisible to the
   controller, so ask what sits at the jack before blaming the cable;
-  2026-09-13: a 1G PoE switch powering the AP), `num_sta`, `satisfaction`,
+  2026-09-13: a 1G PoE switch powering the AP — replaced since; on 2026-09-20 both U7 Pros uplink at 2500), `num_sta`, `satisfaction`,
   `radio_table` (bands `ng`/`na`/`6e`, channel, width) and
   `radio_table_stats` (channel in use, `num_sta`, `cu_total` channel
   utilisation, `tx_power`). Clients carry `ap_mac`, `essid`, `radio`,
