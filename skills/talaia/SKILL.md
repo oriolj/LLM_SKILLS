@@ -293,7 +293,14 @@ sync`.
 
 Alert priority is suite-wide: `0` normal, `1` high, `2` emergency. Emergency
 suites confirm once after 60 seconds, replacing ordinary retries; a recovered
-confirmation sends a normal short-outage warning. Configuration errors stay
+confirmation sends a normal short-outage warning — quiet (priority `-1`, titled
+"short outage during a deploy") when the release seen at the failed attempt
+differs from the one after the pass or from the previous run, i.e. the target was
+mid-deploy (needs `version_url`; 2026-09-20). Footprint-budget warnings only fire
+for PASSING runs: a failed run's retry doubles its footprint by design and the
+DOWN alert is the message. Browser suites cost hundreds of requests per run —
+give them an explicit `budget:` (bikecrm/general: 600 req / 90 s, hourly), the
+100-request default warns every 24 h for nothing. Configuration errors stay
 low priority. Cooldowns, recovery cancellation and failed-delivery retries are
 implemented. Read the repo's `docs/ALERTING.md` before changing alert behavior;
 failed-run counters are not counts of delivered notifications.
