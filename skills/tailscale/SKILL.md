@@ -15,11 +15,20 @@ live estate with the date noted; re-verify anything undated.
 | EnaCast / Enantena | `armadillo-tawny.ts.net` | HTTPS certs **enabled** (verified 2026-09-13: `CertDomains` populated, cert issued for `internal-1-coolify`) |
 | SmartupSoft | — | its boxes live on the EnaCast tailnet |
 
-Exception by decision (Oriol, 2026-09-20): **`truenas-personal`** (the
-personal NAS) is on the **EnaCast** tailnet, not the personal one, because
-the Beszel hub is native there. Don't "fix" it. Also: **no agent credential
-on the TrueNAS boxes** (hq `shared/docs/backups.md` §2 rule 11) — verify
-them from a peer, never from the box.
+**No agent credential on the TrueNAS boxes** (hq `shared/docs/backups.md`
+§2 rule 11) — verify them from a peer, never from the box. `truenas-personal`
+is on the personal tailnet and reaches the (EnaCast-native) Beszel hub
+through the existing node share; it briefly sat on the EnaCast tailnet on
+2026-09-20 until `enric@`'s presence there settled the question.
+
+**Before minting an auth key, check which account the admin console is
+on** (top-left switcher): a key from the wrong tailnet joins the node
+there silently, and the fix is `tailscale logout` + a new key (2026-09-20).
+**TrueNAS catalog app**: with *Auth Once* on, a later change to the app's
+*Hostname* field does not apply (containerboot skips `tailscale up` once
+logged in) — the node that re-joined after a logout took the field's
+default `truenas-scale`; rename it in the admin console (Machines → Edit
+machine name) rather than via the app.
 
 `tail4d837.ts.net` is **dead** — an old SmartupSoft identity. Any doc still
 naming it is stale.
