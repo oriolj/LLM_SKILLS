@@ -77,7 +77,12 @@ process directly — a `systemctl stop` would have logged `Stopping
 Syncthing…` from systemd first, and the power guard stops through
 systemctl. The upstream unit has `Restart=on-failure`, so a clean exit is
 never restarted and the box silently drops off every share until someone
-runs `systemctl --user start syncthing`. Verify with `ss -ltn` (GUI port
+runs `systemctl --user start syncthing`. Since 2026-09-20 Oriol's Linux
+hosts get a `Restart=always` drop-in from hq `roles/syncthing`
+(`syncthing.service.d/20-restart.conf`) — an explicit `systemctl stop`
+(the power guard's mechanism) still sticks, only self-exits restart. If a
+host is found dead this way, check `systemctl --user show syncthing -p
+Restart` first: `on-failure` means the role has not run there yet. Verify with `ss -ltn` (GUI port
 and 22000) and the `New device connection` lines, and don't burn time
 hunting the sender once the journal shows no ssh login, no agent session
 and no oomd entry around the timestamp.
