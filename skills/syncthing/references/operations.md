@@ -69,6 +69,19 @@ is not an identity check.
   "touch" the peer's files to force a re-announce: that rewrites mtimes on
   every device for a metadata-only problem.
 
+A daemon that is simply *not running* on a systemd host (minisforum,
+2026-09-18 → found 2026-09-20): `systemctl --user status syncthing` showing
+`inactive (dead)` with `status=0/SUCCESS` and a last log line `Received
+signal; exiting (signal=terminated)` means an OS SIGTERM reached the
+process directly — a `systemctl stop` would have logged `Stopping
+Syncthing…` from systemd first, and the power guard stops through
+systemctl. The upstream unit has `Restart=on-failure`, so a clean exit is
+never restarted and the box silently drops off every share until someone
+runs `systemctl --user start syncthing`. Verify with `ss -ltn` (GUI port
+and 22000) and the `New device connection` lines, and don't burn time
+hunting the sender once the journal shows no ssh login, no agent session
+and no oomd entry around the timestamp.
+
 For Oriol's managed Linux laptops, inspect `powerprofilesctl get` and
 `syncthing-power-guard.service`: the guard stops Syncthing in `power-saver`,
 which can persist even after charging. Confirm this host actually uses the
