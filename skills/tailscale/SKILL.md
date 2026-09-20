@@ -15,6 +15,12 @@ live estate with the date noted; re-verify anything undated.
 | EnaCast / Enantena | `armadillo-tawny.ts.net` | HTTPS certs **enabled** (verified 2026-09-13: `CertDomains` populated, cert issued for `internal-1-coolify`) |
 | SmartupSoft | — | its boxes live on the EnaCast tailnet |
 
+Exception by decision (Oriol, 2026-09-20): **`truenas-personal`** (the
+personal NAS) is on the **EnaCast** tailnet, not the personal one, because
+the Beszel hub is native there. Don't "fix" it. Also: **no agent credential
+on the TrueNAS boxes** (hq `shared/docs/backups.md` §2 rule 11) — verify
+them from a peer, never from the box.
+
 `tail4d837.ts.net` is **dead** — an old SmartupSoft identity. Any doc still
 naming it is stale.
 
