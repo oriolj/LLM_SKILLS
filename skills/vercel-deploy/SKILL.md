@@ -110,6 +110,26 @@ one (project name from `vercel project ls --scope <team>`). Also: `output: "stan
 `next.config` fails on Vercel's Next 16.3 adapter
 (`ENOENT .next/next-server.js.nft.json`); only set it for a Docker image.
 
+## Creating a new project by CLI: set the framework preset (icucomm, 2026-09-20)
+
+`vercel project add <name> --scope <team>` creates the project with
+`framework: null`. The first `vercel deploy --prod` then builds the Next.js
+app fine ("Build Completed", 25 s) but Vercel treats the output as "Other":
+every path — `/`, route handlers, the manifest — answers its generic
+`NOT_FOUND` page, on the custom domain and on the deployment URL alike, and
+the deployment record shows `routes: 0`. Fix before the first deploy (or
+redeploy after): `PATCH /v9/projects/<name>?teamId=$TEAM
+{"framework":"nextjs"}` (the CLI has no flag for it). The estate lane's
+alias check also races the domain: `vercel domains add` right before the
+deploy leaves the alias unbound for a minute — `vercel alias set <dpl-url>
+<host>` or the next deploy binds it. Envs by API when nothing is linked:
+`POST /v10/projects/<name>/env?teamId=$TEAM {"key","value","type":
+"encrypted","target":["production","preview"]}`. The team's SSO protection
+(`all_except_custom_domains`) makes `*.vercel.app` answer 302 — test on the
+custom domain. `oriolj.com` records: Route 53 zone `ZZZRD7JOM8ZT7` with the
+IAM key in hq `homelab/secrets/aws-oriolj.env` (`CNAME cname.vercel-dns.com`
+verified in a minute).
+
 ## Verify
 - `curl -sL` each tenant host: 200 + tenant title + the media host in the
   HTML (B2/R2 keys resolving).
