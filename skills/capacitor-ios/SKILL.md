@@ -42,6 +42,39 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App \
 If a simulator build fails right after `ios/` was regenerated, re-run the
 sync so the config script patches the fresh project at least once.
 
+### Native-extension gotchas (widgets / App Intents)
+
+- **`AppShortcuts.xcstrings` requires a 17.0+ deployment target.** The Siri
+  phrase-catalog format hard-fails `ValidateAppShortcutStringsMetadata`
+  ("only supported for iOS 17.0 and above") when the app targets lower —
+  regular string catalogs (`Localizable.xcstrings`) back-deploy fine, only
+  the AppShortcuts one is restricted. The back-deploy path is the legacy
+  variant-group format: per-locale `xx.lproj/AppShortcuts.strings` files
+  (keys = the English phrases in the `AppShortcutsProvider` Swift source),
+  registered as a `PBXVariantGroup`. Xcode keys phrase-catalog semantics to
+  the exact basename, so guard against the file's reintroduction by name.
+- **A pbxproj reconciler script must prune, not just add.** `ios/` persists
+  between syncs; a find-or-create-only script leaves dangling references
+  after a source file is deleted/renamed ("Build input file cannot be found"
+  until a manual regen). Symmetric rule: remove refs whose resolved on-disk
+  path is gone before the add globs run.
+
+## Simulator verification (what's automatable headlessly)
+
+`xcrun simctl boot/install/launch` + `simctl io booted screenshot` cover
+launch smoke tests. Limits worth knowing before promising more:
+
+- **Custom-scheme deep links can't be end-to-end tested headlessly.**
+  `simctl openurl booted "myapp://…"` always counts as an external open, so
+  iOS shows an "Open in <app>?" dialog — and clicking it via AppleScript
+  needs the macOS Accessibility permission (System Events times out with
+  -1712 without it; `simctl spawn booted uiopen` doesn't exist). Scheme
+  *resolution* (the dialog naming the app) is the automatable evidence;
+  the post-tap routing needs a human or XCUITest.
+- App Intents presence is verifiable statically: `Metadata.appintents/` in
+  the built .app, and the `.appex` under `PlugIns/`, prove
+  extraction/embedding without running Siri.
+
 ## Signing preconditions (check before any device/TestFlight work)
 
 ```bash
@@ -194,5 +227,46 @@ app actually collects.
 - Don't promise plugin capabilities (APNs, Google/Apple sign-in URL schemes)
   in a build before their per-platform setup is done — track the follow-ups
   in the project's iOS doc.
+- **App Groups are the exception to "capabilities sync automatically"**
+  (Panotxa watch targets, 2026-09-21). `-allowProvisioningUpdates` creates
+  the App ID and turns the App Groups capability ON, but never *assigns* a
+  group to it, so the profile lacks `com.apple.security.application-groups`
+  and the archive fails with `Provisioning profile "iOS Team Provisioning
+  Profile: <bundle>" doesn't match the entitlements file's value for the
+  com.apple.security.application-groups entitlement`. Fix in the portal
+  (Identifiers → the App ID → App Groups → Configure → tick the group →
+  Save → Confirm — "will invalidate provisioning profiles" is expected) and
+  re-archive; it can be driven in the browser, it is only clicks. Every new
+  extension target that shares the group (widget, watch app, watch widgets)
+  needs this once.
+- **SPM floors (`from:`) in plugin packages re-resolve to the newest release
+  on every `ios/` regen.** A working lane breaks the day a dependency ships a
+  breaking minor: `@sentry/capacitor` 4.2.0 declared `sentry-cocoa from:
+  "9.16.1"`, sentry-cocoa 9.29.0 (2026-09-18) moved `PrivateSentrySDKOnly`
+  behind `@_spi(Private)`, and the archive failed with `cannot find
+  'PrivateSentrySDKOnly' in scope`. Check upstream first — the plugin's next
+  release usually pins (`exact: "9.28.0"` in 4.4.0); mirror that pin with a
+  patch-package patch on `node_modules/<plugin>/Package.swift` when the
+  upgrade drags in peer bumps you don't want in a release build. After
+  changing a pin, **wipe the DerivedData** (`~/Library/Developer/Xcode/
+  DerivedData/<Scheme>-*`) — the precompiled module of the old version is
+  reused and the same error persists although `Package.resolved` and the
+  downloaded xcframework are already the new version.
+- **Reproduce compile errors without the keychain**: an unsigned simulator
+  build of the regenerated project (`xcodebuild … -destination
+  'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build` into a
+  scratch `-derivedDataPath`) surfaces the same Swift errors as the archive
+  and needs no signing identity.
+- **The keychain unlock does not cross the agent's sandbox.** An unlock done
+  in the user's terminal leaves the agent's shell still failing the codesign
+  probe with `errSecInternalComponent`; the archive/upload then runs from the
+  user's terminal (the lane prompts for the password on a tty) while the
+  agent handles portal + App Store Connect in the browser. The keychain also
+  re-locks on its inactivity timeout — unlock right before the lane.
+- **App Store Connect testers, quirks**: a tester added by email shows a red
+  "No Builds Available" until a build is (re)added to their group — adding a
+  tester to a group that already has an approved build does *not* invite them
+  to it by itself. Their email address in the list is a `mailto:` link; a
+  click opens the user's mail client — select the row checkbox instead.
 - If releases become routine/CI-driven, consider fastlane (match/beta);
   until then plain `xcodebuild` keeps the surface small.
