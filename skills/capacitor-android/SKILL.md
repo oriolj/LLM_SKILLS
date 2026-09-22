@@ -191,6 +191,22 @@ Build it in this order:
    Cloud needs the **upload key's SHA-1** (`keytool -list -v -keystore …`),
    and once Play App Signing takes over, **Play's app-signing SHA-1 too**
    (Play Console → App integrity). Missing SHA-1s fail silently at runtime.
+16. **Data safety: fill it from a code-derived worksheet, and drive the
+   per-type dialogs one verified click at a time.** Write the inventory first
+   (what is sent, from which file, to whom, required or optional), then settle
+   the classification questions with the owner: an LLM on a paid tier that
+   does not train on the data counts as a *processor*, so the data is
+   *collected*, not *shared*; first-party self-hosted analytics still has to
+   be declared as *App interactions*. In the Play Console the **first click
+   in a freshly opened per-type dialog is swallowed** while it animates, and
+   the dialog grows as answers reveal questions. Click once, take a
+   screenshot, then click again only if needed, because a blind double click
+   toggles it back off. Audit the step-5 preview against the worksheet
+   before you save. "Required" means the app has no toggle for it today
+   (crash reporting, analytics). Crash logs and diagnostics take the
+   *Analytics* purpose, because Play's definition of Analytics includes app
+   health. Saving does not send the form for review; that happens in
+   Publishing overview, so batch it with the store listing.
 
 ## Known gotchas
 
