@@ -22,6 +22,35 @@ current index and any known divergent/recovery refs. Do not presume HEAD is the
 latest or most complete copy. If Git is damaged, preserve its metadata and repair
 or inspect a healthy copy before relying on its history.
 
+## Classify the copies before reading them
+
+When the note is Git-tracked, hash each copy against the recent committed
+revisions of its path first:
+
+```bash
+for c in $(git log --format=%h -12 -- "$path"); do
+  git show "$c:$path" | cmp -s - "$copy" && echo "$copy == $c"
+done
+```
+
+A copy identical to a committed revision is pure stale — nothing to merge,
+delete it after the recovery set is preserved. Only the copies that match
+no revision carry information, and the diff against the nearest revision
+(not against the current file) shows exactly what that is. On 2026-09-20
+this turned nine conflict filenames into five distinct contents and then
+into three that mattered, in two commands.
+
+Two tells from a device that was offline for a long stretch (hq,
+minisforum down 37 h):
+
+- Conflict copies whose suffix is the **local** device's own ID are the
+  local, unsynced edits that lost to a peer's newer mtime — the copy is
+  the side to mine, the plain-named file is the peer's.
+- A **plain-named file that reappears untracked** (`git status` `??`,
+  no `sync-conflict` in the name) after a peer renamed or deleted it is a
+  modify-vs-delete resolution: Syncthing keeps the modified file. It is
+  part of the recovery set even though nothing marks it as a conflict.
+
 ## Merge information, not timestamps
 
 The canonical filename is not necessarily the best copy. Conflict names and

@@ -330,6 +330,18 @@ packages, default shell, no prior run's leftovers. For every task ask:
   work the same way: `make dry TAGS=x HOST=y </dev/null 2>&1 | cat`).
   Output is unchanged, exit code rides `$PIPESTATUS[0]` if you need it.
 
+- **A play with a `vars_prompt` for the become password cannot be run
+  from an agent shell at all.** `</dev/null` does not skip the prompt — it
+  answers it with an EMPTY password, the play's sudo probe fails
+  ("Incorrect sudo password") and **one pam_faillock attempt is burned**
+  (three = a 10-minute lockout that reports as a wrong password too). Seen
+  2026-09-20 running hq `homelab/ansible site.yml --tags syncthing`. Even
+  when the tagged role needs no sudo, the prompt comes first. Do not
+  retry; apply the role's file changes by hand on the current host if they
+  are plain user-level copies, and put the fleet run in `USER_TODO.md`
+  with the exact command (`--syntax-check` and `--list-tasks` still work
+  without a password — use them for validation).
+
 1. `ansible-playbook site.yml --syntax-check` — parse errors only.
 2. `--list-tasks` / `--list-tags` — did the wiring/tagging land where
    expected?

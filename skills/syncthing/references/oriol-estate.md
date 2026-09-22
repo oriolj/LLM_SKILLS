@@ -59,6 +59,14 @@ minisforum GUI listens on `127.0.0.1:8080`, not the default 8384, and its
 login shell is fish — pipe bash scripts into `ssh … bash -s`.
 The hq runbook is `git_on_syncthing.md` in hq.
 
+minisforum's daemon was down 2026-09-18 22:05 → 09-20 10:54 (stray
+SIGTERM, `Restart=on-failure`); since then every Linux host gets
+`Restart=always` from `roles/syncthing`. The gap cost uncommitted edits on
+minisforum itself — **a session on minisforum commits before it ends**;
+the recovery and the debris kinds are in hq `git_on_syncthing.md` §"When
+minisforum itself is offline" and in [file-recovery.md](file-recovery.md)
+§"Classify the copies before reading them".
+
 Per-device state, 2026-09-12: minisforum (git owner, ignore verified),
 xps13wc (ignore verified, `.git` removed, recovery copy under
 `~/.local/state/hq-git-recovery/`), fw13pro and Mac mini (ignore installed
