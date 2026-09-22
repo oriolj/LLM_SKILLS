@@ -138,18 +138,28 @@ Build it in this order:
    in the project — not the `oauth_client` array in the bundled config. A
    bundle whose config predates the Play certificates is fine; rebuilding to
    "refresh" it fixes nothing. Diagnose the registration, not the file.
-11. **New OAuth clients take 5 minutes to a few hours to take effect** (Google
+11. **`@capgo/capacitor-social-login` on Android: never pass `scopes`.** The
+   plugin rejects ANY scopes array with *"You CANNOT use scopes without
+   modifying the main activity"* unless `MainActivity` implements
+   `ModifiedMainActivityForSocialLoginPlugin` — Capacitor's generated one does
+   not. email/profile/openid are its Android defaults, so pass none on Android.
+   Symptom: the app's generic "couldn't sign in with Google" and **no request
+   in the backend logs**. Rule of thumb: when nothing reaches the server, read
+   the plugin's own `call.reject(...)` paths before blaming Google's side
+   (NutriLens 2026-09-22 — a whole afternoon went to certificate/propagation
+   theories first).
+12. **New OAuth clients take 5 minutes to a few hours to take effect** (Google
    says so on the creation page). A `DEVELOPER_ERROR` or a generic "couldn't
    sign in" right after creating one is usually that window. Wait before
    changing anything else.
-12. **Internal-testing tester emails must be Google accounts**, and must be the
+13. **Internal-testing tester emails must be Google accounts**, and must be the
    account signed into that person's Play Store. The console accepts any
    syntactically valid address without checking, so a university or corporate
    non-Google address sits in the list looking correct and fails at the
    tester's end with "item not found" — indistinguishable from the
    first-release propagation delay (which is itself real: minutes to a few
    hours).
-13. **A dependency merges advertising-ID permissions into the release
+14. **A dependency merges advertising-ID permissions into the release
    manifest — find out WHICH before stripping.** In Panotxa the source is
    NOT Firebase: `com.google.android.gms.permission.AD_ID` and all four
    `android.permission.ACCESS_ADSERVICES_{AD_ID,ATTRIBUTION,CUSTOM_AUDIENCE,TOPICS}`
@@ -169,7 +179,7 @@ Build it in this order:
    `tools:node="remove"` strip in the config script as the belt for
    whatever else appears — strip every `ACCESS_ADSERVICES_*` sibling, not
    just `AD_ID`.
-14. **Google sign-in in release builds**: the Android OAuth client in Google
+15. **Google sign-in in release builds**: the Android OAuth client in Google
    Cloud needs the **upload key's SHA-1** (`keytool -list -v -keystore …`),
    and once Play App Signing takes over, **Play's app-signing SHA-1 too**
    (Play Console → App integrity). Missing SHA-1s fail silently at runtime.
