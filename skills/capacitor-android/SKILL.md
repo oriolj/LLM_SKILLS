@@ -116,7 +116,48 @@ Build it in this order:
    content rating, then release via the **Internal testing** track first
    (the Play analog of TestFlight — instant, up to 100 testers via link)
    before production.
-8. **Google sign-in in release builds**: the Android OAuth client in Google
+8. **Play App Signing changes the signing certificate, and modern Play gives
+   you TWO classical ones.** With *quantum-ready hybrid signing* (the default
+   for new apps), Play Console → App signing lists a current **Classical key**,
+   a **Post-quantum key**, and a **Previous app signing key** — and that
+   previous classical key is what serves **Android 16 and below**, i.e. most
+   real devices. Anything that authenticates the app by certificate
+   fingerprint (Google sign-in, FCM, App Links, Play Integrity) needs **both
+   classical SHA-1s**; the PQC fingerprints are unused by those services. An
+   Android OAuth client holds exactly one fingerprint, so that is one client
+   per certificate. The fingerprints are only behind "copy" buttons — on macOS,
+   click then read the clipboard with `pbpaste`.
+9. **Adding a fingerprint in Firebase does NOT create the Google OAuth
+   client.** Firebase reports success and Google Cloud → Clients stays
+   unchanged. Create the Android clients by hand and verify them in the Cloud
+   console before concluding anything.
+10. **`google-services.json` is not what authorises Google sign-in** in a
+   Credential Manager app (the modern plugins, incl. `@capgo/capacitor-social-login`):
+   the app passes the **web** client id as `serverClientId`, and Google matches
+   the calling *(package, signing certificate)* against the clients registered
+   in the project — not the `oauth_client` array in the bundled config. A
+   bundle whose config predates the Play certificates is fine; rebuilding to
+   "refresh" it fixes nothing. Diagnose the registration, not the file.
+11. **New OAuth clients take 5 minutes to a few hours to take effect** (Google
+   says so on the creation page). A `DEVELOPER_ERROR` or a generic "couldn't
+   sign in" right after creating one is usually that window. Wait before
+   changing anything else.
+12. **Internal-testing tester emails must be Google accounts**, and must be the
+   account signed into that person's Play Store. The console accepts any
+   syntactically valid address without checking, so a university or corporate
+   non-Google address sits in the list looking correct and fails at the
+   tester's end with "item not found" — indistinguishable from the
+   first-release propagation delay (which is itself real: minutes to a few
+   hours).
+13. **Firebase merges advertising-ID permissions into the release manifest.**
+   `play-services-measurement` (via `firebase-messaging`) adds
+   `com.google.android.gms.permission.AD_ID` and
+   `ACCESS_ADSERVICES_AD_ID` even in an app with no ads. Play Console's
+   Advertising ID declaration reads the manifest and forces "yes" unless they
+   are removed, which then has to be mirrored in Data safety and will
+   contradict a privacy policy that says no advertising identifiers are
+   collected. Strip them in the config script with `tools:node="remove"`.
+14. **Google sign-in in release builds**: the Android OAuth client in Google
    Cloud needs the **upload key's SHA-1** (`keytool -list -v -keystore …`),
    and once Play App Signing takes over, **Play's app-signing SHA-1 too**
    (Play Console → App integrity). Missing SHA-1s fail silently at runtime.
