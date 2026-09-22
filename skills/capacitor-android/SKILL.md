@@ -74,7 +74,10 @@ Build it in this order:
 2. **Wire signing without touching `android/` by hand**: keep
    `keystore.properties` next to the keystore; extend the config script to
    inject `signingConfigs` into the generated `android/app/build.gradle`
-   idempotently on every sync. Never hand-edit the generated gradle file.
+   idempotently on every sync — or, cleaner, keep the signing block in a
+   project-owned `.gradle` file and have the script append one
+   `apply from:` line (Panotxa: `scripts/panotxa-signing.gradle` via
+   `scripts/android-signing.sh`). Never hand-edit the generated gradle file.
 3. **Version bump per upload**: Play requires a strictly increasing
    `versionCode`; the generated `build.gradle` hardcodes `versionCode 1`, so
    the same inject-script must stamp it — `git rev-list --count HEAD` is a
@@ -111,6 +114,11 @@ Build it in this order:
    API** (Console → Setup → API access → service account) and upload with
    `fastlane supply`. Plan for this; it is the only step of the lane that
    cannot be automated from the terminal today.
+   **An upload that seems to vanish went to the bundle library.** Dropping the
+   file on a draft release sometimes leaves the draft empty while the bundle
+   sits in the app's library; re-dropping it then fails with *"Version code N
+   has already been used"*. That error means it IS uploaded — attach it with
+   **Add from library** instead of rebuilding (NutriLens, twice on 2026-09-22).
 7. **Play Console** (one-time $25): create the app, complete Data safety
    (mirror the iOS privacy declarations if both stores are targeted),
    content rating, then release via the **Internal testing** track first
