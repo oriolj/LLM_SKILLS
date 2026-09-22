@@ -82,12 +82,41 @@ Build it in this order:
 4. **Play uploads want an AAB**, not an APK:
    `cd android && ./gradlew bundleRelease` →
    `app/build/outputs/bundle/release/app-release.aab`.
-5. **Play Console** (one-time $25): create the app, complete Data safety
+   **Force `enableV1Signing true` in the release signing config, or the AAB
+   comes out UNSIGNED.** AGP turns v1 (JAR) signing off by default once
+   `minSdk >= 24`; an APK is fine (v2 covers it) but an **App Bundle carries
+   only a JAR signature**, so `bundleRelease` silently emits an unsigned
+   bundle and Play rejects the upload with *"All uploaded bundles must be
+   signed"*. The build succeeds either way — this fails in the console, after
+   a human has dragged the file in.
+   **Verify before uploading** (never trust the gradle log, which prints your
+   own "signed with …" echo regardless):
+   ```bash
+   jarsigner -verify app-release.aab   # must say "jar verified", NOT "jar is unsigned"
+   apksigner verify -v app-release.apk # v1 false + v2 true is normal FOR THE APK
+   ```
+   Beware piping `jarsigner -verify` through `tail` next to a `keytool` call:
+   "The signer certificate will expire on …" comes from keytool and reads like
+   a success line (cost a bad upload, NutriLens 2026-09-22).
+5. **Internal testing needs almost nothing.** The track's checklist is three
+   items — select testers, create a release, confirm — and it has **no
+   review**. The whole "Set up your app" checklist (store listing, content
+   rating, target audience, Data safety, ads, health declarations) gates
+   *production*, not internal testing, so a tester can be on the app minutes
+   after the upload. Testers join by opt-in link with the exact Google
+   account in the tester list, and see a temporary app name until review.
+6. **The console's upload is a native file dialog** — an agent driving the
+   browser cannot select the file, and AABs usually exceed browser-tool
+   upload limits. Either a human drags it in, or wire the **Play Developer
+   API** (Console → Setup → API access → service account) and upload with
+   `fastlane supply`. Plan for this; it is the only step of the lane that
+   cannot be automated from the terminal today.
+7. **Play Console** (one-time $25): create the app, complete Data safety
    (mirror the iOS privacy declarations if both stores are targeted),
    content rating, then release via the **Internal testing** track first
    (the Play analog of TestFlight — instant, up to 100 testers via link)
    before production.
-6. **Google sign-in in release builds**: the Android OAuth client in Google
+8. **Google sign-in in release builds**: the Android OAuth client in Google
    Cloud needs the **upload key's SHA-1** (`keytool -list -v -keystore …`),
    and once Play App Signing takes over, **Play's app-signing SHA-1 too**
    (Play Console → App integrity). Missing SHA-1s fail silently at runtime.
