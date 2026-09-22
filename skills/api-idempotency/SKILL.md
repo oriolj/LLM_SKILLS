@@ -151,6 +151,17 @@ permanent — retrying can't fix it and queue-retrying it jams the queue.
 Classify *non-network exceptions* (JSON parse, storage bugs) as permanent too,
 or code bugs masquerade as "offline".
 
+A third class exists once writes can be refused for a **state the user can
+change** — e.g. HTTP 402 "subscription required": it is neither transient
+(retrying loops against the paywall) nor permanent (dropping loses the user's
+input). Treat it as **held**: stop retrying, keep the item with its ORIGINAL
+key and capture date, and release it when the state changes (purchase,
+entitlement refresh). Gate the auto-drain on that state so nothing loops.
+Panotxa (2026-09-22): the phone capture queue stops the drain on 402 and
+keeps the items, the Wear dish queue keeps the dictation and sets
+`SUBSCRIPTION_REQUIRED`, watchOS keeps its pending dish — all replaying later
+with the same client token.
+
 ## Auditing an existing project
 
 The dangerous state is *partial* adoption. Check:
@@ -186,6 +197,8 @@ worker background sync, React Query mutation retries) — any of them turns
   partial constraint must not block them).
 - **Concurrent race**: patch the exists() pre-check to return False (simulating
   the not-yet-committed sibling), POST a duplicate, assert 200 not 500.
+- **Held replay**: a queued item refused with the "held" status (e.g. 402)
+  stays queued, and its later release re-sends the SAME token and date.
 - **Lost-response e2e**: intercept the create response (Playwright route
   abort *after* request reaches server), let the retry/queue fire, assert
   exactly one row server-side.
