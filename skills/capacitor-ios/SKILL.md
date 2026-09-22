@@ -227,6 +227,19 @@ app actually collects.
 - Don't promise plugin capabilities (APNs, Google/Apple sign-in URL schemes)
   in a build before their per-platform setup is done — track the follow-ups
   in the project's iOS doc.
+- **An APNs auth key is created Sandbox-only unless you say otherwise, and
+  that choice is permanent** (verified 2026-09-22, Panotxa). developer.apple.com
+  → Keys → **+** → tick APNs now opens a **Configure** step: *Environment*
+  defaults to **Sandbox** and the page states it **cannot be changed after
+  saving**. A Sandbox-only key authenticates fine and then fails every
+  *production* send — i.e. every TestFlight and App Store build, which ship
+  `aps-environment: production` — with nothing pointing at the cause. Choose
+  **Sandbox & Production**; leave *Key Restriction* at Team Scoped (All
+  Topics). Older docs saying "one key covers both, ignore the second row"
+  predate this step. Firebase → Cloud Messaging then has **separate
+  development and production upload rows** and an upload fills only the row
+  you clicked; the same `.p8` may be uploaded to both. The `.p8` downloads
+  once and never again.
 - **App Groups are the exception to "capabilities sync automatically"**
   (Panotxa watch targets, 2026-09-21). `-allowProvisioningUpdates` creates
   the App ID and turns the App Groups capability ON, but never *assigns* a
