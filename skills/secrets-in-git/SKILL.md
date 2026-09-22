@@ -153,7 +153,11 @@ rather than from memory. What it does and why:
   **skips a file whose plaintext is newer than its ciphertext** (that
   plaintext is an unencrypted edit — re-encrypt it or delete it to force).
   Sets the plaintext's mtime to the ciphertext's (`touch -r`) so a fresh
-  clone's decrypt does not look like a stale edit afterwards.
+  clone's decrypt does not look like a stale edit afterwards. Since
+  2026-09-22 it takes the same `FILE=` as encrypt (the `.enc` or its
+  plaintext name — both resolve to the `.enc`) and `VPN=1` for the
+  tarball; refuses `FILE=` on the vpn tarball and a missing ciphertext
+  before asking for the passphrase.
 - **`make secrets-status`** — read-only, no passphrase, **the one target
   agents can run**: per file `current` / `stale` (plaintext newer than
   `.enc`) / `not encrypted` (plaintext without `.enc`) / `not decrypted`
