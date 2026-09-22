@@ -149,14 +149,26 @@ Build it in this order:
    tester's end with "item not found" — indistinguishable from the
    first-release propagation delay (which is itself real: minutes to a few
    hours).
-13. **Firebase merges advertising-ID permissions into the release manifest.**
-   `play-services-measurement` (via `firebase-messaging`) adds
-   `com.google.android.gms.permission.AD_ID` and
-   `ACCESS_ADSERVICES_AD_ID` even in an app with no ads. Play Console's
-   Advertising ID declaration reads the manifest and forces "yes" unless they
-   are removed, which then has to be mirrored in Data safety and will
-   contradict a privacy policy that says no advertising identifiers are
-   collected. Strip them in the config script with `tools:node="remove"`.
+13. **A dependency merges advertising-ID permissions into the release
+   manifest — find out WHICH before stripping.** In Panotxa the source is
+   NOT Firebase: `com.google.android.gms.permission.AD_ID` and all four
+   `android.permission.ACCESS_ADSERVICES_{AD_ID,ATTRIBUTION,CUSTOM_AUDIENCE,TOPICS}`
+   come from `com.facebook.android:facebook-core:18.1.3`, pulled in because
+   `@capgo/capacitor-social-login` compiles its Facebook provider by default
+   even when only Google/Apple are used (verified 2026-09-22 in
+   `android/app/build/outputs/logs/manifest-merger-*-report.txt` — grep the
+   permission name, the `ADDED from [...]` line names the library; the
+   earlier "play-services-measurement via firebase-messaging" attribution
+   was a guess and wrong). Play Console's Advertising ID declaration reads
+   the manifest and forces "yes" unless they are removed, which then has to
+   be mirrored in Data safety and will contradict a privacy policy that
+   says no advertising identifiers are collected. Fix at the root when the
+   library allows it (for capacitor-social-login: disable the Facebook
+   provider in `capacitor.config.ts` so `facebook-core` is not compiled in
+   and its SDK stops self-initialising), and keep the
+   `tools:node="remove"` strip in the config script as the belt for
+   whatever else appears — strip every `ACCESS_ADSERVICES_*` sibling, not
+   just `AD_ID`.
 14. **Google sign-in in release builds**: the Android OAuth client in Google
    Cloud needs the **upload key's SHA-1** (`keytool -list -v -keystore …`),
    and once Play App Signing takes over, **Play's app-signing SHA-1 too**
