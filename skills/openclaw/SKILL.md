@@ -24,10 +24,12 @@ behaves differently.
 | blakeclaw | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram + SmartupSoft Slack (app Blake; DMs Oriol + Enric, `#seaotter2026` no-mention, `#general` on mention) |
 
 All three on **2026.9.5** since 2026-09-23, default model
-`openai/gpt-6-astra` (fallback `openai/gpt-5.6-luna`). Each VM ALSO runs
+`openai/gpt-5.6-luna` — Oriol wants **`gpt-6-luna`**, blocked until the
+Codex plugin ships `@openai/codex` ≥ 0.156.1 (see § Changing the model;
+tracked in hq `docs/next-steps.md`). Each VM ALSO runs
 **Hermes Agent** (Nous Research, v0.19.0, `~/.hermes/`, user unit
 `hermes-gateway.service`, CLI only — no messaging platforms) on the same
-Codex login; see § Hermes. emmaclaw is the only one that
+Codex login, already on `gpt-6-luna`; see § Hermes. emmaclaw is the only one that
 also loads secrets from a unit drop-in (`openclaw-gateway.service.d/
 override.conf` → `EnvironmentFile=~/.openclaw/secrets/openclaw.env`:
 Slack bot token, Trello, Ramen creds) — `gateway install --force` keeps
@@ -56,8 +58,7 @@ copy a token from one claw to another.
   has no secret store); state SQLite `~/.openclaw/state/openclaw.sqlite`;
   agent `main` with workspace `~/.openclaw/workspace` (a git repo:
   `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`, `memory/`, `skills/`);
-  model `openai/gpt-6-astra` via the **Codex** plugin (fallback
-  `gpt-5.6-luna`).
+  model `openai/gpt-5.6-luna` via the **Codex** plugin.
 - User drop-in `openclaw-gateway.service.d/tmpdir.conf` (since
   2026-09-23): `TMPDIR=%h/.cache/openclaw-tmp` + an `ExecStartPre` that
   deletes the previous `openclaw-plugin-build-*` dirs. **Why**: 2026.9.5
@@ -306,19 +307,38 @@ LAN-only claws.
 ## Changing the model
 
 ```bash
-openclaw models list --all --refresh --plain | grep gpt-6   # see what the catalog offers
-openclaw config set agents.defaults.modelPolicy.allow '["openai/gpt-5.5","openai/gpt-5.6-luna","openai/gpt-6-astra"]'
-openclaw models set openai/gpt-6-astra
+openclaw models list --all --refresh --plain | grep gpt-6   # what the catalog offers
+openclaw config set agents.defaults.modelPolicy.allow '["openai/gpt-5.5","openai/gpt-5.6-luna","openai/<new>"]'
+openclaw models set openai/<new>
 openclaw models fallbacks add openai/gpt-5.6-luna
 ```
 
-Hot-reloaded, no restart. `models list --all` WITHOUT `--refresh` only
-shows allowed models — it hid `gpt-6-astra` until refreshed. A model not
-in `modelPolicy.allow` is refused, so extend the list first (preserve
-per-box extras such as `gpt-5.6-sol`). Proof it took: journal
-`[gateway] agent model: openai/gpt-6-astra` on the next boot, or a turn
-with no `model-fallback` line. There is no `gpt-6-luna` (2026-09-23): the
-Luna/Sol names are still 5.6; GPT-6 is `gpt-6-astra`.
+Hot-reloaded, no restart. `models list --all` WITHOUT `--refresh` shows
+only allowed models. A model not in `modelPolicy.allow` is refused, so
+extend the list first (preserve per-box extras such as `gpt-5.6-sol`).
+Proof it took: journal `[gateway] agent model: openai/<new>` on the next
+boot, or a turn with no `model-fallback` line (a fallback still answers,
+so "it replied" proves nothing).
+
+**The OpenClaw catalog lags model releases — never conclude a model does
+not exist from it.** 2026-09-23: Oriol asked for GPT-6 Luna (released the
+day before); the catalog (`generated 2026-09-18`) listed only
+`gpt-6-astra`, and Astra was set by mistake, then reverted. Check the
+provider directly first — a Hermes one-shot (§ Hermes) or the Codex
+release notes (`gh api repos/openai/codex/releases`).
+
+**A model the catalog lacks can be registered by hand** —
+`openclaw config set models.providers.openai.models '[{"id":"<id>","name":"<id>"}]'`
+(without it: `Unknown model … no matching models.providers["openai"].models[]
+entry`) — **but through Codex the backend gates models by the Codex
+client version**: GPT-6 Luna/Sol need `@openai/codex` ≥ 0.156.1, and
+`@openclaw/codex` 2026.9.5 pins 0.154.0 → HTTP 400 *"The 'gpt-6-luna'
+model is not supported when using Codex with a ChatGPT account."* Check
+the pin with `npm view @openclaw/codex dependencies.@openai/codex`. Remove
+the hand entry (`config unset models.providers.openai`) once the catalog
+has the model. After several live model switches a Codex thread can wedge
+(*"Codex session policy handoff failed … did not confirm unloading its
+previous configuration"*) — restart the gateway.
 
 ## Hermes (Nous Research Hermes Agent, on the same VMs)
 
@@ -328,8 +348,8 @@ Luna/Sol names are still 5.6; GPT-6 is `gpt-6-astra`.
 
 ```bash
 H=~/.hermes/hermes-agent/venv/bin/hermes
-$H chat -Q --provider openai-codex -m gpt-6-astra -q "Reply with exactly: HERMES OK"   # test first
-$H config set model.default gpt-6-astra
+$H chat -Q --provider openai-codex -m gpt-6-luna -q "Reply with exactly: HERMES OK"   # test first
+$H config set model.default gpt-6-luna
 # fallback: top-level list; `hermes fallback add` is interactive only, and
 # `fallback_model:` (still in its docs) is NOT a recognised key in v0.19
 printf '%s
@@ -337,8 +357,9 @@ printf '%s
 $H fallback list; systemctl --user restart hermes-gateway.service
 ```
 
-Proof: `~/.hermes/logs/agent.log` lines `model=gpt-6-astra
-provider=openai-codex`. Both runtimes are watched by user timers
+Proof: `~/.hermes/logs/agent.log` lines `model=gpt-6-luna
+provider=openai-codex`. Hermes talks to the Codex backend itself, so it
+got GPT-6 Luna on release while OpenClaw's pinned Codex client could not. Both runtimes are watched by user timers
 `assistant-healthcheck@{openclaw,hermes}` → healthchecks.io — a gateway
 outage during an update will page.
 
