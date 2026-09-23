@@ -46,7 +46,7 @@ commands/    # Slash commands — invoked explicitly with /<name>
 
 ### Commands
 
-- **[/qa-report](commands/qa-report.md)** — Generate a QA testing report from recent git changes on the current branch. Categorizes new features, breaking changes, and produces a prioritized testing checklist written to `qa/YYYY-MM-DD-<short_description>.md`.
+- **[/qa-report](commands/qa-report.md)** — Review a batch of commits since the last QA review: per-feature reports with numbered, severity-rated findings written to `qa/YYYY-MM-DD-<feature>.md`, a dated index that records the verbatim commit list and the reviewing agent (model id, session kind, who launched it), a re-check of the previous review's findings, and the `qa/QA_AGENTS.md` log (Oriol, 2026-09-23).
 
 ## Installing
 
