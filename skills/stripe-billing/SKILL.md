@@ -77,6 +77,33 @@ decides. Pin `Stripe-Version` to the backend SDK's version.
 9. **curl form bodies: `+` in an email becomes a space** (`-d email=a+b@x`
    → "Invalid email address: a b@x"). Use `--data-urlencode`.
 
+## One-time purchases (a "lifetime" plan next to subscriptions)
+
+Verified on Panotxa 2026-09-23:
+
+- A one-time price is a price **without `recurring`**; Checkout runs in
+  `mode=payment`. There is no subscription object, so key the local
+  entitlement row on the **PaymentIntent id**, and mark the session
+  (`metadata.plan=lifetime`, also `payment_intent_data.metadata`) so the
+  webhook can tell it from other one-off payments.
+- `payment_intent` is **null when the session is created**; it exists on the
+  `checkout.session.completed` payload. Grant only when
+  `payment_status == "paid"`; delayed methods finish in
+  `checkout.session.async_payment_succeeded` — subscribe to it, and make the
+  two deliveries idempotent (one row).
+- `invoice_creation[enabled]=true` gives payment-mode buyers the same VAT
+  invoice subscribers get.
+- Revocation: `charge.refunded` fires for partial refunds too; `refunded:
+  true` on the charge means FULL — end access only then.
+- The Customer Portal's plan switcher accepts **recurring prices only**:
+  filter the one-time price out of `subscription_update.products[].prices`.
+- An upgrade (subscriber buys lifetime) must stop the old renewal:
+  `Subscription.modify(id, cancel_at_period_end=True)` for Stripe; a store
+  subscription can only be cancelled by its owner, so the app has to tell them.
+- RevenueCat side of the same plan: a non-consumable arrives as
+  `NON_RENEWING_PURCHASE` with no `expiration_at_ms`; a refund is
+  `CANCELLATION` with reason `CUSTOMER_SUPPORT`.
+
 ## Verification before calling it done
 
 - `GET /v1/account` (right account, mode), `GET /v1/tax/settings` (`status:

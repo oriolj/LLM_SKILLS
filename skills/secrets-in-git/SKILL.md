@@ -439,6 +439,14 @@ the next agent into the wrong flow.
 
 **Adding one secret** (every time)
 
+- [ ] **Look before writing**: `ls secrets/<name>*` and grep the catalog.
+      A parallel agent session may already have created the file (and the
+      owner may have encrypted it) minutes ago. If a plaintext exists, EDIT
+      it; if only a `.enc` exists, ask for `secrets-decrypt FILE=…` first.
+      Never `cat >` over it (hq, 2026-09-23: a second session overwrote a
+      just-encrypted RevenueCat file and dropped a generated webhook secret;
+      recovery = decrypt the committed `.enc`, and never re-encrypt the
+      damaged plaintext first).
 - [ ] Plaintext in the store with a header; `chmod 600`.
 - [ ] Catalog bullet in `CLAUDE.md` (names, scope, dates, lifetime,
       consumers, parse rule).
