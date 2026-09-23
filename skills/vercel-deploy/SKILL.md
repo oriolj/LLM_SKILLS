@@ -130,6 +130,24 @@ custom domain. `oriolj.com` records: Route 53 zone `ZZZRD7JOM8ZT7` with the
 IAM key in hq `homelab/secrets/aws-oriolj.env` (`CNAME cname.vercel-dns.com`
 verified in a minute).
 
+## A second app in a monorepo: the `.vercelignore` allow-list (Panotxa console, 2026-09-23)
+
+A repo-root `.vercelignore` written as an allow-list (`*` then
+`!app-a`, `!app-a/**`) silently excludes every OTHER app from the upload.
+The second project's first deploy then fails at build start with
+`The specified Root Directory "<dir>" does not exist` — the CLI only says
+the deploy did not report a production URL. Read the real error from
+`GET /v3/deployments/<id>/events?teamId=…&builds=1&limit=-1`, and add
+`!<dir>`, `!<dir>/**` (+ its `node_modules`/`dist`) to the allow-list.
+Creating the project by API: `POST /v11/projects {"name","framework":
+"vite","rootDirectory"}` — `nodeVersion` is rejected at creation (it
+defaults to the team's current one). `POST /v10/projects/<name>/domains
+{"name":"<host>"}` answers `verified: true` for a subdomain of a zone the
+team already serves; add the DNS-only `CNAME → cname.vercel-dns.com` right
+after. A resolver that looked the host up before the record existed keeps
+answering NXDOMAIN for the zone's negative TTL — prove the deploy with
+`curl --resolve <host>:443:76.76.21.21` instead of waiting.
+
 ## Verify
 - `curl -sL` each tenant host: 200 + tenant title + the media host in the
   HTML (B2/R2 keys resolving).
