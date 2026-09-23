@@ -72,3 +72,4 @@ on first try. Run the loop above after cloning and after each new skill;
 a new link is only seen by NEW sessions.
 
 (Or copy them if you'd rather not symlink.)
+- **[stripe-billing](skills/stripe-billing/SKILL.md)** — Set up Stripe Billing API-first with one secret key per mode: an idempotent lookup-key setup script, what cannot be done by API (live activation), and nine verified traps — `tax_id_collection` needs `customer_update[name]=auto` on an existing customer, `automatic_tax` needs a product tax code, prices are immutable (`transfer_lookup_key`), inclusive vs exclusive VAT, portal products hidden unless expanded, portal quantity adjustable by default, the once-only `whsec_`, no sandbox webhook at prod, curl `+` encoding — plus the real-Checkout-Session verification step.
