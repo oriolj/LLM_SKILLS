@@ -23,7 +23,11 @@ behaves differently.
 | emmaclaw | Enantena / EnaCast | `192.168.7.217` | Telegram + Enantena Slack (8 channels, one is an invoices-inbox → Holded purchase-draft flow) |
 | blakeclaw | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram + SmartupSoft Slack (app Blake; DMs Oriol + Enric, `#seaotter2026` no-mention, `#general` on mention) |
 
-All three on **2026.9.4** since 2026-09-17. emmaclaw is the only one that
+All three on **2026.9.5** since 2026-09-23, default model
+`openai/gpt-6-astra` (fallback `openai/gpt-5.6-luna`). Each VM ALSO runs
+**Hermes Agent** (Nous Research, v0.19.0, `~/.hermes/`, user unit
+`hermes-gateway.service`, CLI only — no messaging platforms) on the same
+Codex login; see § Hermes. emmaclaw is the only one that
 also loads secrets from a unit drop-in (`openclaw-gateway.service.d/
 override.conf` → `EnvironmentFile=~/.openclaw/secrets/openclaw.env`:
 Slack bot token, Trello, Ramen creds) — `gateway install --force` keeps
@@ -52,7 +56,18 @@ copy a token from one claw to another.
   has no secret store); state SQLite `~/.openclaw/state/openclaw.sqlite`;
   agent `main` with workspace `~/.openclaw/workspace` (a git repo:
   `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`, `memory/`, `skills/`);
-  model `openai/gpt-5.6-luna` via the **Codex** plugin.
+  model `openai/gpt-6-astra` via the **Codex** plugin (fallback
+  `gpt-5.6-luna`).
+- User drop-in `openclaw-gateway.service.d/tmpdir.conf` (since
+  2026-09-23): `TMPDIR=%h/.cache/openclaw-tmp` + an `ExecStartPre` that
+  deletes the previous `openclaw-plugin-build-*` dirs. **Why**: 2026.9.5
+  stages a ~341 MB `openclaw-plugin-build-*` copy under `$TMPDIR` on every
+  gateway start AND every CLI call that loads plugins, and never deletes
+  it; `/tmp` on these VMs is **tmpfs (RAM)**, so on petraclaw 24 leftovers
+  = 5.1 GB on a 4 GB VM → swap full, gateway OOM-killed three times, ssh
+  timing out at the banner. `gateway install --force` keeps the drop-in.
+  Export the same `TMPDIR` in any shell where you run `openclaw` by hand,
+  and `rm -rf /tmp/openclaw-plugin-build-*` afterwards if you forgot.
 
 ## Reading the config without leaking it
 
@@ -102,6 +117,23 @@ file (comment-stripped) as above, on the box, and never print it.
    `~/.openclaw` is 2–5 GB, mostly `npm/` cache and media.
 3. `openclaw update --dry-run`, then `openclaw update 2>&1 | tee
    ~/backups/openclaw-update-<ver>.log`.
+   **2026.9.5 (atomic updater) failed on petraclaw** after passing every
+   candidate check: `Failed: global install swap … tree changed
+   Installation recovery is unverified`, 9.4 left running (harmless), and
+   `openclaw update repair` then refused ("The update parent owns Gateway
+   activation"). The manual path worked on all three, ~4 min downtime:
+   ```bash
+   export TMPDIR=$HOME/.cache/openclaw-tmp
+   systemctl --user stop openclaw-gateway.service
+   npm i -g openclaw@<ver> --allow-scripts=openclaw
+   openclaw doctor --fix --yes
+   openclaw gateway install --force && systemctl --user daemon-reload
+   systemctl --user reset-failed openclaw-gateway.service; systemctl --user start openclaw-gateway.service
+   openclaw update repair --yes     # converges codex/brave/slack plugins to <ver>, restarts itself
+   ```
+   After it, doctor keeps printing `Plugin "codex" state migration is
+   pending` — the agent works regardless (verified by real turns); left
+   as is.
 4. **THE TRAP (not deterministic)** — on blakeclaw and emmaclaw the
    updater's own doctor step failed (`Doctor could not enter maintenance…
    Gateway service ownership or shutdown could not be verified`), it
@@ -270,6 +302,45 @@ migration is one-way), `gateway install --force`, restart. Untested.
 
 HTTP mode (`signingSecret`, `webhookPath`) needs a public URL — not for
 LAN-only claws.
+
+## Changing the model
+
+```bash
+openclaw models list --all --refresh --plain | grep gpt-6   # see what the catalog offers
+openclaw config set agents.defaults.modelPolicy.allow '["openai/gpt-5.5","openai/gpt-5.6-luna","openai/gpt-6-astra"]'
+openclaw models set openai/gpt-6-astra
+openclaw models fallbacks add openai/gpt-5.6-luna
+```
+
+Hot-reloaded, no restart. `models list --all` WITHOUT `--refresh` only
+shows allowed models — it hid `gpt-6-astra` until refreshed. A model not
+in `modelPolicy.allow` is refused, so extend the list first (preserve
+per-box extras such as `gpt-5.6-sol`). Proof it took: journal
+`[gateway] agent model: openai/gpt-6-astra` on the next boot, or a turn
+with no `model-fallback` line. There is no `gpt-6-luna` (2026-09-23): the
+Luna/Sol names are still 5.6; GPT-6 is `gpt-6-astra`.
+
+## Hermes (Nous Research Hermes Agent, on the same VMs)
+
+`~/.hermes/hermes-agent/venv/bin/hermes` (not on PATH), config
+`~/.hermes/config.yaml`, user unit `hermes-gateway.service`, provider
+`openai-codex`. Model switch:
+
+```bash
+H=~/.hermes/hermes-agent/venv/bin/hermes
+$H chat -Q --provider openai-codex -m gpt-6-astra -q "Reply with exactly: HERMES OK"   # test first
+$H config set model.default gpt-6-astra
+# fallback: top-level list; `hermes fallback add` is interactive only, and
+# `fallback_model:` (still in its docs) is NOT a recognised key in v0.19
+printf '%s
+' 'fallback_providers:' '- provider: openai-codex' '  model: gpt-5.6-luna' >> ~/.hermes/config.yaml
+$H fallback list; systemctl --user restart hermes-gateway.service
+```
+
+Proof: `~/.hermes/logs/agent.log` lines `model=gpt-6-astra
+provider=openai-codex`. Both runtimes are watched by user timers
+`assistant-healthcheck@{openclaw,hermes}` → healthchecks.io — a gateway
+outage during an update will page.
 
 ## Telegram
 
