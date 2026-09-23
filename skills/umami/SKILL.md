@@ -32,6 +32,17 @@ description: The estate's ONE self-hosted Umami web analytics instance (stats.or
   `https://stats.enacast.com/script.js` keep collecting without a redeploy.
   **New tags always use `https://stats.oriolj.com/script.js`**; move old
   ones over on the surface's next deploy.
+- **Ownership = the team «Estate»** (`5113853e-f777-45de-9a9c-d29a5d2e80be`,
+  `agent` team-owner + `admin` team-manager; 2026-09-23). Umami's dashboard
+  and `GET /api/websites` list only the caller's OWN websites plus nothing
+  from other users — an admin sees the rest only under Settings → Websites
+  (`GET /api/admin/websites`). With every site owned by `agent`, Oriol's login
+  showed an empty dashboard. Always create sites with `teamId` (`POST
+  /api/websites {name, domain, teamId}`) and list via `GET
+  /api/teams/{id}/websites`; `umami-site.py` does both. Move a stray site with
+  `POST /api/websites/{id}/transfer {"teamId": …}`. Add a member with `POST
+  /api/teams/{id}/users {userId, role: team-manager|team-member|team-view-only}`;
+  `POST /api/teams {name}` returns `[team, membership]` (an array, not an object).
 - Naming: one website per public hostname, `«Product · landing|site|docs|app»`.
   Apps behind a login get a site too (cookieless).
 
