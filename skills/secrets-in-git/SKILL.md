@@ -446,7 +446,9 @@ the next agent into the wrong flow.
       Never `cat >` over it (hq, 2026-09-23: a second session overwrote a
       just-encrypted RevenueCat file and dropped a generated webhook secret;
       recovery = decrypt the committed `.enc`, and never re-encrypt the
-      damaged plaintext first).
+      damaged plaintext first — or, when a runtime copy exists, re-read it
+      from the provider: Coolify `GET …/envs` field **`value`**, NOT
+      `real_value`, which is quote-wrapped for literals — coolify-deploy skill).
 - [ ] Plaintext in the store with a header; `chmod 600`.
 - [ ] Catalog bullet in `CLAUDE.md` (names, scope, dates, lifetime,
       consumers, parse rule).

@@ -76,6 +76,24 @@ decides. Pin `Stripe-Version` to the backend SDK's version.
    `backend/scripts/stripe_replay_events.py`).
 9. **curl form bodies: `+` in an email becomes a space** (`-d email=a+b@x`
    → "Invalid email address: a b@x"). Use `--data-urlencode`.
+10. **Tax API shapes** (sandbox, API 2025-08-27.basil): `POST /v1/tax/settings`
+    with only `head_office[address][country]` already flips `status` to
+    `active` (use the real address anyway — never invent one); a Spanish
+    registration needs `country_options[es][type]=standard` AND
+    `country_options[es][standard][place_of_supply_scheme]=standard`, or it
+    answers "requires `standard` to be specified".
+11. **`billing_portal/configurations` create has no `is_default`** ("unknown
+    parameter"); the first configuration becomes the default by itself.
+12. **The hosted Checkout page cannot be driven by browser automation**
+    (Playwright: the card accordion's click target is covered/invisible).
+    Test the lifecycle through the API instead: attach `pm_card_visa` (or
+    `pm_card_chargeCustomerFail` for the failed-payment path) to the customer
+    the backend created, `POST /v1/subscriptions` with the same metadata the
+    Checkout session would set, then drive `items[0][price]` switches with
+    `proration_behavior=always_invoice`, `invoices/{id}/pay`,
+    `cancel_at_period_end`, `DELETE` — and replay the resulting events. That
+    covers everything except `checkout.session.completed`, which needs one
+    human click-through with `4242…`.
 
 ## One-time purchases (a "lifetime" plan next to subscriptions)
 

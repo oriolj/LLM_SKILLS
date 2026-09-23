@@ -1548,6 +1548,13 @@ api.resend.com; curl's default UA happens to pass).
   `http://<uuid>.<ip>.sslip.io`). Reading the pair as duplicates and taking
   whichever came first means a 50% chance of reporting — or overwriting —
   the wrong environment's value.
+  **`value` vs `real_value`**: for an `is_literal` var, `real_value` comes back
+  **wrapped in single quotes** (73 chars for a 71-char secret); `value` is what
+  the container actually receives. Read `value` when exporting, comparing or
+  restoring a secret — copying `real_value` into a secrets store produced a
+  webhook secret that 401'd (Panotxa, 2026-09-23). Compare by hash with the
+  container (`docker exec … python -c 'hashlib.sha256(os.environ[...])'`),
+  never by printing.
 - `POST /deploy?uuid={app}` — trigger a deploy (GET returns 405). **Add
   `&force=true` after any domain or env change.** Without it the API answers
   `{"message": "Deployment already queued for this commit."}` and does
