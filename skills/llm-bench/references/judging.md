@@ -96,6 +96,16 @@ headlines, insights about the user's week, a nutrition explanation):
 For image sources the verifier gets the image as the source, and "supported"
 means visible in the photo (or stated in the user's own note).
 
+**Give the verifier an `inferred` verdict when the product asks for inference.**
+Panotxa's prompt asks for the likely ingredients; a three-way verdict counted
+"olive oil", "broth in the soup" and "the shrimp are cooked" as invented: 48 %
+bad claims and 0 % clean on production, contradicted by a hand reading. With
+`inferred` (a standard component, or a reasonable reading of what is visible;
+not counted), the rate was 11 %, and the rest were genuine over-specifics
+("parmesan", "vermouth", "melted cheese" that visibly isn't). Version the claim
+prompt separately from the rubric (`claim_version` in the cache key) so a fix
+re-runs only the claims.
+
 ## Ground-truth metrics
 
 | Output type | Metric |
@@ -114,7 +124,14 @@ build accuracy on human labels only.
 
 Scarce expert labels (Panotxa: one nutritionist, 15 dish-quality scores) are best
 spent **calibrating the judges**: if the judge's quality score correlates with the
-expert's, the judge can score the unlabelled majority.
+expert's, the judge can score the unlabelled majority. **Measure it, don't assume it**: in
+Panotxa 2026-09-24, each judge's own DQ (a `judge_dq` field asked alongside the
+rubric) agreed with the nutritionist no better than the production model did
+(MAE 13-17 vs 12, r 0.68-0.86 vs 0.85). It was **anchored by the output it
+read** (same photos, a different judge DQ per row), and its `quality_verdict`
+did not track the output's distance from the expert (Spearman ≈ 0). There,
+accuracy of the score needs more expert labels, and the judges are kept for
+identification, claims, tips and language.
 
 ## Humans in the loop
 

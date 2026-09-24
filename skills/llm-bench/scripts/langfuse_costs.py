@@ -10,7 +10,8 @@ move it?" without the UI. Stdlib only (runs anywhere python3 exists).
   langfuse_costs.py --env .env --since 7d --by user                   # spend per tenant (userId)
   langfuse_costs.py --env .env --since 7d --name gpt-podcast-analysis --daily
 
-Credentials: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL (or LANGFUSE_HOST),
+Credentials: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL (or LANGFUSE_HOST; default
+https://cloud.langfuse.com like the SDKs),
 from the environment or an env file (`KEY=value` or `KEY = "value"`, one per line).
 
 Cost column = Langfuse's cost for the observation: the cost the app sent
@@ -175,9 +176,11 @@ def main() -> None:
     args = ap.parse_args()
 
     env = load_env(args.env)
-    host = env.get("LANGFUSE_BASE_URL") or env.get("LANGFUSE_HOST")
-    if not (host and env.get("LANGFUSE_PUBLIC_KEY") and env.get("LANGFUSE_SECRET_KEY")):
-        sys.exit("LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_BASE_URL not found (env or --env file)")
+    # Same default as the Langfuse SDKs: projects that never set a host
+    # (Panotxa's env has only the two keys) are on the EU cloud.
+    host = env.get("LANGFUSE_BASE_URL") or env.get("LANGFUSE_HOST") or "https://cloud.langfuse.com"
+    if not (env.get("LANGFUSE_PUBLIC_KEY") and env.get("LANGFUSE_SECRET_KEY")):
+        sys.exit("LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY not found (env or --env file)")
     now = dt.datetime.now(dt.timezone.utc)
     since, until = parse_when(args.since, now), parse_when(args.until, now) if args.until else now
     client = Client(host, env["LANGFUSE_PUBLIC_KEY"], env["LANGFUSE_SECRET_KEY"])

@@ -124,6 +124,17 @@ Rules that came from real bugs:
   fixture: on 2026-09-23 the enacast tests mocked the HTTP call but kept the real
   Langfuse keys, and a dozen fake `gpt-6-luna` generations landed in the production
   project, which looked like the first post-deploy traffic for a moment.
+- **Call the body under `@observe` with `inspect.unwrap(fn)`**, not `fn.__wrapped__`
+  (mypy rejects the attribute), so no span can reach Langfuse even if an env key
+  leaks. Enter `bench_mode` ONCE around the thread pool: its patches (and any
+  `os.environ` edits) are process-global, and per-thread enter/exit races.
+- **Freeze image bytes and replace the encoder at replay** with one that returns
+  the frozen bytes after a sha256 check. Re-encoding an already-encoded JPEG
+  changes the bytes the model sees.
+- **Cache only model-behaviour failures** (non-JSON twice, truncation, invalid
+  structure); a 429 or a timeout must be retried on the next run.
+- In Docker, run the bench as the host uid (`run --user $(id -u):$(id -g) -e
+  HOME=/tmp`), or every result file is root-owned in the repo.
 - **The model is an argument, not a monkeypatch.** Give every production function
   a `model=` parameter defaulting to the feature table
   (`def extract_tags(text, model: str = feature_model("tags"))`). A one-line refactor,

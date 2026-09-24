@@ -62,7 +62,13 @@ another vendor:
 - numbers in range (kcal 0–3,000 per dish, percentages 0–100, scores 0–100);
 - internal consistency: 4·protein + 4·carbs + 9·fat within ±20 % of kcal;
   composition percentages sum ≤ 100; portion grams plausible for the dish;
-- boxes as fractions in [0,1], non-degenerate, one per detected dish;
+- boxes as fractions in [0,1], non-degenerate, one per detected dish — check the
+  RAW answer, before the product's repair: 21-28 % of Gemini answers mix
+  conventions, and `gemini-3.8-flash` answers per-mille with the right/bottom
+  EDGES in `w`/`h` (Sprite `x 265, w 296`). A repair that rescales cannot tell an
+  edge from a size, so the boxes silently cover half the photo. Ask for Gemini's
+  native `box_2d: [ymin, xmin, ymax, xmax]` on 0-1000 and convert in code, or
+  enforce a schema;
 - language of the free-text fields = the requested language;
 - `finish_reason` not a length cut.
 
@@ -94,6 +100,20 @@ Cheap and decisive, in this order:
    (Panotxa: `N.nutritionist.json`, one rater, 15 photos). Use it to validate the
    judge's quality dimension, then let the judge score the rest.
 4. **Weighed portions** — expensive; only for a small calibration set.
+
+## Candidates through OpenRouter: what went wrong (Panotxa 2026-09-24)
+
+- Open-weight vision models are served by third-party providers of very uneven
+  speed: `gemma-4-31b-it` 32 s p50 / 83 s p95 on a 5k-token photo prompt.
+  `mistral-small-2603` hit provider 429s at 4 workers; run it with `--workers 1`.
+  Transport failures must not be cached as results; rerunning fills them.
+- A model's DEFAULT reasoning can dominate: `qwen3.8-flash` spent ~2.9k reasoning
+  tokens per photo, truncated, and returned lists where objects were expected
+  (production crashed with `TypeError`, not its clean error). Bench `none` as well
+  as the default.
+- A text-model winner does not transfer to vision: `gpt-6-luna` (the EnaCast
+  winner) identified food worse and agreed less with the nutritionist than
+  flash-lite, at 2.4× its latency.
 
 ## Cost and latency are part of the score
 
