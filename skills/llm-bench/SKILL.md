@@ -83,6 +83,13 @@ reasoned 2,350 tokens to write 60 characters.
   production and bench get it together.
 - **Structured output needs a schema**, not "JSON mode" (Panotxa: 3.6 % invalid JSON
   without `response_schema`). A bench on unconstrained JSON measures the parser.
+- **A field users already get is a contract.** Check its presence against the shipped
+  reference on every item, not only where the prompt asks for it. enacast-ai 2026-09:
+  the new short prompt listed its fields without "sections", Gemini had filled them
+  anyway, Luna did not; the bench row showed 9/35 short episodes with sections (35/35
+  before) but the check only covered long episodes, and clients noticed the drop the
+  next morning. Diff field presence and counts (sections/hour, tags, quotes) between
+  baseline and candidate per stratum before shipping.
 - **Rubrics say what is NOT an error** — deliberate product choices scored as
   misses made production look worse than it was.
 - **Freeze the prompt's source, not the assembled prompt**, when the prompt is built
