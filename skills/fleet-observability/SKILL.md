@@ -166,7 +166,9 @@ enrolled 2026-09-12/13 as a non-Coolify docker host, §6d; Coolify apps on the s
 server deliberately NOT in `servers`, enrolled 2026-09-06 with the
 backupmaker deployment: 79k lines shipped within a minute of the play) and **v5** (THE EnaCast production backend, onboarded
 2026-09-04 the day after an outage investigation had to read its logs
-with `docker logs` over ssh); **smartup-nbg1-1** (the SmartupSoft Coolify box — FichaChat prod, BikeCRM beta, Umami — enrolled 2026-09-14 with `--tags observability,swap,beszel` once its tailnet path was back; the play's first apply died on an `apt-get update` that had hung for ~150 days holding the apt lists lock — check `pgrep -a apt-get` + `ps -o etime` before blaming the role, kill the stale `apt.systemd.daily` tree, expect unattended-upgrades to then catch up in one big batch); jluv-apps-1 is staged.
+with `docker logs` over ssh); **smartup-nbg1-1** (the SmartupSoft Coolify box — FichaChat prod, BikeCRM beta, Umami — enrolled 2026-09-14 with `--tags observability,swap,beszel` once its tailnet path was back; the play's first apply died on an `apt-get update` that had hung for ~150 days holding the apt lists lock — check `pgrep -a apt-get` + `ps -o etime` before blaming the role, kill the stale `apt.systemd.daily` tree, expect unattended-upgrades to then catch up in one big batch); **jluv-apps-1** (the personal Coolify box) is in the inventory since
+2026-09-25 but not applied: it sits on the personal tailnet, and the play
+waits on two node shares (§7 step 1, "a host on another tailnet").
 The role ships **logs + traces** (2026-09-05: journald + docker with the
 full label relabeling, WAL, tailnet bind on :12345; OTLP intake on :4318
 with tail sampling and forward to Tempo — §5f); the hub's `alloy`
@@ -1623,7 +1625,7 @@ Postgres/Valkey** with exporters as compose services on the tailnet bind). Repo 
   containers, and Tailscale's DNS lives on the tailscale0 link only — so the agent's
   `monitor-1-nc` push URL fails with `loki_write … status_code="-1"` while the HOST resolves
   it fine. Use the documented literal-IP exception (`observability_loki_push_url` /
-  `observability_otlp_push_url` per host, as monitor-1-nc and jluv-apps-1 already do) and
+  `observability_otlp_push_url` per host, as monitor-1-nc does) and
   test with `docker run --rm --network observability_default busybox nslookup monitor-1-nc`
   BEFORE the play. (Debian 13 hosts, where every other agent lives, resolve it.)
 - 🔴 **A node freshly re-logged into the tailnet can be reachable one way only.** The hub's
@@ -1684,6 +1686,20 @@ Postgres/Valkey** with exporters as compose services on the tailnet bind). Repo 
    `tailscale debug prefs | grep CorpDNS` too: `true` on a server is the
    MagicDNS-snapshot trap from the top of this skill, dormant while expiry
    is disabled.
+   **A host on another tailnet** (jluv-apps-1, personal `ainu-universe`,
+   2026-09-25) needs TWO node shares, because a share is one-way (the
+   shared node answers but cannot dial out): the host shared INTO the hub's
+   tailnet (controller ssh + the hub's `:12345` scrape) and monitor-1-nc
+   shared INTO the host's tailnet (log/trace pushes). Push URLs then use the
+   hub's origin FQDN `monitor-1-nc.armadillo-tawny.ts.net` (the short name
+   does not resolve across tailnets), and `observability_bind_ip` pins the
+   host's NATIVE tailnet IP in case the controller side sees another
+   address. Check which peer is shared in before trusting an old note:
+   infra-monitoring (GlitchTip) being reachable from a box does NOT mean
+   the hub is. A 2026-09-02 plan had pointed jluv-apps-1's push URL at
+   infra-monitoring's personal-side IP. Test from the box with `tailscale
+   ping <hub-ip>` and `curl <hub-fqdn>:3100/ready`. A 401 means the hub
+   is reachable, and `000` means it is not.
 2. `oj.*` labels added to the project composes on that host FIRST — else
    everything arrives as fallback-tagged and needs relabeling later.
 3. Agent play (`--tags observability`); on Coolify hosts confirm the
