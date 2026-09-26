@@ -293,3 +293,18 @@ already forbid videos, iframes and forms. The pattern that works:
   `bikecrm-web-comercial/content-sources/` (`make-video.sh vN`,
   `make-illustrations.sh`); live encodes `static/video/bikecrm-es-v2-*`;
   illustrations `static/images/illustrations/es/`.
+- **EnaCast** (`~/git/EnaCast`, commercial site `enacast-comercial-website`,
+  Astro, `publicDir` = `public/`, deploys to Vercel on push to `master`):
+  brand Signal Green `#2DD4A8`, Studio Navy `#0A1628`, Inter; vector
+  wordmark SVGs in `enacast-ramen/public/enacast/`. Product UI comes from
+  EnaCast Studio (`enacast-ramen`) on its local dev server
+  `ramen.localhost:3203`, which **talks to production**: capture as the
+  `oriol.radiotest` test account, read-only (never submit a form or press
+  "Genera notícia"), and skip its transcript view (radiotest airs music, so it
+  holds song lyrics). Promo videos (2026-09-26, `265dee8`): launch + Insights,
+  English headlines over the Catalan UI, sources in
+  `content-sources/brag/` (`make-video.sh vN`, rebuilt masters decode
+  frame-identical to the delivered ones), encodes
+  `public/video/brag/enacast-<launch|insights>-en-<vN>-<16x9|9x16>.{mp4,webp}`,
+  wired through `src/data/brag-videos.ts` (English only) into `/en/` home and
+  `/en/podcasting`. The other five languages need their own cuts.
