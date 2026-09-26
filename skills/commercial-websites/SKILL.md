@@ -225,6 +225,32 @@ Go through this list on every review; each line comes from a real miss.
   layout that now wraps the slot in `<main>` produces two; grep the pages when
   adding the landmark.
 
+**Legal pages (privacy, legal notice, cookies)** (Oriol, 2026-09-26)
+- **Plain language, every site language, verified facts.** The reference is
+  Enantena's privacy policy (`~/git/Enantena/enantena-comercial-website/src/i18n/legal.ts`,
+  live at enantena.com/privacitat/): short sections titled as the reader's
+  questions (who is responsible · what data and why · cookies · how long ·
+  who can see it · your rights), one short paragraph per purpose with its
+  legal basis in words plus the GDPR article, the real providers by name with
+  the transfer mechanism, "this website sets no cookies" when a browser check
+  confirms it, rights with the supervisory authority (AEPD), a "last updated"
+  date. Structured per-language data rendered by one component, never a
+  pasted template.
+- **Never ship a generator template** (TermsFeed & co.): BikeCRM's was a 54 KB
+  English-only text on every language, with CCPA sections and Google Analytics
+  and cookies the site no longer used. A policy that describes another site is
+  both unreadable and wrong.
+- Every claim in it is checked like product copy: grep the site and the
+  product backend for the providers actually called (email, SMS/WhatsApp,
+  payments, AI APIs, error tracking, hosting, analytics, fonts, widgets) and
+  observe cookies in a real browser. For SaaS, separate the two roles: the
+  company is controller for its own customers' account data and a processor
+  (art. 28, DPA) for the data those customers enter about their own clients.
+- The LSSI identity block (company name, tax ID, address, email, registry
+  data) must exist on every site (legal notice or the policy's first section);
+  unknown values are visible placeholders plus a USER_TODO item, never
+  omitted. Structure and legal checklist: the **eu-law** skill.
+
 **Copy and languages**
 - The market's language first; finish one language, then port, with the port
   written in the repo's TODO. English, Catalan, Spanish and French each get
