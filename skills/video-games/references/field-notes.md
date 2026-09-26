@@ -3,6 +3,35 @@
 Dated lessons from real games, newest first. One entry per lesson: what
 happened, the rule it produced, and where the rule now lives.
 
+## 2026-09-27 — 12 games built in parallel, one agent per game
+
+- Oriol asked for every plan to be implemented in full. Twelve background
+  agents ran at once, each with the same brief:
+  - write only inside `games/<slug>/`, with `shared/` read-only (frozen
+    after one last helper, `dir4_just_pressed`, was added first);
+  - no commits;
+  - copy freely from PixelPals;
+  - "done" means the game's tests pass, every screen is captured AND
+    looked at, and a clean-cache (`rm -rf game/.godot`) re-run is green.
+- **Result:** all 12 came back playable in 26 to 49 minutes each. The
+  coordinator re-verified each one independently (a wiped cache, its
+  tests, one capture it looked at itself) and committed it with a
+  path-limited `git commit -- games/<slug>`, while the others kept
+  working. The root `make test` then passed 793 tests across 13 games.
+- **Zero collisions**, because ownership was by path and `shared/` was
+  frozen. The cost is duplication: 12 copies of the synth, the sprite
+  renderer and the menu screens, plus 7 missing shared APIs, each with a
+  local stand-in. The agents each proposed a shared diff in their report,
+  and the coordinator collected them into one backlog
+  (`docs/ideas.md`). Do that extraction as its own pass, not mid-build.
+- **What the agents learned the hard way** is now in SKILL.md "Claude +
+  Godot: the traps": no 2D MSAA in Compatibility, `-s` scripts and
+  autoloads, the dummy audio driver, BPM versus sample rate, physics
+  determinism, low-res 3D.
+- **The demo driver was each game's real test harness:** the Zoo Keeper
+  capture found a dancing animal refusing food, which a unit test had
+  missed.
+
 ## 2026-09-26 — PixelPals becomes the couch co-op monorepo
 
 - Restructured into `games/<slug>/` + `shared/`, with `git mv` so history

@@ -1,6 +1,6 @@
 ---
 name: video-games
-description: Make video games with Claude Code the way we do it — our engine choice (Godot 4 (4.7+, latest stable) with GDScript, Linux-first), real pixel art (native low-res canvas, integer scaling, a Lospec palette, indexed PNGs rendered from palette-indexed text grids by our own script and linted), couch co-op with several gamepads (roles by device id, join screen, hot-plug, SDL mappings for 8BitDo), game design for very young children (no fail states, no text, asymmetric parent+kid roles), the Claude-with-Godot traps (Godot 3 API drift, hand-edited .tscn/.uid breakage, headless renders nothing), the verification loop (GUT tests plus captured frames inspected upscaled), what Opus 5.5 can and cannot do for art and audio, third-party IP in a private pack (committed only to a private repo), and an index of the external skills and MCP servers worth reading. Use when the user says "make a game / videojoc / video game", "couch co-op", "pixel art", "sprite", "sprite sheet", "tileset", "palette", "Godot", "GDScript", "gamepad / controller support", "game for my kids", "character select", "game jam", or works in ~/git/oriolj/VideoGames/PixelPals (the couch co-op monorepo: PixelPals plus 12 planned games).
+description: Make video games with Claude Code the way we do it — our engine choice (Godot 4 (4.7+, latest stable) with GDScript, Linux-first), real pixel art (native low-res canvas, integer scaling, a Lospec palette, indexed PNGs rendered from palette-indexed text grids by our own script and linted), couch co-op with several gamepads (roles by device id, join screen, hot-plug, SDL mappings for 8BitDo), game design for very young children (no fail states, no text, asymmetric parent+kid roles), the Claude-with-Godot traps (Godot 3 API drift, hand-edited .tscn/.uid breakage, headless renders nothing), the verification loop (GUT tests plus captured frames inspected upscaled), what Opus 5.5 can and cannot do for art and audio, third-party IP in a private pack (committed only to a private repo), and an index of the external skills and MCP servers worth reading. Use when the user says "make a game / videojoc / video game", "couch co-op", "pixel art", "sprite", "sprite sheet", "tileset", "palette", "Godot", "GDScript", "gamepad / controller support", "game for my kids", "character select", "game jam", or works in ~/git/oriolj/VideoGames/PixelPals (the couch co-op monorepo: 13 playable games plus plans).
 ---
 
 # Video games
@@ -131,6 +131,25 @@ and grows with each game; add dated lessons to
   Always test a change on a clean clone
   (`git clone . <scratch>/clone && rm -rf <scratch>/clone/game/.godot`) before
   saying it runs on another machine.
+- **The Compatibility renderer has no 2D MSAA** (Godot 4.7 warns "2D MSAA
+  is not yet supported for GLES3"). Vulkan will not start under xvfb, so
+  frame captures need `gl_compatibility`. Vector games smooth their edges
+  by drawing antialiased outline polylines (`draw_polyline(..., true)`)
+  over the fills.
+- **A `-s` script must `load()`, not `preload()`, anything that names an
+  autoload** (preloads compile before autoloads exist), and a `-s` script
+  that errors never quits: wrap it in `timeout`.
+- **Headless audio is the dummy driver.** Test synth code by calling its
+  fill function on buffers; never through a device. A live
+  `AudioStreamGenerator` synth in GDScript handles about 9 voices at
+  ~35 ms per second of audio (Garage Band), well inside budget.
+- **Music loops: pick a BPM whose beat is a whole number of samples** at the
+  mix rate (108 not 110 at 44.1 kHz), or the loop seam drifts.
+- **Physics is not bit-deterministic**: test outcomes and ranges, never
+  exact positions (Tower Topple).
+- **3D for small kids works as low-res 3D**: render the world in a 480x270
+  `SubViewport` shown by a `Sprite2D`, use CPU particles only, and make
+  billboards nearest-filtered and unshaded (Fire Truck Rescue).
 - **Headless renders nothing.** `godot --headless` is for tests and
   scripts. For visuals capture frames: `--write-movie out.png` with a fixed
   `--quit-after`, under a real display or `xvfb-run`.
