@@ -116,6 +116,13 @@ Go through this list on every review; each line comes from a real miss.
   font with `size-adjust` tuned per weight, listed right after the web font) so
   the text block has the same height before and after the web font arrives.
   Verify by measuring block heights with the web fonts blocked.
+- **Find the element that shifts before fixing CLS** (Lighthouse `layout-shifts`
+  names it). On BikeCRM the font fallback was a real but minor cause; the 0.466
+  came from the mobile menu, which had no hidden state until Alpine
+  initialised: it rendered open, then collapsed and pulled the hero up. Any
+  element toggled by a JS framework (`x-show`, `:class`, `v-if` after
+  hydration) needs its closed state in the static HTML (`class="hidden
+  lg:!block"` + `:class="open && '!block'"`). Fixed: 0.466 → 0.04.
 - Third-party scripts only where used: hCaptcha (~865 KB) was loading on every
   page for one footer form. Pin CDN script versions (`alpinejs@3.x.x` is a
   range). Load only the font families the site uses.
