@@ -8,11 +8,13 @@ and the model's job is authoring and critique.
 ## The flow
 
 1. **Palette file** — one per game, from Lospec, as a hex list
-   (`art_src/palettes/<name>.hex`). Index 0 is transparent.
+   (`art_src/palettes/<name>.hex`), in Lospec order.
 2. **Sprite source = palette-indexed text grid** (`art_src/<sprite>.txt`):
    one character per pixel, `.` transparent, `0-9a-f` palette indices;
-   frames separated by a blank line. Diffable, reviewable in git, editable by
-   hand or by the model.
+   frames separated by a blank line; a header `# name WxH fps=N` (plus
+   options such as `outline`, which draws the 1 px dark outline for you so
+   it stays consistent). Diffable, reviewable in git, editable by hand or by
+   the model. Reference implementation: PixelPals `tools/sprites.py`.
 3. **Our renderer** (`tools/sprites.py`, Pillow via uv) turns every grid into
    an indexed PNG (sprite sheet: frames left to right) in the game's `art/`.
 4. **Lint** in the same script, failing the build on: a character not in the
