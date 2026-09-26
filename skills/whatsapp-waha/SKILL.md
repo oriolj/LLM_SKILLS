@@ -118,6 +118,37 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
   are Plus-only is not marked in the spec; sending media has not been
   tested yet — verify before promising it.
 
+## Agents on WhatsApp: OpenClaw and Hermes do NOT speak WAHA (checked 2026-09-26)
+
+- **OpenClaw**: its WhatsApp channel is built in and uses Baileys directly.
+  The gateway owns its own linked session, with `selfChatMode`,
+  `dmPolicy` (`pairing|allowlist|open|disabled`), `allowFrom`,
+  `groupPolicy` and multiple accounts
+  ([docs](https://docs.openclaw.ai/channels/whatsapp)). A native WAHA channel was
+  requested in openclaw/openclaw#73016, which was closed as not planned. The
+  community plugin `waha-openclaw-channel` (omernesh/openclaw-waha-plugin)
+  has 5 stars and a CC-BY-NC-4.0 licence, which fails the >1k-star rule.
+  Do not install it.
+- **Hermes Agent** (Nous): its gateway also has its own built-in Baileys
+  bridge. It supports a separate bot number (recommended) or personal
+  self-chat, plus `WHATSAPP_ALLOWED_USERS` and group allowlists. It has no
+  external-bridge or WAHA option. The only webhook variant is Meta's Cloud API
+  ([docs](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/whatsapp)).
+- So "connect Petra to WhatsApp" is a choice between three options, and the
+  choice is Oriol's:
+  1. **A dedicated number for Petra** with the claw's own Baileys channel
+     (allowlist = Oriol, family if wanted). This is the cleanest option: the
+     identity is honest by construction, and a ban hits Petra's number, not
+     Oriol's.
+  2. **The claw links Oriol's own number** as a second Linked-devices slot,
+     next to WAHA, with `selfChatMode` and `dmPolicy: allowlist`. It works,
+     but two unofficial clients on one number doubles the ban exposure. Every
+     inbound chat also reaches the agent unless the allowlist is tight.
+  3. **Outbound only through WAHA**: give petraclaw `wa.py` and the key.
+     Petraclaw must first join the DOCKER-USER tailnet allow-list, and the key
+     rotation touches one more place. There is no inbound path until WAHA
+     webhooks are wired.
+
 ## Monitoring and restarts
 
 - Gatus group `whatsapp-waha` on status.enacast.com probes
