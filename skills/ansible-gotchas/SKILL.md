@@ -270,6 +270,23 @@ packages, default shell, no prior run's leftovers. For every task ask:
 
 ## sudo / become
 
+- **A PLAY-level `become` (or any become/connection keyword) must never read
+  a fact.** Since ansible-core 2.21 the play's keywords are templated for the
+  IMPLICIT `gather_facts` task too, where no fact exists yet, so
+  `become: "{{ ansible_os_family != 'Darwin' }}"` on the PLAY kills the run
+  at its first task: `Error processing keyword 'become':
+  'ansible_os_family' is undefined` — nothing gathers, nothing runs. It was
+  valid on 2.20, so it breaks on a controller upgrade, in a playbook nobody
+  touched. Put `become` on the TASKS that need it (facts exist by then;
+  per-task is also what makes macOS's `become: false` legible). Do NOT use a
+  play-level `become: yes` instead: the setup module then runs as root and
+  poisons the fact cache with `user_id=root` / `HOME=/root`. `vars_prompt`
+  vars such as `ansible_become_pass` are fine — they are not facts. Real
+  case: hq `update.yml` + `bootstrap.yml`, 2026-09-26, core 2.21.4 — an
+  update run against a laptop 223 packages behind installed nothing. Guard
+  it with a text-level structural test (two-space indent = play keyword) —
+  hq `playbooks/test-play-keywords.yml`; parse it as TEXT, because
+  `from_yaml` chokes on `!unsafe` tags in sibling playbooks.
 - **One source of the become password.** A `vars_prompt`-set
   `ansible_become_pass` plus `--ask-become-pass` = two sources = "Sorry, try
   again" on random tasks. Pick one, document which.
@@ -380,5 +397,6 @@ errors; filters bind tighter than `+`.
       collectors serialize every task result, and a `no_log` on the last
       task does nothing retroactively (shipped twice in hq's NaN tasks,
       caught in review 2026-08-31).
+- [ ] No PLAY-level become/connection keyword reads a fact (core 2.21+).
 - [ ] Ran the validation ladder; on a fleet, considered the freshest and the
       weirdest machine, not the dev box.
