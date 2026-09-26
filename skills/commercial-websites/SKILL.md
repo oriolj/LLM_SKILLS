@@ -74,6 +74,15 @@ Go through this list on every review; each line comes from a real miss.
   docs or pricing data; skip a question rather than invent an answer.
 - **B2B prices are quoted excluding VAT** with "+ IVA / + VAT" beside the
   figure; consumer prices include it (house rule).
+- **Pricing display (Oriol, 2026-09-26): by default show the monthly price of
+  YEARLY billing**, as competitors do ("54,40 € al mes + IVA, con pago anual"),
+  with the yearly total next to it and a switch to monthly billing. Teasers
+  elsewhere ("desde X €") lead with that figure too. Render both states in the
+  HTML (Alpine or any framework only toggles visibility, so crawlers and no-JS
+  readers see prices), reserve the space of lines that appear in one state only
+  (no shift when switching), format with `Intl.NumberFormat` per locale
+  ("54,40 €", never "54.4"), and keep the structured data at the monthly
+  billing price with `valueAddedTaxIncluded: false` for B2B.
 - Example numbers labelled as examples ("Datos de ejemplo"), or they read as
   claims.
 - No heading repeated in consecutive sections (a video poster caption counts),
