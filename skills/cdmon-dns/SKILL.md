@@ -124,6 +124,10 @@ undo, and no record history.
   afterwards with a resolver that is not the zone itself (DoH:
   `https://cloudflare-dns.com/dns-query?name=<fqdn>&type=CNAME`,
   `Status: 3` = NXDOMAIN).
+- **Rate limit on writes**: two deletes in quick succession, then the third
+  answered `{"message":"API rate limit exceeded"}` (2026-09-27, enacast.com).
+  Space writes ~30 s apart and re-list afterwards; a rate-limited call changed
+  nothing, so it is safe to retry.
 - **Edit/delete match on `host`+`type` only** — with multiple records on
   the same host+type (MX, NS, TXT sets), an edit/delete may hit more than
   you intend. For those, list first, show Oriol the exact record(s), and
