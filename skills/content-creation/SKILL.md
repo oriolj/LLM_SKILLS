@@ -13,11 +13,13 @@ output goes live.
 
 ## Preferences (Oriol)
 
-- **Show the real product.** The working app doing its job (its real top bar,
-  its components, its status chips, its copy) beats a landing page describing
-  it, and beats stock or abstract visuals. When the app cannot be run with data,
-  rebuild its screens in HTML from the project's own styles and assets — colours
-  and fonts read from the source, not guessed.
+- **Show the real product, as a concept.** The app doing its job (its real top
+  bar, components, status chips and copy) beats a landing page describing it,
+  and beats stock or abstract visuals. Build it as composed HTML cards from the
+  project's own styles and assets (colours and fonts read from the source, not
+  guessed), not as raw screenshots: Oriol prefers concept illustrations that
+  show what the software is about over screenshots (2026-09-26), in videos and
+  still images alike.
 - **The product's own words.** Headlines, feature names and figures come from
   the marketing site / catalogs (`home.ts`, i18n files, `llms.txt`). Illustrative
   UI text (a customer name, a task price) is fine; invented claims, numbers or
@@ -108,10 +110,42 @@ a re-roll of one scene is a few edits and a re-render, not a new video.
 `brag-output/` is a working folder — it is not committed to a product repo;
 only the web-optimised encodes are.
 
-## Product screenshots for the site
+## Concept illustrations (the site's product images)
 
-Real screenshots of the current app beat mockups (an SVG mockup loaded as
-`<img>` even renders its text in Times: see the commercial-websites skill).
+The default product image for a website, a newsletter or a deck is a **concept
+illustration**: a still scene in the launch video's visual language, not a
+screenshot. BikeCRM's four (2026-09-26,
+`~/git/BikeCRM/brag-output/work/illustrations.html`, one `?s=<scene>` per image):
+
+| Scene | Idea | What is on it |
+|---|---|---|
+| `hero` 1600×1000 | the workshop at a glance | sidebar card, two counters, a bike card with its timer, two task rows, a "client notified" toast, the + button |
+| `sheet` 1200×900 | one repair, step by step | the service sheet: step bar, four tasks with status chips, total, a floating running timer |
+| `history` 1200×900 | every client's history | client card, a timeline of past service sheets, a wear warning |
+| `notify` 1200×900 | the bike is ready | the "Notificar cliente" button and the message the client receives on a phone, plus a "sent" toast |
+
+How to make them:
+- **One idea per image**, three to six cards, overlapping slightly on a soft
+  rounded panel (`#f4f1ec`), generous shadows, lots of air. A viewer should get
+  the idea in a second, at phone width, so text is large (≥ 20 px at 1x) and
+  there are few rows.
+- **The app's own words:** every label on a card comes from the app's i18n
+  catalog for that language (BikeCRM: `Completada`, `Pendiente`, the step bar
+  `Iniciado › Cerrado › Notificado › Pagado`, `Notificar cliente`), so the
+  illustration matches the product a trial user opens. Invented data only.
+- **Render:** one HTML file, fonts awaited (`document.fonts.load` for every
+  weight plus the icon font), Playwright `deviceScaleFactor: 2`,
+  `locator('#stage').screenshot({ omitBackground: true })`, then
+  `ffmpeg -vf scale=W:H:flags=lanczos -c:v libwebp -pix_fmt yuva420p
+  -quality 88` for a transparent WebP at the exact size the page reserves
+  (40–70 KB each).
+- **Review on white** (composite over the page background) before shipping:
+  wrapped labels and empty card bottoms only show up there.
+- Per language: the labels are text, so each language gets its own render.
+
+## Reference captures of the running app
+
+Only to check what current cards look like (not to ship):
 
 - Run the app locally with an **invented** business seeded for the purpose
   (BikeCRM: `~/git/BikeCRM/brag-output/work/seed_marketing_business.py`, run in

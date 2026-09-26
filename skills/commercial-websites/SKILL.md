@@ -60,28 +60,38 @@ Go through this list on every review; each line comes from a real miss.
   see the global rules), not to a second footer form with its own captcha.
 
 **Imagery**
-- Real, current product UI. A 2020 mockup next to a 2026 video says "abandoned".
+- **Concept illustrations, not screenshots** (Oriol, 2026-09-26: "I don't like
+  screenshots too much"). Each product image is a composed scene that shows
+  what the software is about: a few app cards (the real top bar, status chips,
+  labels and brand colours) arranged on a soft panel around one idea: the
+  workshop at a glance, one repair in progress, a client's history, the
+  "your bike is ready" message. Same visual language as the launch video. Raw
+  screenshots are dense, tiny on phones and date quickly; use them only as the
+  reference for what the cards look like. How to build them: content-creation
+  skill, "Concept illustrations".
+- Current, not stale: a 2020 mockup next to a 2026 video says "abandoned".
+  The illustration's cards follow today's app (labels from the i18n catalog).
 - **SVG loaded through `<img>` cannot use the page's web fonts**: its
   `font-family="Roboto"` falls back to Times on every visitor without the font
   installed (most Windows and macOS machines). Screenshots must be raster (WebP)
   or have text converted to paths. Also check SVGs that merely wrap a base64 PNG
-  (855 KB on BikeCRM).
-- Screenshots come from a local stack with an invented test business (seed
-  script: names like "Marta Puig", `@example.com` emails, `+34600000xxx`
-  phones), never from production (customer data). **The local environment can
-  hold real messaging credentials** (BikeCRM's has live WhatsApp Cloud keys):
-  capture confirmation dialogs, never confirm them. Fallback: the HTML rebuild
-  of the app made for the launch video (content-creation skill).
-- Alt text written before the screenshot exists is a guess: check every alt
-  against the final image (BikeCRM: an alt promised "the message on the client's
-  phone"; the image showed the notify dialog).
+  (855 KB on BikeCRM). Ship illustrations as raster (transparent WebP rendered
+  from HTML at 2x), so text always renders in the brand fonts.
+- Any data inside an image is invented (names like "Marta Puig", `@example.com`,
+  `+34600000xxx`), never production. If you do capture the running app for
+  reference, use a local stack with a seeded fake business, and remember **the
+  local environment can hold real messaging credentials** (BikeCRM's has live
+  WhatsApp Cloud keys): capture confirmation dialogs, never confirm them.
+- Alt text describes the scene the image shows, checked against the final
+  image (an alt written before the image exists is a guess: BikeCRM's promised
+  "the message on the client's phone" while the image showed a dialog).
 - Every `<img>` has `width`/`height`, `alt` in the page's language describing
   what it shows; the LCP image `fetchpriority="high"`; the rest `loading="lazy"
   decoding="async"`. Stock backgrounds resized (≤1600 px WebP, <200 KB; a
   4928 px, 2 MB JPEG was loading on every visit).
 - Social preview: a real 1200×630 `og:image` with width/height/alt, not a
   600×150 logo under `summary_large_image`.
-- Language-specific assets (a video with Spanish text, Spanish screenshots) go
+- Language-specific assets (a video with Spanish text, illustrations with Spanish labels) go
   only on that language's pages, through an optional field in the per-language
   content data, never a hardcoded block.
 
