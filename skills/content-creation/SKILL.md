@@ -101,6 +101,20 @@ Captions go on top in two lines, the product below; headlines rewrap
 (`¿Tu taller vive<br>en papelitos?`); the CTA stacks centre-frame. Around 15 s
 loops best on Reels; offer a tighter cut if the landscape one is 20 s+.
 
+**Wide app screens: re-capture the real app at phone width, don't crop the
+desktop capture** (EnaCast Insights, 2026-09-26). A desktop card scaled into a
+940 px column shrinks its text to ~12 px. Load the same page with a narrow
+viewport (`deviceScaleFactor: 3`) so the app's own responsive layout rewraps
+the cards, then crop those. Check the width first: at 430 px EnaCast Studio
+truncated the marker titles and clamped the summary. At 560 px it stayed one
+column with full titles. Measure line boxes with
+`Range.getClientRects()`, and remember a line-clamped paragraph reports its
+hidden lines too. Table-shaped UI (lists, grids) crops fine as column subsets:
+title + status columns side by side, or three days of a week grid. For
+headlines, set line breaks per format rather than trusting the wrap: a
+one-word last line ("show?", "itself.") showed up in both the vertical and
+square cuts.
+
 ### Deliverables and where they live
 
 `brag.mp4` + `brag.jpg`, `brag-vertical.mp4` + `brag-vertical.jpg`,
