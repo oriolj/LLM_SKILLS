@@ -72,7 +72,12 @@ before indexing), `GET /api/0/issues/<id>/events/latest/` gives the full
 event (`entries[type=exception]` frames with `inApp`, `entries[type=breadcrumbs]`
 with the SQL `category: query` lines that pinpointed django-silk's GC
 deadlock, `tags`, `culprit`). `GET /api/0/organizations/<org>/projects/`
-lists projects with ids/slugs. Last resort only: GlitchTip's `:8000` is ALSO bound on
+lists projects with ids/slugs. **Resolving issues (verified 2026-09-26,
+oriolj/licita-radar):** the Sentry bulk form `PUT
+/api/0/projects/<org>/<project>/issues/?id=…` answers **405**; resolve one
+at a time with `PUT /api/0/issues/<id>/` `{"status": "resolved"}` → 200 (the
+numeric `id`, not the `shortId`). Resolve issues a shipped fix closed, so the
+unresolved list stays a list of live problems. Last resort only: GlitchTip's `:8000` is ALSO bound on
 infra-monitoring's public IP (`159.69.48.55`, plain HTTP, no TLS) — an
 ingest path for a host with no tailnet at all, at the price of events in
 clear; hq flags it for closing.
