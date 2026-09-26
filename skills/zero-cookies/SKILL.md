@@ -137,6 +137,21 @@ Django only emits cookies when something asks for them — know the askers:
 | GA4 / Meta pixel | cookieless analytics (Plausible/self-hosted, or server-side logs) or none |
 | Any `<script src=third-party>` | assume it sets cookies until proven otherwise — read its docs, check Set-Cookie + document.cookie after load |
 
+"Cookieless embed" is not automatically fine: merely loading a third-party
+resource discloses the visitor's IP to it (GDPR). The pattern that holds up:
+
+- **Consent facade ("two-click")** for YouTube/Vimeo/social/Spotify: a
+  first-party thumbnail + an informed notice ("Playing will load content
+  from X, which may set cookies"), inject the iframe only on click. Keep
+  `youtube-nocookie.com` and Vimeo `dnt=1` even after the click. No-JS
+  fallback: a plain link to the provider.
+- **Maps**: the OpenStreetMap embed (verified cookie-free, EU-hosted);
+  Google Maps only as a plain `<a>` link, never an iframe (sets cookies on load).
+- External images/fonts/scripts: proxy first-party or self-host.
+- Known dead ends (tested): iframe `sandbox` without `allow-same-origin`
+  crashes the YouTube player in every engine; `credentialless` is
+  Chromium-only.
+
 ## Audit checklist (run on every public surface)
 
 - [ ] `curl -sI https://site/every-public-route | grep -i set-cookie` → must
@@ -148,6 +163,10 @@ Django only emits cookies when something asks for them — know the askers:
       namespaced, necessary keys.
 - [ ] Every third-party request visible in the Network tab is justified (and
       none carries cookies — check the request headers too).
+- [ ] Headless browser: CDP `Storage.getCookies` (catches partitioned
+      cookies that `document.cookie` misses) at load, after interaction and
+      during media playback; `page.on('request')` hostnames before any click
+      must be first-party only.
 - [ ] Regression test per public route, in CI:
       `assert "Set-Cookie" not in response.headers`.
 - [ ] The privacy page says "no usem galetes / no usamos cookies" — the

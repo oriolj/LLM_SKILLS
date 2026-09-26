@@ -1,6 +1,6 @@
 ---
 name: eu-law
-description: EU + Spanish web-law compliance checklist for shipping websites and SaaS — GDPR/RGPD + LOPDGDD (privacy policy, legal bases, data subject rights, DPAs, international transfers), LSSI-CE (aviso legal, mandatory company identity, email marketing opt-in), ePrivacy/cookies (when a banner is actually required, AEPD rules, reject-as-easy-as-accept), SaaS terms of service (B2B vs B2C, 14-day withdrawal), and AI Act transparency touchpoints. Use when launching or auditing a site/app for the Spanish/EU market, adding legal pages (aviso legal, política de privacidad, cookies, términos), deciding whether a cookie banner is needed, wiring analytics consent, sending marketing email, or when the user mentions GDPR, RGPD, LOPD, LSSI, cookies law, aviso legal, privacy policy, AEPD, or EU compliance.
+description: EU + Spanish web-law compliance checklist for shipping websites and SaaS — GDPR/RGPD + LOPDGDD (privacy policy, legal bases, data subject rights, DPAs, international transfers), LSSI-CE (aviso legal, mandatory company identity, email marketing opt-in), ePrivacy/cookies (when a banner is actually required, AEPD rules, reject-as-easy-as-accept), SaaS terms of service (B2B vs B2C, 14-day withdrawal), public-sector accessibility statements (Directive 2016/2102 / RD 1112/2018, European Accessibility Act), AI Act art. 50 transparency, and DSA/NIS2 scoping. Use when launching or auditing a site/app for the Spanish/EU market, adding legal pages (aviso legal, política de privacidad, cookies, términos), deciding whether a cookie banner is needed, wiring analytics consent, sending marketing email, or when the user mentions GDPR, RGPD, LOPD, LSSI, cookies law, aviso legal, privacy policy, AEPD, accessibility statement, AI disclosure, "are we legally compliant?", or EU compliance.
 ---
 
 # EU / Spanish web-law compliance playbook
@@ -9,6 +9,17 @@ Engineering checklist for shipping legally-defensible websites and SaaS
 in Spain/EU. **This is not legal advice** — it encodes the common,
 well-established requirements so projects launch with the right
 structure; a lawyer reviews the result for anything with real exposure.
+
+## First questions to ask about any project
+
+1. Who is the **controller**? Multitenant platform → each client is the
+   controller and the platform is its processor; every obligation below
+   must then be **templated per tenant** (name, address, contact email,
+   in the tenant's language) so each tenant gets compliant pages by default.
+2. What visitor data flows exist? (Forms, accounts, analytics, logs, error
+   reporting, embeds, payments.) Anything that does not flow needs no paperwork.
+3. Any **public-sector** clients? → accessibility statement (below).
+4. Any **AI-facing** features? (Chatbots, generated content → AI Act art. 50.)
 
 ## The four legal pages and when each is required
 
@@ -57,6 +68,14 @@ Structure as answers to these, in plain language:
 7. **Derechos** — access, rectification, erasure, restriction, portability, objection + how to exercise (email) + right to complain to **AEPD** (aepd.es)
 8. **Menores** — if not aimed at minors, say 14+ (Spanish threshold) / 16+ (default GDPR)
 
+Supervisory authority to name: ES **AEPD** (Catalan public bodies: **APDCAT**)
+· FR **CNIL** · DE the state DPA.
+
+**First layer at every form**: each form that collects personal data shows,
+at the point of collection, controller identity, purpose, legal basis,
+rights and a link to the full policy (layered approach). Consent-based
+forms gate submit on an **unticked** required checkbox.
+
 ### GDPR engineering checklist (the parts that are code)
 
 - [ ] Signup collects only what's needed (data minimization)
@@ -66,6 +85,7 @@ Structure as answers to these, in plain language:
 - [ ] Server/app logs with IPs have a retention cap
 - [ ] Personal data sent to LLM APIs? Disclose in policy; prefer vendors with EU processing or DPF; don't send more than needed (e.g. company website text is fine; don't ship the whole user DB)
 - [ ] Breach plan: AEPD notification within 72h (art. 33) — know who does it
+- [ ] Error monitoring (Sentry/GlitchTip SDKs): `sendDefaultPii: false` / `send_default_pii=False` on client AND server, Session Replay off unless justified; prefer EU data residency
 
 ## Cookies (ePrivacy / LSSI art. 22.2 + AEPD guide)
 
@@ -102,12 +122,30 @@ immediately, or by offering a free trial before charging (cleanest).
 B2B-only SaaS can state it's for professionals/companies and skip
 consumer provisions — but then don't market to individuals.
 
+## Accessibility statement (public-sector clients)
+
+- Directive (EU) 2016/2102 (ES: RD 1112/2018) requires **public-sector**
+  websites to meet WCAG 2.1 AA (EN 301 549) **and publish an accessibility
+  statement** with: conformity status, non-accessible content, preparation
+  date + method (self-assessment vs audit), feedback channel, enforcement
+  pointer. Footer-linked, in every UI language.
+- **Never claim full conformity without an audit** — "partially conformant,
+  self-assessment" is the honest default; upgrade only after an axe/pa11y
+  pass + manual keyboard/screen-reader review.
+- Private sector: the European Accessibility Act (Directive 2019/882, in
+  force since 2025-06-28) covers e-commerce, banking, transport, e-books —
+  check scope before assuming it applies.
+
 ## AI Act touchpoints (for AI-features SaaS)
 
-- **Transparency (art. 50)**: users must know they're interacting with
-  AI when it could be mistaken for a human (chatbots → label it), and
-  AI-generated content presented as real must be disclosed. A "perfil
-  generado con IA" label satisfies the spirit cheaply.
+- **Transparency (art. 50, applies from 2026-08-02)**: users must know
+  they're interacting with AI when it could be mistaken for a human, and
+  AI-generated content presented as real must be disclosed. Chatbots: a
+  visible "AI chat" label at first interaction plus a persistent
+  "AI-generated answers may contain errors" line near the input.
+  Generated summaries/sections/images: a badge + tooltip is enough in UI
+  (a "perfil generado con IA" label satisfies the spirit cheaply);
+  deepfake-like media needs stronger marking.
 - Most SMB SaaS features (scoring, summaries, RAG) are **minimal/limited
   risk** — no conformity assessment; just transparency + GDPR hygiene.
 - High-risk list (Annex III: employment screening, credit, biometrics,
@@ -124,6 +162,15 @@ consumer provisions — but then don't market to individuals.
   commercial email — no opt-in beyond the service itself, but respect
   the user's notification settings.
 
+## Quick scoping of the rest
+
+- **DSA**: only if you host user-generated content or act as an
+  intermediary; B2B-authored content and 1:1 AI chat don't trigger it.
+- **NIS2**: essential/important entities only.
+- **Business-side paperwork** (not code, but flag it): art. 28 DPA between
+  platform and clients; art. 30 record of processing; DPO if public body
+  or large-scale processing.
+
 ## Launch checklist (copy into the project)
 
 - [ ] Footer links: aviso legal · privacidad · cookies (if any) · términos
@@ -134,6 +181,11 @@ consumer provisions — but then don't market to individuals.
 - [ ] Unsubscribe in marketing emails; notification settings honored
 - [ ] Legal pages in every UI language
 - [ ] `noindex` NOT set on legal pages (they should be public/indexable)
+- [ ] Accessibility statement with feedback channel (public-sector clients)
+- [ ] AI disclosures on any chatbot / generated content
+- [ ] Multitenant: legal pages templated per tenant and language
+- [ ] e2e guards: legal pages return 200 per tenant, footer links exist, no provider iframe before click, cookie count stays 0 (see **zero-cookies**)
+- [ ] A `docs/legal-compliance.md` in the repo mapping obligation → implementation → open items, so the next audit starts from facts
 
 ## When NOT to use this skill
 
