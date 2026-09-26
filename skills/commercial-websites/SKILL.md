@@ -23,6 +23,32 @@ details:
 | Uptime and smoke checks after launch | **gatus**, **talaia** |
 | Hosting | house rule: static Astro → Cloudflare Pages; Next.js → Vercel (**vercel-deploy**, **cloudflare-deploy**) |
 
+## PRODUCT.md and DESIGN.md: every commercial site keeps both, current
+
+Every commercial site repo has, at its root (Oriol, 2026-09-26):
+
+- **`PRODUCT.md`** — who the site is for, what the product does, brand
+  personality and tone, anti-references, design principles, accessibility
+  bar, and the `## Register` (brand). The standing preferences go here
+  (concept illustrations over screenshots, the market's language first, VAT
+  rule for prices), marked as confirmed by Oriol; anything inferred is marked
+  pending until he confirms it.
+- **`DESIGN.md`** — colour tokens with their contrast ratios, type scale,
+  components, page patterns (section order, CTA system), imagery rules and
+  file locations, invariants.
+
+Why the root and those exact names: the impeccable skill's context loader only
+finds `PRODUCT.md` / `DESIGN.md` (root, then `.agents/context/`, then `docs/`).
+BikeCRM's design system sat in `docs/design-system.md`, so the 2026-09-26
+critique ran with no product context at all.
+
+**Update them in the same change** that alters the audience, offer, copy
+strategy, colours, components, section order or imagery: a site change is not
+done until both files describe what is now live. On a site that has neither,
+create them at the start of the work (draft `PRODUCT.md` from the repo and
+the user's stated preferences, mark inferred parts as pending, and ask for
+confirmation). Link both from the repo's `CLAUDE.md`.
+
 ## What every product site must have
 
 Go through this list on every review; each line comes from a real miss.
