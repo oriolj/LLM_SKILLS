@@ -101,6 +101,22 @@ and grows with each game; add dated lessons to
 - **Hand-edited `.tscn`/`.tres` files break** (resource ids, `.uid` sidecars
   since 4.4). Build nodes in code, keep scenes to tiny shells, let the
   editor write scene files when a scene must be rich.
+- **A fresh clone has no import cache** (`game/.godot/` is gitignored, the
+  `.import` files are committed). `load("res://x.png")` then fails with
+  "Unable to open file: res://.godot/imported/x.png-<hash>.ctex" for every
+  asset, and GUT refuses to run ("Some GUT class_names have not been
+  imported"). Two defences, both needed:
+  - From source, read assets by bytes
+    (`Image.load_png_from_buffer(FileAccess.get_file_as_bytes(p))`,
+    `AudioStreamWAV.load_from_file`). Use `load()` only when
+    `OS.has_feature("template")`, i.e. in an exported build.
+  - Make every run/test target depend on an `ensure-import` that runs
+    `godot --headless --import` when
+    `.godot/global_script_class_cache.cfg` is missing.
+
+  Always test a change on a clean clone
+  (`git clone . <scratch>/clone && rm -rf <scratch>/clone/game/.godot`) before
+  saying it runs on another machine.
 - **Headless renders nothing.** `godot --headless` is for tests and
   scripts. For visuals capture frames: `--write-movie out.png` with a fixed
   `--quit-after`, under a real display or `xvfb-run`.

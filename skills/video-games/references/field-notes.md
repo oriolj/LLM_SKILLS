@@ -3,6 +3,21 @@
 Dated lessons from real games, newest first. One entry per lesson: what
 happened, the rule it produced, and where the rule now lives.
 
+## 2026-09-26 — PixelPals: crash on the first real run (fresh clone)
+
+- Oriol's first run printed dozens of "Unable to open file:
+  res://.godot/imported/robotnik.png-….ctex" errors. `art.gd` trusted
+  `ResourceLoader.exists()`, which is true whenever the committed `.import`
+  file exists, even though the imported cache it points at was never
+  built. It passed every in-session check because this checkout had been
+  imported. Fix and rule: SKILL.md "A fresh clone has no import cache".
+- Near miss while reproducing it: on this machine `cp` and `rm` are
+  interactive aliases. An unanswered `cp` prompt broke an `a && cd clone &&
+  …` chain, so the following `git stash` and `rm -rf game/.godot` ran in the
+  REAL repo. Nothing was lost (the stash was popped). Rule: use
+  `command cp -f` / `command rm -rf`, and put destructive steps behind an
+  explicit `cd <abs path> || exit 1` on their own line.
+
 ## 2026-09-26 — PixelPals first playable (same day)
 
 - **Contracts first, then four parallel agents** (art, gameplay, audio,
