@@ -3,6 +3,23 @@
 Dated lessons from real games, newest first. One entry per lesson: what
 happened, the rule it produced, and where the rule now lives.
 
+## 2026-09-26 — PixelPals becomes the couch co-op monorepo
+
+- Restructured into `games/<slug>/` + `shared/`, with `git mv` so history
+  is kept. Shared autoloads became symlinks
+  (`game/autoload/players.gd -> ../../../../shared/godot/autoload/players.gd`).
+  Godot 4.7 follows them fine, and the fresh-clone tests and captures
+  passed.
+- Trap: the `.gitignore` entry `game/.godot/` was path-anchored, so after
+  the move the import cache (~400 files) got staged into the commit. Caught
+  before pushing and amended. Rule: ignore Godot's cache as `.godot/`
+  (unanchored) from day one, and read `git status` before every commit
+  that follows a move.
+- The plans for 12 more games were written by 3 parallel agents, 4 plans
+  each, all to one fixed PLAN.md structure (roles table with pad and
+  keyboard, no-fail rules, how each asset is made without image output,
+  reuse, milestones, tests, open questions).
+
 ## 2026-09-26 — PixelPals: crash on the first real run (fresh clone)
 
 - Oriol's first run printed dozens of "Unable to open file:
