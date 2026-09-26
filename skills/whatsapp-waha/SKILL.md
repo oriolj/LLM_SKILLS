@@ -132,5 +132,5 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 ## Keep this current
 
 Verified facts first recorded 2026-09-26 (install, auth, spec, QR, dry-run
-guard). Linked 2026-09-26 (session `personal`, WORKING). Verified the same day: `wa.py chats` lists the account's chats. Not yet verified: a real send, media download and transcription on
+guard). Linked 2026-09-26 (session `personal`, WORKING). Verified the same day: `wa.py chats` lists the account's chats. First real send verified 2026-09-26 (`wa.py send` to Oriol's own number; the returned id was `true_<n>@lid_<hex>_out` — WhatsApp answered with the chat's `@lid`, not the `@c.us` we sent to). Not yet verified: media download and transcription on
 a live linked account — record the first successful run of each here.
