@@ -1,6 +1,6 @@
 ---
 name: content-creation
-description: Make marketing content for any of our products — launch/brag videos (via the /brag-slim skill), Reels/Shorts vertical cuts, share copy, posters, putting the finished video on the product's website, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (real product UI over mockups, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
+description: Make marketing content for any of our products — launch/brag videos (via the /brag-slim skill), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no MP4s in git), and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
 ---
 
 # Content creation
@@ -41,7 +41,7 @@ output goes live.
 `/brag-slim` (installed in `~/.agents/skills/brag-slim`, symlinked into
 `~/.claude/skills/`) turns a project directory or URL into a ~20 s video with
 music, a poster and share copy, written to `brag-output/` in the current
-directory with every intermediate file in `brag-output/work/`. Options:
+directory with every intermediate file in `brag-output/work/` (a scratch location: move the sources into the site repo's `content-sources/` afterwards, see below). Options:
 `--tone default|polished|yc-parody|chaotic|deadpan|cinematic|app-store`,
 `--format landscape|vertical|square`, `--duration`.
 
@@ -140,7 +140,7 @@ is then an edit and a rerun, by anyone, on any machine.
 The default product image for a website, a newsletter or a deck is a **concept
 illustration**: a still scene in the launch video's visual language, not a
 screenshot. BikeCRM's four (2026-09-26,
-`~/git/BikeCRM/brag-output/work/illustrations.html`, one `?s=<scene>` per image):
+`bikecrm-web-comercial/content-sources/illustrations.html`, one `?s=<scene>` per image, built by its `make-illustrations.sh`):
 
 | Scene | Idea | What is on it |
 |---|---|---|
@@ -192,7 +192,7 @@ How to make them:
 Only to check what current cards look like (not to ship):
 
 - Run the app locally with an **invented** business seeded for the purpose
-  (BikeCRM: `~/git/BikeCRM/brag-output/work/seed_marketing_business.py`, run in
+  (BikeCRM: `bikecrm-web-comercial/content-sources/seed_marketing_business.py`, run in
   the local backend; business slug `qa-marketing-bikeshop`, clients such as
   Marta Puig with `@example.com` emails and `+34600000xxx` phones). Never
   production data.
@@ -289,5 +289,7 @@ already forbid videos, iframes and forms. The pattern that works:
   `static/video/bikecrm-<lang>-<16x9|9x16>.{mp4,webp}`; section on the Spanish
   home via `HOME.es.video`. The site deploys on push to GitLab `master`
   (DigitalOcean App Platform behind Cloudflare) — push only with Oriol's go.
-  Launch video v1 (2026-09-26): sources in `~/git/BikeCRM/brag-output/`,
-  committed to the site as `394f8e3`.
+  Launch video (2026-09-26): sources, video and illustration build scripts in
+  `bikecrm-web-comercial/content-sources/` (`make-video.sh vN`,
+  `make-illustrations.sh`); live encodes `static/video/bikecrm-es-v2-*`;
+  illustrations `static/images/illustrations/es/`.
