@@ -65,7 +65,7 @@ for (const s of scenes) {
     (report.tiny.length ? ` | TEXT < ${minText}px: ${report.tiny.join(' / ')}` : '') + (bad ? '' : ' | ok'));
   const png = path.join(out, `${s.n}@2x.png`);
   await p.locator('#stage').screenshot({ path: png, omitBackground: true });
-  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', png, '-vf', `scale=${s.w}:${s.h}:flags=lanczos`,
+  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', png, '-vf', `scale=${s.w}:${s.h}:flags=lanczos,format=rgba`,
     '-c:v', 'libwebp', '-pix_fmt', 'yuva420p', '-quality', '88', path.join(out, `${s.n}.webp`)]);
 }
 await b.close();
