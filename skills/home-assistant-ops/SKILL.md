@@ -148,6 +148,11 @@ script, because `reload_config_entry` has been seen to hang for minutes).
 
 - Nuki coordinator times out a few times a day → lock `unavailable` ~30 s (bridge busy on BLE,
   not fixable from HA). Mirrors must hold state (§4).
+- Nuki lock paired over **Matter** (instead of the bridge): `lock.lock` / `lock.unlock` /
+  `lock.open` (unlatch, `supported_features: 1`) only — no `nuki.lock_n_go`, no door-sensor
+  entity, and the bridge HTTP API (`/lockAction?nukiId=…`) does not see it. Swapping locks: keep
+  the template-lock ids so groups, dashboards and voice exposure don't move; grep `.storage/`
+  (lovelace, cloud) as well as the YAML for the old entity id.
 - `docker exec … python3 - <<EOF` gives no output; `docker cp` the script in and run it.
 - `homeassistant/restart` ≈ 60–120 s; `restart` is required for boot-time Repairs, the first
   entry of a new domain, new `utility_meter`s, custom component updates.
