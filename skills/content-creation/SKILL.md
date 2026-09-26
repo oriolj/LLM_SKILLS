@@ -316,7 +316,11 @@ already forbid videos, iframes and forms. The pattern that works:
   radio's language on every boot, so the capture browser blocks cookie writes
   to it (`addInitScript` on `document.cookie`) and sets its own: a
   per-browser language switch with no write to the account
-  (`content-sources/brag/capture-common.mjs`). fr/de/it still have no cut.
+  (`content-sources/brag/capture-common.mjs`). **fr added the same day**
+  (`589b195`), with the Studio UI in French and the site's French typography
+  in the video copy: a narrow no-break space (U+202F) before `?` `:` `;` and
+  inside « », "11 h" rather than "11:00" (check the site's own catalog for
+  which space it uses before writing any French). de/it have no cut yet.
   **Claims in a video are claims on the site:** v1 said "More than 560
   radios"; the site review found ~233 active radios, so launch en went to v2
   with the site's line ("Local, municipal and community stations work with
