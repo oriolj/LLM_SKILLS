@@ -306,5 +306,20 @@ already forbid videos, iframes and forms. The pattern that works:
   `content-sources/brag/` (`make-video.sh vN`, rebuilt masters decode
   frame-identical to the delivered ones), encodes
   `public/video/brag/enacast-<launch|insights>-en-<vN>-<16x9|9x16>.{mp4,webp}`,
-  wired through `src/data/brag-videos.ts` (English only) into `/en/` home and
-  `/en/podcasting`. The other five languages need their own cuts.
+  wired through `src/data/brag-videos.ts` (per-cut versions) into the home
+  and podcasting pages of each language that has a cut. **ca and es cuts
+  added the same day** (`d03e82f`): copy per language in
+  `content-sources/brag/copy/<lang>.json`, written from that language's
+  catalogs (never translated), with `key.v`/`key.q` line breaks and a
+  `_layout` override where a language runs longer; the es cuts show the
+  **Spanish Studio UI**. Studio re-sets its `ui_language` cookie from the
+  radio's language on every boot, so the capture browser blocks cookie writes
+  to it (`addInitScript` on `document.cookie`) and sets its own: a
+  per-browser language switch with no write to the account
+  (`content-sources/brag/capture-common.mjs`). fr/de/it still have no cut.
+  **Claims in a video are claims on the site:** v1 said "More than 560
+  radios"; the site review found ~233 active radios, so launch en went to v2
+  with the site's line ("Local, municipal and community stations work with
+  EnaCast"). Check a video's figures against the site's verified-claims table
+  (`PRODUCT.md`) before rendering, because a baked-in number needs a
+  re-render to fix.
