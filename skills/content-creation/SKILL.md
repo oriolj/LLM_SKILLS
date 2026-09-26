@@ -108,6 +108,24 @@ a re-roll of one scene is a few edits and a re-render, not a new video.
 `brag-output/` is a working folder — it is not committed to a product repo;
 only the web-optimised encodes are.
 
+## Product screenshots for the site
+
+Real screenshots of the current app beat mockups (an SVG mockup loaded as
+`<img>` even renders its text in Times: see the commercial-websites skill).
+
+- Run the app locally with an **invented** business seeded for the purpose
+  (BikeCRM: `~/git/BikeCRM/brag-output/work/seed_marketing_business.py`, run in
+  the local backend; business slug `qa-marketing-bikeshop`, clients such as
+  Marta Puig with `@example.com` emails and `+34600000xxx` phones). Never
+  production data.
+- Capture at `deviceScaleFactor: 2`, then downscale (Lanczos) to the exact
+  size the page reserves, as WebP around q82. Agree the paths and pixel sizes
+  with whoever writes the page before capturing.
+- **Local environments can hold live messaging credentials.** Capture the
+  "notify the client?" dialog; never confirm it.
+- Stop the containers and dev servers you started; leave the ones that were
+  already running.
+
 ## Putting a video on a website
 
 ### Format: self-hosted MP4
@@ -123,6 +141,9 @@ only the web-optimised encodes are.
   a 2 MB clip.
 - Optional extra: an AV1 WebM listed *before* the MP4 (often 30–50 % smaller; browsers
   that cannot decode it fall back). Not worth it under ~5 MB.
+- **Re-encoding under the same name does not reach visitors** while a CDN holds
+  the old file (BikeCRM: `s-maxage=86400`); version the file name
+  (`bikecrm-es-v2-16x9.mp4`) whenever the content changes.
 - **Size limits:** Cloudflare Pages rejects single files over 25 MiB — anything
   near that belongs in R2 or a video service. Cloudflare's CDN caches `.mp4` by
   extension, so origin cost is a non-issue for short clips.
