@@ -145,7 +145,12 @@ rather than from memory. What it does and why:
   untouched secret rewrites its ciphertext completely and the commit
   diff can no longer show that only the intended plaintext changed. A
   full run is for the initial import or after a passphrase change.
-  `VPN=1` adds the tarball. Skips editor/merge leftovers (`*~`, `*.bak`,
+  `VPN=1` adds the tarball. **`PENDING=1`** (hq, 2026-09-26) encrypts exactly
+  the files `secrets-status` flags — no `.enc`, or plaintext newer than it —
+  in one run with one passphrase, so the backlog several sessions left behind
+  (21 files that day) is one command instead of 21 prompts, without
+  rewriting the untouched ciphertexts. `FILE=` also takes a space-separated
+  list. Skips editor/merge leftovers (`*~`, `*.bak`,
   `*.orig`, `*.rej`, `*.sw?`, `*.tmp`) with a warning instead of
   committing them as secrets. Refuses a `.enc` passed as `FILE`.
 - **`make secrets-decrypt`** — every `*.enc` → plaintext, `umask 077` +
