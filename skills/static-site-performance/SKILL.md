@@ -60,9 +60,10 @@ Sourced research behind these rules (dates, Google quotes, what changed in
    +`sizes` (Astro `image.layout`) so a phone never downloads the desktop
    hero. Stock photos: ≤ 1600 px wide, ≤ 200 KB (BikeCRM shipped a 4928 px,
    2 MB JPEG and a 5.6 MB pricing hero behind a 65 % black overlay).
-4. Illustrations that carry text need a **phone version** (`<picture>` with a
-   narrow crop or larger type): a 1200 px card shown at 360 px shrinks 20 px
-   text to 6 px.
+4. Illustrations that carry text need a **phone version** (600–720 px wide,
+   `<picture>` or `srcset`, narrow crop or larger type): a 1200 px card shown
+   at 360 px shrinks its text to ~30 % (20 px becomes 6 px). How to design
+   them: content-creation.
 5. `content-visibility: auto` with `contain-intrinsic-size` on long
    below-the-fold sections (never without the intrinsic size: CLS).
 
@@ -119,7 +120,8 @@ Sourced research behind these rules (dates, Google quotes, what changed in
       Functions responses).
     - Vercel: default `max-age=0, must-revalidate`; precedence
       `Vercel-CDN-Cache-Control` > `CDN-Cache-Control` > `Cache-Control`; with
-      an Astro adapter (Build Output API) `vercel.json` headers may be ignored.
+      an Astro adapter (Build Output API) `vercel.json` headers do not apply
+      (verified 2026-09-26; see vercel-deploy).
     - DigitalOcean App Platform (behind its Cloudflare): `max-age=10,
       s-maxage=86400` on everything, not configurable from the repo.
     - Always verify with `curl -sI` after deploying.
@@ -168,6 +170,8 @@ Sourced research behind these rules (dates, Google quotes, what changed in
   agent once measured another site's preview. Stop your own server by PID;
   never `pkill -f <pattern>` (it matched the calling shell and other agents'
   processes the day this skill was written).
+- `astro preview` fails with the `@astrojs/vercel` adapter: serve
+  `.vercel/output/static` with a static server.
 - Local `astro preview` is uncompressed: compare lab numbers live-to-live.
 
 ## CI gate (recommended)

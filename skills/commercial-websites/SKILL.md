@@ -1,6 +1,6 @@
 ---
 name: commercial-websites
-description: Build, review and fix the commercial (marketing / landing) website of any of our products — the checklist of what a product site must answer and show, how to review one (design critique plus measured evidence), the traps we have hit (SVG mockups rendering in Times, brand-orange contrast, a stale public/ folder, captcha scripts on every page, one-language assets), how to produce its assets with the content-creation skill, how to split the fix across parallel agents without collisions, and how to ship and verify it. Use when the user says "review the homepage / landing / web comercial", "what would you improve on our site", "fix the landing", "make the marketing site convert", "add a pricing teaser / FAQ / features section", "the site looks old", "prepare the site for launch", or works on any product's public site (BikeCRM, Panotxa, Rutakas, Licita Radar, Humans2Agents, GoalTracker, SpineGuard, BudgetBuddy, oriolj.com, EnaCast sites…). Pairs with seo, core-web-vitals, content-creation, catalan-writing, zero-cookies, eu-law and impeccable.
+description: Build, review and fix the commercial (marketing / landing) website of any of our products — the checklist of what a product site must answer and show, how to review one (design critique plus measured evidence), the traps we have hit (SVG mockups rendering in Times, brand-orange contrast, a stale public/ folder, captcha scripts on every page, one-language assets), how to produce its assets with the content-creation skill, how to split the fix across parallel agents without collisions, how to keep every product claim verified against production, and how to ship and verify it. Use when the user says "review the homepage / landing / web comercial", "what would you improve on our site", "fix the landing", "make the marketing site convert", "add a pricing teaser / FAQ / features section", "the site looks old", "prepare the site for launch", or works on any product's public site (BikeCRM, Panotxa, Rutakas, Licita Radar, Humans2Agents, GoalTracker, SpineGuard, BudgetBuddy, oriolj.com, EnaCast sites…). Pairs with seo, core-web-vitals, content-creation, catalan-writing, zero-cookies, eu-law and impeccable.
 ---
 
 # Commercial websites
@@ -50,16 +50,28 @@ create them at the start of the work (draft `PRODUCT.md` from the repo and
 the user's stated preferences, mark inferred parts as pending, and ask for
 confirmation). Link both from the repo's `CLAUDE.md`.
 
+`PRODUCT.md` also holds the **claims tables**: "verified" (each product
+claim with where it was checked: code, config, pricing data, a measured
+number) and "do not claim" (features not in production, unmeasured figures,
+billing terms that do not exist). Copy, FAQ answers, structured data and
+video text only use the verified table.
+
 The same repo also keeps the **sources of its generated assets** (video
 scenes, illustration HTML, render scripts) in a build-excluded
-`content-sources/` folder, with outputs git-ignored (no MP4s in git); see
-content-creation.
+`content-sources/` folder; masters and intermediates are never committed,
+the small web encodes may be (see content-creation for the policy).
 
 ## What every product site must have
 
 Go through this list on every review; each line comes from a real miss.
 
 **Message**
+- **Every product claim is checked against production** code, config or
+  data before it goes on the page, and an honest status line ("en beta",
+  "próximamente", no number at all) beats aspirational copy. The 2026-09-26
+  review of nine sites found false claims on almost every one: features not
+  in production, unmeasured numbers, "free trial" and billing wording on
+  products with no billing.
 - One `<h1>`: what it is + who it is for, in the customer's words ("El software
   para tu taller de bicis"). The `<title>` is the category search phrase plus
   the brand ("Software para talleres de bicicletas y patinetes | BikeCRM"), not
@@ -79,9 +91,11 @@ Go through this list on every review; each line comes from a real miss.
   YEARLY billing**, as competitors do ("54,40 € al mes + IVA, con pago anual"),
   with the yearly total next to it and a switch to monthly billing. Teasers
   elsewhere ("desde X €") lead with that figure too. Render both states in the
-  HTML (Alpine or any framework only toggles visibility, so crawlers and no-JS
-  readers see prices), reserve the space of lines that appear in one state only
-  (no shift when switching), format with `Intl.NumberFormat` per locale
+  HTML so crawlers and no-JS readers see prices. The switch needs no JS: two
+  radio inputs, and both price states stacked in one grid cell
+  (`grid-area: 1/1`) shown with `:has(#yearly:checked)` + `visibility`, so
+  the cell is always as tall as the taller state and switching never shifts
+  (Panotxa `BillingPrice.astro`). Format with `Intl.NumberFormat` per locale
   ("54,40 €", never "54.4"), and keep the structured data at the monthly
   billing price with `valueAddedTaxIncluded: false` for B2B.
 - Example numbers labelled as examples ("Datos de ejemplo"), or they read as
@@ -110,6 +124,9 @@ Go through this list on every review; each line comes from a real miss.
   screenshots are dense, tiny on phones and date quickly; use them only as the
   reference for what the cards look like. How to build them: content-creation
   skill, "Concept illustrations".
+- **Phone variants for illustrations with text** (600–720 px wide, via
+  `<picture>` or `srcset`), one alt true for both; a 1200 px card at 360 px
+  shows its text at ~30 %. Details: content-creation.
 - Current, not stale: a 2020 mockup next to a 2026 video says "abandoned".
   The illustration's cards follow today's app (labels from the i18n catalog).
 - **SVG loaded through `<img>` cannot use the page's web fonts**: its
@@ -149,7 +166,9 @@ Go through this list on every review; each line comes from a real miss.
   panels too (`#6c757d` on `#f8f9fa` is 4.45:1).
 - Controls are real `<button>`s (a language switcher built on a `<span>` with a
   click handler is unreachable by keyboard), `aria-label`s come from the i18n
-  catalog, tap targets ≥ 44 px.
+  catalog, tap targets ≥ 44 px. **Measure dropdown items with the menu open**:
+  daisyUI items measure ~42 px while closed (`scale(.95)`). daisyUI's default
+  `menu-title` colour fails contrast; override it.
 
 **Responsive**
 - Check horizontal overflow at every width from 360 to 1440
@@ -177,6 +196,22 @@ Go through this list on every review; each line comes from a real miss.
 - Third-party scripts only where used: hCaptcha (~865 KB) was loading on every
   page for one footer form. Pin CDN script versions (`alpinejs@3.x.x` is a
   range). Load only the font families the site uses.
+- **Booking embeds load on the first click, not on page load.** A Cal.com
+  embed on load sets the `__cf_bm` cookie and dropped Lighthouse Best
+  Practices to ~78: make the button a real cal.com link (the no-JS
+  fallback) and load the embed script on first click, then open
+  `Cal('modal', …)`. Removing one JS analytics island dropped React from
+  FichaChat entirely: audit which islands pull a whole framework.
+- **Trailing-slash URLs everywhere.** Cloudflare Pages 308-redirects
+  `/pricing` to `/pricing/`; canonicals, hreflang and internal links must
+  carry the slash (the path helper, e.g. `localizePath`, adds it) or every
+  canonical points at a redirect. Details: cloudflare-deploy 1c.
+- `llms.txt` entries must be markdown links (`- [Pricing](https://…/pricing/): …`),
+  or Lighthouse's llms-txt audit fails.
+- **Gate unreleased features on a build env var** (newsletter pages exist
+  only when `PUBLIC_NEWSLETTER_TURNSTILE_SITE_KEY` is set) rather than
+  holding back a shared push: parallel sessions share one site repo, and a
+  gated feature can ride along safely.
 - **Know the real public directory.** An Astro site with `publicDir: 'static'`
   plus a leftover `public/` folder serves nothing from `public/`: the web
   manifest 404ed for months. Check `astro.config.*` before adding any file.
@@ -199,6 +234,9 @@ Go through this list on every review; each line comes from a real miss.
 - Sentence case for es/ca/fr; UI labels quoted exactly as the product shows them.
 - No user-visible string hardcoded in a template: per-language data files or the
   i18n catalog.
+- **Type the per-language data** (`Record<Lang, HomeCopy>`) so a missing
+  translation is a build error, not a silent English fallback; add a build
+  check for i18n key parity across catalogs and for em dashes in copy.
 
 ## Reviewing a site
 
@@ -210,16 +248,26 @@ Go through this list on every review; each line comes from a real miss.
    as separate agents so the numbers do not anchor the design judgement.
 2. **Verify the surprising findings yourself** before reporting them (the Times
    fallback, a 404) — a screenshot or a `curl` is enough.
-3. Known false positives: a third-party widget that renders late (Trustpilot's
+3. **Full-page screenshots lie on animated sites.** AstroWind-style
+   intersect fade-ins and `loading="lazy"` images leave sections blank in a
+   full-page capture: capture with `reducedMotion: 'reduce'` and scroll each
+   image into view (wait for `img.complete`) before judging.
+4. Known false positives: a third-party widget that renders late (Trustpilot's
    iframe fills a few seconds after scrolling into view) looks "empty" in a
    full-page screenshot; localhost previews log CORS and captcha-host errors
    that production does not have.
-4. Known tool gaps (2026-09): the installed impeccable skill lacked its bundled
+5. Known tool gaps (2026-09): the installed impeccable skill lacked its bundled
    detector (`detect.mjs` → "bundled detector not found"; the npm package
    `impeccable` works as a fallback), and injecting a localhost overlay into the
    live https site is blocked by Chromium's Private Network Access. Run the
-   overlay against `astro preview` on localhost instead.
-5. Report as the user reads it: verdict, what works, prioritised issues (P0–P3)
+   overlay against `astro preview` on localhost instead (with the
+   `@astrojs/vercel` adapter `astro preview` fails: serve
+   `.vercel/output/static` with a static server).
+6. **Security findings are reported, not silently fixed** in components the
+   review does not own (the app, the backend): the 2026-09-26 reviews found
+   open signups without the anti-bot kit on the FichaChat app, LeadHunter
+   and Accountant. Put them in the report and the owning repo's TODO.
+7. Report as the user reads it: verdict, what works, prioritised issues (P0–P3)
    with the fix each, then the decisions that are theirs. Persist the snapshot
    (`.impeccable/critique/`) and say whether to commit or ignore it.
 
@@ -242,6 +290,11 @@ and pixel sizes the data references. Settle the product decisions up front
 every language) so agents do not ask each other. Agents do not commit; the
 orchestrator integrates, builds, runs the visual diff (only the intended pages
 change), reviews the screenshots, and commits.
+
+**Other sessions share the machine.** Never `pkill -f <pattern>`: on
+2026-09-26 it matched the calling shell and other sessions' renders and
+killed video builds on several sites. Kill by exact PID from `ps`, and
+check a port is free with `ss -ltnp` before starting a preview.
 
 ## Shipping
 

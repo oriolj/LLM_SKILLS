@@ -1,6 +1,6 @@
 ---
 name: content-creation
-description: Make marketing content for any of our products — launch/brag videos (via the /brag-slim skill), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no MP4s in git), and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
+description: Make marketing content for any of our products — launch/brag videos (via the /brag-slim skill), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
 ---
 
 # Content creation
@@ -68,7 +68,8 @@ release).
   buttons — read their centres with `getBoundingClientRect()` at the target time
   and subtract the pointer's tip offset. Chromium's CSS `zoom` is honoured by
   those rects, which makes `zoom` the easy way to shrink a whole app window for a
-  vertical layout.
+  vertical layout. **`zoom` on an absolutely positioned layer also scales its
+  `left`/`top`**: zoom an inner wrapper, not the positioned element.
 - **Soundtrack in numpy** (no scipy on the box): additive plucks/pads/bells in
   one key and tempo, FFT filtering for noise, one shared FFT-convolution room
   for music and effects, every cut on a beat (120 BPM → cuts on multiples of
@@ -86,7 +87,16 @@ release).
   the caption (fix: exit away from the text).
 - **Poster = frame 0:** the strongest settled frame (text fully in), replacing
   frame 0 via `overlay=enable='eq(n,0)'` so duration and audio sync stay exact.
-  Check the cursor does not cover a label in the chosen frame.
+  Check the cursor does not cover a label in the chosen frame. On a web page
+  the poster must not repeat the page's `<h1>`: pick the settled product
+  frame, not the headline card.
+- **Reproducible renders:** parallel Chromium renders are not
+  byte-reproducible, so render serially when the output must prove
+  identical; single-threaded x264 (`-threads 1` plus `-fflags +bitexact
+  -flags:v +bitexact -flags:a +bitexact`) makes re-encodes byte-identical.
+  Mux the final audio from the WAV master (re-encoding an existing AAC track
+  pushed true peak to −0.2 dBTP). Make render scripts resumable per cut, so a
+  killed run does not restart from zero.
 
 ### Vertical (Reels / Shorts / TikTok)
 
@@ -127,8 +137,13 @@ root, next to `src/` and outside everything the build reads, holding the HTML
 scenes, soundtrack generator, capture/render scripts, a `make-video.sh vN` and
 `make-illustrations.sh` that write the web-ready files into the site's public
 folder, the brand assets they use, the plan and share copy, and a README.
-**Git-ignore the outputs and intermediates — never commit the MP4s** (masters,
-silent renders, stills, WAV): they are regenerated by the scripts. Make the
+**Masters, stills, silent renders and WAVs are never committed**: the
+scripts regenerate them. The small web encodes in the public folder are a
+per-site choice, written in `content-sources/README`: either commit them
+(BikeCRM, Enantena, FichaChat do; git-connected deploys need them), or, when
+the deploy is a direct upload from a machine that has them, git-ignore them
+and add a prebuild check that fails with the regenerate command (EnaChat,
+Panotxa). Make the
 scripts self-contained (Playwright from the site's own `package.json`, paths
 relative to the script), no credentials in them, and prove it: rerun them from
 the repo and compare the outputs with what is live byte for byte. BikeCRM:
@@ -158,6 +173,13 @@ How to make them:
   rounded panel (`#f4f1ec`), generous shadows, lots of air. A viewer should get
   the idea in a second, at phone width, so text is large (≥ 20 px at 1x) and
   there are few rows.
+- **Phone variants.** A 1200 px card shown at 360–390 px shrinks its text to
+  ~30 %, unreadable. Ship a phone variant (600–720 px wide, via `<picture>`
+  or `srcset`) with one alt text true for both; if one card is shown
+  full-width on phones instead, design its text at ~34–40 px at 1x.
+- **Take labels from the screen the flow really opens**: the page a
+  WhatsApp or email link lands on, not a related app screen (FichaChat drew
+  the portal first and had to redo it).
 - **The app's own words:** every label on a card comes from the app's i18n
   catalog for that language (BikeCRM: `Completada`, `Pendiente`, the step bar
   `Iniciado › Cerrado › Notificado › Pagado`, `Notificar cliente`), so the
@@ -170,14 +192,20 @@ How to make them:
   (40–70 KB each).
 - **Render with [`scripts/render-illustrations.mjs`](scripts/render-illustrations.mjs)**
   (`--html`, `--scenes name:WxH,...`, `--out`, `--require <a package.json whose
-  node_modules has playwright>`, `--fonts "Lexend,Roboto,Material Icons"`,
-  `--min-text 20`). It writes each WebP at its exact size, a 2x PNG, and one
+  node_modules has playwright or playwright-core>`, `--fonts "Lexend,Roboto,Material Icons"`,
+  `--icon-font "Material Icons"`, `--query lang=ca` or `--lang ca`, `--min-text 20`). It writes each WebP at its exact size, a 2x PNG, and one
   `contact-sheet.png` of every scene over white, and it checks automatically:
   every listed font family has a loaded face (a missing one means a fallback
   font, the Times trap), no text overflows its box, and which text is smaller
   than the minimum (a decision, not always an error: a phone's clock is small
-  on purpose). The HTML contract: one scene per `?s=<name>` inside `#stage`,
-  and a `window.ready` promise that resolves after fonts and images load.
+  on purpose). It fails the run when the icon font is missing (icons would
+  render as ligature text like "CHEVRON_RIGHT") and warns when a card's box
+  shadow reaches the stage edge (a clipped shadow shows as a hard
+  rectangle: keep cards and shadows inside the stage). The HTML contract:
+  one scene per `?s=<name>` inside `#stage`, and a `window.ready` promise
+  that resolves after fonts and images load. It loads the page with `goto`
+  on `file://`: `setContent` cannot load `file://` fonts. Subset icon fonts
+  to the glyphs used (Material Symbols 3.9 MB → 18 KB).
 - **Look at the contact sheet** before shipping: wrapped labels, empty card
   bottoms and collisions only show up there. Then check the images in the real
   page at desktop and phone width: an image displayed at 60 % of its size
@@ -185,7 +213,15 @@ How to make them:
   the text is still readable.
 - **Report honestly:** say what the script checked, what you looked at, and
   what nobody has checked yet.
-- Per language: the labels are text, so each language gets its own render.
+- **Per language:** the labels are text, so each language gets its own
+  render, and every label is localised (reason texts and score captions
+  too). Keep the original language as the markup and apply a strings table
+  only for the others, so the original render stays byte-identical; select
+  with `?s=<scene>-<lang>` or `--query lang=<l>`. Re-measure pointer click
+  positions per language (text widths change) and set caption line breaks
+  per format per language. **Before publishing, check each language's
+  output differs from the others**: a shell `echo "-$L"` bug once
+  re-encoded the Spanish video as English with no error.
 
 ## Reference captures of the running app
 

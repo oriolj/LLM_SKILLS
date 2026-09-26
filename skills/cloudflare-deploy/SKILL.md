@@ -1,6 +1,6 @@
 ---
 name: cloudflare-deploy
-description: Deploy and operate services on Cloudflare — Pages (static Astro sites), custom domains on external-DNS zones, R2 S3-compatible storage, API/wrangler auth. Use when deploying a static site to Cloudflare Pages, when the user says "deploy to cloudflare pages" / "pages not workers", when wiring a custom domain onto a Pages project whose zone is NOT on Cloudflare (CNAME validation), when using the ENACAST_ Cloudflare credentials from homelab/secrets, or when touching R2 via the S3 API. Also use when a deployed static site shows localhost/dev URLs in production, or when visitors report a browser prompt like "<site> wants to access devices on your local network" (build-time PUBLIC_*/VITE_*/NEXT_PUBLIC_* fallback leaked into the artifact — section 1b). Covers wrangler direct-upload deploys, the Pages-vs-Workers rule for static sites, pre-deploy artifact gating + post-deploy smoke tests, custom-domain attach + external-DNS CNAME flow, and credential handling.
+description: Deploy and operate services on Cloudflare — Pages (static Astro sites), custom domains on external-DNS zones, R2 S3-compatible storage, API/wrangler auth. Use when deploying a static site to Cloudflare Pages, when the user says "deploy to cloudflare pages" / "pages not workers", when wiring a custom domain onto a Pages project whose zone is NOT on Cloudflare (CNAME validation), when using the ENACAST_ Cloudflare credentials from homelab/secrets, or when touching R2 via the S3 API. Also use when a deployed static site shows localhost/dev URLs in production, or when visitors report a browser prompt like "<site> wants to access devices on your local network" (build-time PUBLIC_*/VITE_*/NEXT_PUBLIC_* fallback leaked into the artifact — section 1b). Also when an MP4 on Pages does not play on iPhone (no Range/206), unknown URLs answer the home page with 200, or a token that verifies fine gets 10000 / 9109 (client-IP filter). Covers wrangler direct-upload deploys, the Pages-vs-Workers rule for static sites, pre-deploy artifact gating + post-deploy smoke tests, custom-domain attach + external-DNS CNAME flow, and credential handling.
 ---
 
 # Cloudflare deployments
@@ -30,6 +30,14 @@ with the EnaChat comercial Astro site → Cloudflare Pages.
   succeeded with the SAME token. Test the capability you need (`GET
   /accounts/{id}/pages/projects`), retry once after a minute, and only
   then ask for a new token.
+- **A persistent `10000` on Pages (or `9109` on zones) with a token that
+  passes `/accounts/{acc}/tokens/verify` is the token's client-IP filter**
+  (verify is exempt from it). Probe a zone endpoint (`GET /zones/{id}`): it
+  names the IP filter explicitly (`9109`), Pages does not. Compare the egress
+  IP (`curl -s https://www.cloudflare.com/cdn-cgi/trace | grep ip=`) with the
+  token's allowlist; the fix is the owner adding that IP (done for the
+  EnaCast token on 2026-09-26). Never retry around it. Details: the
+  secrets-in-git skill, "Cloudflare error 10000".
 
 ## 0b. Accounts are per scope — and the personal account (2026-08-28)
 
@@ -223,6 +231,25 @@ one is in all of them until grepped (`grep -rn localhost */comercial-website/src
   production artifact — prove gating with the dist grep, never a mode flag.
 - Contact addresses: three sites had `hola@<product>.com` — domains we do
   not own, so the only contact bounced. Grep `mailto:` too.
+
+### Pages serving traps (2026-09-26)
+
+- **No `404.html` = soft 404s.** Pages answers every unknown URL with the
+  home page and 200 (so `/llms.txt`, `/favicon.ico` "exist"); inside a
+  Function, `env.ASSETS.fetch()` of a missing file also returns that HTML
+  with 200. Ship a real 404 page and check a content-type/status in any
+  Function that reads assets.
+- **Static assets ignore `Range`** (200 + whole file), so iOS/Safari
+  cannot play an MP4 from Pages. Serve `/video/*` through a Pages Function
+  that answers 206/416 from `env.ASSETS` (reference:
+  `~/git/oriolj/public_contract_scanner/comercial-website/functions/video/[[path]].js`).
+  `_headers` rules do not apply to Functions responses, so the Function
+  sets its own `Cache-Control`. The custom domain took ~1 min after the
+  deploy to start answering 206. Verify every deploy:
+  `curl -s -o /dev/null -D - -H 'Range: bytes=0-99' https://<host>/video/<file>.mp4`
+  → `206` + `content-range`.
+- Early Hints skip a preload that carries extra attributes (fonts with
+  `crossorigin`): see static-site-performance rule 19.
 
 ### First deploy of a new project: order matters
 

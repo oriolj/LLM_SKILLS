@@ -1,6 +1,6 @@
 ---
 name: vercel-deploy
-description: Deploy Next.js apps to Vercel from a monorepo — the house rule (Next.js → Vercel, never a Coolify resource), CLI-in-monorepo mechanics, tenant custom domains + DNS, git-connection prerequisites. Use when deploying or updating any Next.js app (EnaArchive tenant sites and future ones), when `vercel` CLI errors with "Personal Account", "Login Connection", or creates a stray project, when attaching a tenant host to a Vercel project, or when wiring the CNAME for a Vercel-hosted host at CDmon/Cloudflare. Also: pinning the function REGION next to the backend (vercel.json `regions`, the `x-vercel-id` edge::function header), why `vercel logs` / the runtime-logs API cannot show past errors, and the server-side `fetch failed` trap (undici hides the cause in `error.cause.code`; narrow retry policy). Field notes from the EnaArchive cut-over (2026-08-29) and the Ramen login incident (2026-09-03); grows with each deploy. Also when caching SSR/API responses at Vercel's CDN with long TTLs and purging them on content change (Vercel-Cache-Tag, invalidateByTag, "edit does not show", "how do I purge the Vercel cache").
+description: Deploy Next.js apps to Vercel from a monorepo — the house rule (Next.js → Vercel, never a Coolify resource), CLI-in-monorepo mechanics, tenant custom domains + DNS, git-connection prerequisites. Use when deploying or updating any Next.js app (EnaArchive tenant sites and future ones), when `vercel` CLI errors with "Personal Account", "Login Connection", or creates a stray project, when attaching a tenant host to a Vercel project, or when wiring the CNAME for a Vercel-hosted host at CDmon/Cloudflare. Also: pinning the function REGION next to the backend (vercel.json `regions`, the `x-vercel-id` edge::function header), why `vercel logs` / the runtime-logs API cannot show past errors, and the server-side `fetch failed` trap (undici hides the cause in `error.cause.code`; narrow retry policy). Field notes from the EnaArchive cut-over (2026-08-29) and the Ramen login incident (2026-09-03); grows with each deploy. Also when caching SSR/API responses at Vercel's CDN with long TTLs and purging them on content change (Vercel-Cache-Tag, invalidateByTag, "edit does not show", "how do I purge the Vercel cache"). Also for static Astro sites on Vercel (vercel.json headers ignored by the adapter, astro preview failing, apex redirect answering 307 instead of 308) and for picking the right token per team when a Vercel API call answers `forbidden`.
 ---
 
 # Vercel deployments (Next.js)
@@ -22,6 +22,22 @@ The Vercel app calls the backend at `app.<product>.<zone>`.
   oriolj.com): `vercel link --yes --project <name> --scope
   oriolj-personal-team --token "$T"` (writes `.vercel/` and gitignores it),
   then `vercel deploy --prod --yes --token "$T"` from the repo root.
+
+## Accounts and teams: a token reaches only its own team (2026-09-26)
+
+A Vercel token belongs to one user and sees only that user's teams; on any
+other team it answers `forbidden`, which looks like a missing permission.
+Map as of 2026-09-26 (tokens in hq `homelab/secrets/vercel-*.env`):
+
+| Token / login | Team | Projects |
+|---|---|---|
+| `bikecrm` user token | `oriolbikecrmcoms-projects` | bikecrm-docs-astro |
+| `smartupsoft` user token | `smartup-soft` | fichachat-landing, fichachat-frontend |
+| personal `oriolj` token | `oriolj-personal-team` | personal projects |
+| CLI login `enacast` (no token) | EnaCast | enacast-comercial-website, enantena-comercial-website |
+
+Before using a token, check its reach read-only: `GET /v2/user`,
+`GET /v2/teams`, `GET /v9/projects?teamId=<team>`.
 
 ## Monorepo mechanics (verified)
 - **Deploy from the repo root**, not from the app folder: Root Directory
@@ -103,9 +119,8 @@ link, `vercel deploy --prod`, curl the alias, dirty-tree warning. Tokens,
 per scope, in hq `homelab/secrets/`: `vercel-oriolj.env`
 (`ORIOLJ_VERCEL_TOKEN`, personal team, the tool's default for `--scope
 oriolj-personal-team`); EnaCast has no token, the CLI login `enacast` is the
-account (pass no `--scope`); BikeCRM / SmartupSoft tokens do not exist yet
-(`vercel-bikecrm.env` / `vercel-smartupsoft.env`, asked in those repos'
-USER_TODO). A new Vercel project gets the target and a CLAUDE.md line on day
+account (pass no `--scope`); BikeCRM and SmartupSoft have their own tokens
+now (see "Accounts and teams" below). A new Vercel project gets the target and a CLAUDE.md line on day
 one (project name from `vercel project ls --scope <team>`). Also: `output: "standalone"` in
 `next.config` fails on Vercel's Next 16.3 adapter
 (`ENOENT .next/next-server.js.nft.json`); only set it for a Docker image.
@@ -147,6 +162,22 @@ team already serves; add the DNS-only `CNAME → cname.vercel-dns.com` right
 after. A resolver that looked the host up before the record existed keeps
 answering NXDOMAIN for the zone's negative TTL — prove the deploy with
 `curl --resolve <host>:443:76.76.21.21` instead of waiting.
+
+## Static Astro sites on Vercel (2026-09-26)
+
+- **With the Astro Vercel adapter (Build Output API) `vercel.json` `headers`
+  do not apply.** Static media keeps Vercel's default `max-age=0,
+  must-revalidate`, so a re-encoded file under the same name can still be
+  served stale by caches that ignore revalidation: give changed media a new
+  name (`-v2`). Set headers through the adapter/output config instead, and
+  check with `curl -sI`.
+- `astro preview` does not work with `@astrojs/vercel`: serve
+  `.vercel/output/static` with any static server to test the build.
+- **Apex redirects created in the dashboard can have no
+  `redirectStatusCode`, which means 307** (temporary). Check with
+  `GET /v9/projects/<p>/domains?teamId=<team>` and set 308 (`PATCH
+  /v9/projects/<p>/domains/<domain>` `{"redirect":"<target>",
+  "redirectStatusCode":308}`).
 
 ## Verify
 - `curl -sL` each tenant host: 200 + tenant title + the media host in the

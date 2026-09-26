@@ -333,6 +333,8 @@ permissions with the configured account, then check outbound IP via Cloudflare's
 do not route around it, remove the filter, or request rotation without evidence.
 The [Verify Token endpoint is exempt from client-IP filtering](https://developers.cloudflare.com/fundamentals/api/how-to/restrict-tokens/),
 so an active verification response does not prove service endpoint access.
+Zone endpoints (`GET /zones/{id}`) answer the same block with the explicit
+`9109` IP-filter message, while Pages answers only `10000`: probe a zone to confirm.
 
 ## Exporting from SaaS stores
 
