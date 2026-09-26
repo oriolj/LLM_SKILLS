@@ -125,6 +125,10 @@ screenshot. BikeCRM's four (2026-09-26,
 | `notify` 1200×900 | the bike is ready | the "Notificar cliente" button and the message the client receives on a phone, plus a "sent" toast |
 
 How to make them:
+- **Brief first, one line per image:** the product truth it shows ("a client's
+  whole history is one tap away") and its visual hook (the timeline). If the
+  line is vague, the image will be too. Across a set, vary the device (a list,
+  a timeline, a phone, a step bar) so the page does not repeat one composition.
 - **One idea per image**, three to six cards, overlapping slightly on a soft
   rounded panel (`#f4f1ec`), generous shadows, lots of air. A viewer should get
   the idea in a second, at phone width, so text is large (≥ 20 px at 1x) and
@@ -139,8 +143,23 @@ How to make them:
   `ffmpeg -vf scale=W:H:flags=lanczos -c:v libwebp -pix_fmt yuva420p
   -quality 88` for a transparent WebP at the exact size the page reserves
   (40–70 KB each).
-- **Review on white** (composite over the page background) before shipping:
-  wrapped labels and empty card bottoms only show up there.
+- **Render with [`scripts/render-illustrations.mjs`](scripts/render-illustrations.mjs)**
+  (`--html`, `--scenes name:WxH,...`, `--out`, `--require <a package.json whose
+  node_modules has playwright>`, `--fonts "Lexend,Roboto,Material Icons"`,
+  `--min-text 20`). It writes each WebP at its exact size, a 2x PNG, and one
+  `contact-sheet.png` of every scene over white, and it checks automatically:
+  every listed font family has a loaded face (a missing one means a fallback
+  font, the Times trap), no text overflows its box, and which text is smaller
+  than the minimum (a decision, not always an error: a phone's clock is small
+  on purpose). The HTML contract: one scene per `?s=<name>` inside `#stage`,
+  and a `window.ready` promise that resolves after fonts and images load.
+- **Look at the contact sheet** before shipping: wrapped labels, empty card
+  bottoms and collisions only show up there. Then check the images in the real
+  page at desktop and phone width: an image displayed at 60 % of its size
+  shrinks its text too (20 px becomes 12 px), so the phone view decides whether
+  the text is still readable.
+- **Report honestly:** say what the script checked, what you looked at, and
+  what nobody has checked yet.
 - Per language: the labels are text, so each language gets its own render.
 
 ## Reference captures of the running app
