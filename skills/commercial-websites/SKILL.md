@@ -49,6 +49,11 @@ create them at the start of the work (draft `PRODUCT.md` from the repo and
 the user's stated preferences, mark inferred parts as pending, and ask for
 confirmation). Link both from the repo's `CLAUDE.md`.
 
+The same repo also keeps the **sources of its generated assets** (video
+scenes, illustration HTML, render scripts) in a build-excluded
+`content-sources/` folder, with outputs git-ignored (no MP4s in git); see
+content-creation.
+
 ## What every product site must have
 
 Go through this list on every review; each line comes from a real miss.

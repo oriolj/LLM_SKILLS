@@ -27,7 +27,7 @@ const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ?
 const html = path.resolve(arg('html'));
 const out = path.resolve(arg('out', 'out'));
 const scenes = arg('scenes').split(',').map(s => { const [n, wh] = s.split(':'); const [w, h] = wh.split('x').map(Number); return { n, w, h }; });
-const req = createRequire(arg('require', path.join(process.cwd(), 'package.json')));
+const req = createRequire(path.resolve(arg('require', 'package.json')));
 const { chromium } = req('playwright');
 const fonts = arg('fonts', '').split(',').map(s => s.trim()).filter(Boolean);
 const minText = Number(arg('min-text', 0));
