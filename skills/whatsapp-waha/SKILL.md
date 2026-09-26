@@ -41,7 +41,7 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
 | | |
 |---|---|
 | Host | minisforum-um880 (Oriol's desktop), docker compose in hq `homelab/whatsapp/` ([README](../../../../../Syncthing/Syncthing-mobile-docs/hq/homelab/whatsapp/README.md)) |
-| URL | `http://localhost:3010` on the box, `http://minisforum-um880:3010` on the tailnet (only xps13wc, fw13, fw13pro, x1yogag9 once the ufw DOCKER-USER play is applied) |
+| URL | `http://localhost:3010` on the box, `http://minisforum-um880:3010` on the tailnet (only xps13wc, fw13, fw13pro, x1yogag9 and internal-1/Gatus once the ufw DOCKER-USER play is applied) |
 | Dashboard / Swagger | `/dashboard` (user `oriol`, `WAHA_DASHBOARD_PASSWORD`; the dashboard also needs the API key in its server entry) · Swagger UI at `/`, raw spec at `/-json` (basic auth `WHATSAPP_SWAGGER_*`) |
 | Secrets | `~/.config/waha/env` on minisforum ONLY: `WAHA_API_KEY`, dashboard + swagger user/password. Never print them; parse with grep/cut |
 | State | `~/.local/share/waha/sessions` (the linked login — whoever holds it IS the account; not synced, not in git), `media/`, `downloads/`, `sent.jsonl` (wa.py send log) |
@@ -117,6 +117,17 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 - Core vs Plus: the tier is `CORE` (`/api/server/version`). Which endpoints
   are Plus-only is not marked in the spec; sending media has not been
   tested yet — verify before promising it.
+
+## Monitoring and restarts
+
+- Gatus group `whatsapp-waha` on status.enacast.com probes
+  `/api/sessions/personal` every 5 min from internal-1 and pages after ~15 min
+  of not `WORKING` (container down, minisforum off, phone unlinked). An alert
+  = check `wa.py status`, then `docker logs waha`, then re-link.
+- Reboots are safe: docker enabled at boot, `restart: unless-stopped`, the
+  session resumes by itself in ~10 s without a QR (tested 2026-09-26).
+- Rotating `WAHA_API_KEY` touches three places — see hq
+  `homelab/whatsapp/CLAUDE.md`.
 
 ## Troubleshooting
 
