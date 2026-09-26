@@ -1,6 +1,6 @@
 ---
 name: content-creation
-description: Make marketing content for any of our products — launch/brag videos (via the /brag-slim skill), Reels/Shorts vertical cuts, share copy, posters, and putting the finished video on the product's website. Carries Oriol's content preferences (real product UI over mockups, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
+description: Make marketing content for any of our products — launch/brag videos (via the /brag-slim skill), Reels/Shorts vertical cuts, share copy, posters, putting the finished video on the product's website, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (real product UI over mockups, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
 ---
 
 # Content creation
@@ -155,6 +155,30 @@ only the web-optimised encodes are.
 - Run the site's visual diff: only the pages that received the video may
   change. BikeCRM result: `es_home` desktop/mobile changed, the other 52
   screenshots 100 %.
+
+## Video in newsletters and emails
+
+An MP4 cannot be embedded in an email: Gmail and Outlook do not play `<video>`
+(Apple Mail is the exception, and a newsletter is written for the worst
+client). The BikeCRM newsletter's own
+[email-HTML rules](../../../../BikeCRM/bikecrm-newsletter/.agents/skills/bikecrm-email-html/SKILL.md)
+already forbid videos, iframes and forms. The pattern that works:
+
+- **A still that links to the video.** A settled frame (the poster rule above)
+  with a drawn play button, as an absolute-URL PNG/JPEG with explicit
+  width/height and real `alt` text, linking to a web page that plays the clip
+  (the product site, one page or anchor per feature). Most readers see it; the
+  click lands where sound and controls work.
+- **Or a short animated GIF** for a feature that is pure motion (a click and
+  its result): 3-6 s, 600 px wide, few colours, under ~1 MB. Outlook desktop
+  shows only frame 0, so frame 0 must stand alone as a still (the poster rule
+  again). Link it to the full video.
+- **Size budget:** images do not count toward Gmail's ~102 KB HTML clipping
+  limit, but a multi-MB GIF delays the first screen on mobile data; keep one
+  animated image per issue.
+- **Per-feature clips:** `/brag-slim --duration 8` scoped to one feature, in
+  the issue's language, same identity as the launch video. The web copy goes in
+  the site's `static/video/`; the email only gets the still/GIF plus the link.
 
 ## Per-project notes
 
