@@ -123,6 +123,7 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 - Dashboard says "WAHA is not connected / set the right API key": the
   dashboard's server entry lacks `WAHA_API_KEY` (the server itself is fine —
   check `curl -H "X-Api-Key: …" …/api/sessions` = 200).
+- `FAILED` with `auth timeout` / "Session has been logged out" in `docker logs waha` right after setup = the pairing QR was never scanned and whatsapp-web.js gave up (seen 2026-09-26, ~40 min after start). `POST /api/sessions/default/restart` → back to `SCAN_QR_CODE`; restart just before Oriol is ready to scan.
 - `SCAN_QR_CODE` after it had worked = Oriol's phone unlinked the device, or
   the phone was offline ~14 days. Re-pair; the session dir keeps the rest.
 - Container restarts keep the login (`restart: unless-stopped`, sessions on a
