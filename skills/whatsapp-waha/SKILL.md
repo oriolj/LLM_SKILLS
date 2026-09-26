@@ -56,7 +56,7 @@ Stdlib Python, key from `$WAHA_API_KEY` or `~/.config/waha/env`.
 
 ```sh
 W=~/git/oriolj/LLM_SKILLS/skills/whatsapp-waha/scripts/wa.py
-$W status                      # must say WORKING; SCAN_QR_CODE = not linked
+$W status                      # personal: WORKING = linked; SCAN_QR_CODE = not linked
 $W find anna                   # contacts + groups, accent/case-insensitive
 $W chats --limit 20            # newest first, with last message
 $W read 34600111222 --limit 30 # a phone number or a chat id
@@ -79,17 +79,17 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 
 - **Auth**: header `X-Api-Key: <WAHA_API_KEY>` on every `/api/*` call; 401
   without it. `/ping` and `/health` are open.
-- **Session**: Core runs ONE session, `default`. Status flow `STARTING` →
+- **Session**: Core runs ONE session. Oriol's is named **`personal`** (created from the dashboard 2026-09-26; `default` no longer exists), so paths below read `/api/personal/…`; wa.py uses the one WORKING session unless `WAHA_SESSION` is set. Status flow `STARTING` →
   `SCAN_QR_CODE` → `WORKING` (or `FAILED`/`STOPPED`). Pair by
-  `GET /api/default/auth/qr?format=image` (`Accept: image/png`, the first code
+  `GET /api/personal/auth/qr?format=image` (`Accept: image/png`, the first code
   lives ~60 s, then 20 s each), or by phone code:
-  `POST /api/default/auth/request-code {"phoneNumber":"34…"}`.
-  `GET /api/sessions/default` → `me` = linked account.
-  `GET /api/screenshot?session=default` = what the headless browser sees
+  `POST /api/personal/auth/request-code {"phoneNumber":"34…"}`.
+  `GET /api/sessions/personal` → `me` = linked account.
+  `GET /api/screenshot?session=personal` = what the headless browser sees
   (WEBJS only, good for debugging).
 - **Chat ids**: `<number>@c.us` person, `<id>@g.us` group, `<id>@lid`
-  anonymous "linked id" (map with `/api/default/lids/…`), `<id>@newsletter`
-  channel. Resolve a phone with `GET /api/contacts/check-exists?phone=34…&session=default`
+  anonymous "linked id" (map with `/api/personal/lids/…`), `<id>@newsletter`
+  channel. Resolve a phone with `GET /api/contacts/check-exists?phone=34…&session=personal`
   → `{numberExists, chatId}` — never hand-build `@c.us` for a number you
   have not checked (`contacts-get` answers even for non-WhatsApp numbers).
 - **Send text**: `POST /api/sendText {"session","chatId","text"}` + optional
@@ -97,18 +97,18 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
   `/api/sendImage|sendFile|sendVideo {file:{mimetype,url}|{mimetype,data(b64)}, caption}`,
   `/api/sendVoice {file, convert:true}` (ffmpeg → opus). Typing:
   `/api/startTyping`, `/api/stopTyping`. Reactions `PUT /api/reaction`.
-  Edit/delete own message: `PUT|DELETE /api/default/chats/{chat}/messages/{id}`.
-- **Read**: `GET /api/default/chats/overview?limit=` (name + last message),
-  `GET /api/default/chats/{chatId}/messages?limit=&sortOrder=desc&downloadMedia=true`
+  Edit/delete own message: `PUT|DELETE /api/personal/chats/{chat}/messages/{id}`.
+- **Read**: `GET /api/personal/chats/overview?limit=` (name + last message),
+  `GET /api/personal/chats/{chatId}/messages?limit=&sortOrder=desc&downloadMedia=true`
   (`limit` is required; filters `filter.timestamp.gte/lte`, `filter.fromMe`;
   `merge=true` joins @lid and @c.us copies of one contact). Contacts:
-  `GET /api/contacts/all?session=default`; groups `GET /api/default/groups`.
+  `GET /api/contacts/all?session=personal`; groups `GET /api/personal/groups`.
 - **Media download**: with `downloadMedia=true` each message has
   `media.url` = `WAHA_BASE_URL/api/files/…`; fetch it with the same
   `X-Api-Key`. `WAHA_BASE_URL` is set to the tailnet name, so on the box
   itself rewrite to the path (wa.py does).
 - **Webhooks** (not configured): per-session `config.webhooks[{url, events:["message","session.status",…]}]`
-  via `PUT /api/sessions/default`. That is the path to "tell me when X
+  via `PUT /api/sessions/personal`. That is the path to "tell me when X
   writes" if it is ever wanted.
 - **MCP**: WAHA serves an MCP endpoint at `POST /mcp` (streamable HTTP,
   same `X-Api-Key`), ~150 tools (`send-text`, `chats-get-messages`,
@@ -123,7 +123,7 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 - Dashboard says "WAHA is not connected / set the right API key": the
   dashboard's server entry lacks `WAHA_API_KEY` (the server itself is fine —
   check `curl -H "X-Api-Key: …" …/api/sessions` = 200).
-- `FAILED` with `auth timeout` / "Session has been logged out" in `docker logs waha` right after setup = the pairing QR was never scanned and whatsapp-web.js gave up (seen 2026-09-26, ~40 min after start). `POST /api/sessions/default/restart` → back to `SCAN_QR_CODE`; restart just before Oriol is ready to scan.
+- `FAILED` with `auth timeout` / "Session has been logged out" in `docker logs waha` right after setup = the pairing QR was never scanned and whatsapp-web.js gave up (seen 2026-09-26, ~40 min after start). `POST /api/sessions/<name>/restart` (or delete it and create a new one from the dashboard, which is what Oriol did) → back to `SCAN_QR_CODE`; restart just before Oriol is ready to scan.
 - `SCAN_QR_CODE` after it had worked = Oriol's phone unlinked the device, or
   the phone was offline ~14 days. Re-pair; the session dir keeps the rest.
 - Container restarts keep the login (`restart: unless-stopped`, sessions on a
@@ -132,5 +132,5 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 ## Keep this current
 
 Verified facts first recorded 2026-09-26 (install, auth, spec, QR, dry-run
-guard). Not yet verified: a real send, media download and transcription on
+guard). Linked 2026-09-26 (session `personal`, WORKING). Verified the same day: `wa.py chats` lists the account's chats. Not yet verified: a real send, media download and transcription on
 a live linked account — record the first successful run of each here.

@@ -23,7 +23,7 @@ import urllib.error, urllib.parse, urllib.request
 from pathlib import Path
 
 URL = os.environ.get("WAHA_URL", "http://localhost:3010").rstrip("/")
-SESSION = os.environ.get("WAHA_SESSION", "default")
+SESSION = os.environ.get("WAHA_SESSION")  # unset = the one WORKING session (Oriol's is "personal")
 DATA = Path.home() / ".local/share/waha"
 SENT_LOG = DATA / "sent.jsonl"
 PERSONAS = {"petra": "Petra", "emma": "Emma", "blake": "Blake"}
@@ -56,6 +56,16 @@ def call(method, path, params=None, body=None, raw=False, accept="application/js
     return json.loads(out) if out else None
 
 
+def pick_session():
+    global SESSION
+    if SESSION:
+        return
+    alive = [x["name"] for x in call("GET", "/api/sessions", {"all": "true"}) if x["status"] == "WORKING"]
+    if len(alive) != 1:
+        sys.exit(f"set WAHA_SESSION: {len(alive)} WORKING sessions ({', '.join(alive) or 'none'})")
+    SESSION = alive[0]
+
+
 def fold(s):
     s = unicodedata.normalize("NFKD", s or "")
     return "".join(c for c in s if not unicodedata.combining(c)).lower()
@@ -72,14 +82,15 @@ def resolve(chat):
 
 
 def cmd_status(a):
-    s = call("GET", f"/api/sessions/{SESSION}")
-    print(f"session {s['name']}: {s['status']}  engine={s.get('engine', {}).get('engine')}")
-    if s.get("me"):
-        print(f"linked account: {s['me'].get('pushName')} {s['me'].get('id')}")
+    for s in call("GET", "/api/sessions", {"all": "true"}):
+        me = s.get("me") or {}
+        print(f"session {s['name']}: {s['status']}  {me.get('pushName') or ''} {me.get('id') or ''}")
     print("server:", json.dumps(call("GET", "/api/server/version")))
 
 
 def cmd_qr(a):
+    global SESSION
+    SESSION = SESSION or "personal"
     png = call("GET", f"/api/{SESSION}/auth/qr", {"format": "image"}, raw=True, accept="image/png")
     out = Path(a.out or DATA / "qr.png")
     out.write_bytes(png)
@@ -200,6 +211,8 @@ def main():
     s = sp.add_parser("transcribe"); s.add_argument("chat"); s.add_argument("--id"); s.add_argument("--last", type=int, default=1)
     s.set_defaults(f=cmd_transcribe)
     a = p.parse_args()
+    if a.cmd not in ("status", "qr"):
+        pick_session()
     a.f(a)
 
 
