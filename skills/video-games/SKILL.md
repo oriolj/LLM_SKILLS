@@ -1,6 +1,6 @@
 ---
 name: video-games
-description: Make video games with Claude Code the way we do it — our engine choice (Godot 4 (4.7+, latest stable) with GDScript, Linux-first), real pixel art (native low-res canvas, integer scaling, a Lospec palette, indexed PNGs rendered from palette-indexed text grids by our own script and linted), couch co-op with several gamepads (roles by device id, join screen, hot-plug, SDL mappings for 8BitDo), game design for very young children (no fail states, no text, asymmetric parent+kid roles), the Claude-with-Godot traps (Godot 3 API drift, hand-edited .tscn/.uid breakage, headless renders nothing), the verification loop (GUT tests plus captured frames inspected upscaled), what Opus 5.5 can and cannot do for art and audio, third-party IP kept in a private pack, and an index of the external skills and MCP servers worth reading. Use when the user says "make a game / videojoc / video game", "couch co-op", "pixel art", "sprite", "sprite sheet", "tileset", "palette", "Godot", "GDScript", "gamepad / controller support", "game for my kids", "character select", "game jam", or works in ~/git/oriolj/VideoGames/ (PixelPals and later games).
+description: Make video games with Claude Code the way we do it — our engine choice (Godot 4 (4.7+, latest stable) with GDScript, Linux-first), real pixel art (native low-res canvas, integer scaling, a Lospec palette, indexed PNGs rendered from palette-indexed text grids by our own script and linted), couch co-op with several gamepads (roles by device id, join screen, hot-plug, SDL mappings for 8BitDo), game design for very young children (no fail states, no text, asymmetric parent+kid roles), the Claude-with-Godot traps (Godot 3 API drift, hand-edited .tscn/.uid breakage, headless renders nothing), the verification loop (GUT tests plus captured frames inspected upscaled), what Opus 5.5 can and cannot do for art and audio, third-party IP in a private pack (committed only to a private repo), and an index of the external skills and MCP servers worth reading. Use when the user says "make a game / videojoc / video game", "couch co-op", "pixel art", "sprite", "sprite sheet", "tileset", "palette", "Godot", "GDScript", "gamepad / controller support", "game for my kids", "character select", "game jam", or works in ~/git/oriolj/VideoGames/ (PixelPals and later games).
 ---
 
 # Video games
@@ -39,10 +39,14 @@ and grows with each game; add dated lessons to
   (dad on a pad, a kid on the keyboard's space bar). A game you can only
   test with three pads plugged in is a game the agent cannot test.
 - **Third-party IP stays private.** Kids ask for Sonic, Minions and friends.
-  Draw small homages ourselves (never ripped sprites) in a gitignored
-  `private_pack/` the game loads only if present. The committed, shippable
-  cast is original characters. Never publish, screenshot publicly or put the
-  private pack in a portfolio entry.
+  Draw small homages ourselves (never ripped sprites) in a separate
+  `private_pack/` the game loads only if present, excluded from exports. The
+  shippable cast is original characters. The pack IS committed when the
+  game's repo is private (Oriol, 2026-09-26: he expects a clone to have
+  every character), and that repo then must never go public. Never publish,
+  screenshot publicly or put the private pack in a portfolio entry. Ask
+  which fan characters the kids want; do not stop at the ones the brief
+  listed (Shadow was missed in PixelPals).
 - **Popularity rule for third-party tools: >1k GitHub stars**, stated with the
   count. Below it = inspiration only. Our own scripts are exempt. A nicely
   executed TUI for tooling is welcome.
