@@ -5,6 +5,13 @@ description: Ship and audit SEO on any kind of site — SaaS / marketing landing
 
 # SEO playbook
 
+> Performance is an SEO input: for static and marketing sites load
+> **static-site-performance** (build-time rules, budgets, cache headers) and
+> **core-web-vitals** (measure and fix loop). For a product's commercial site
+> as a whole, **commercial-websites**. Sourced 2025–2026 changes (FAQ rich
+> results gone, AI features, Lighthouse 13):
+> [static-site-performance/references/research-2026-09.md](../static-site-performance/references/research-2026-09.md).
+
 Opinionated, stack-agnostic playbook for classic search (Google, Bing)
 and AI search / GEO (ChatGPT, Claude, Perplexity, Google AI Overviews,
 Copilot). Strong classic SEO is the prerequisite for AI citation — GEO
@@ -285,7 +292,11 @@ Share one `xmlEscape` + date helper between sitemap and RSS generators
 ## llms.txt / llms-full.txt
 
 Proposal at [llmstxt.org](https://llmstxt.org/). **Cheap hedge, not a
-traffic mechanism today.** Single-party proposal (2024, no W3C); none
+traffic mechanism today.** Google's changelog (2026-06-15): llms.txt files
+"aren't needed for Google Search" and do not affect rankings; its AI-features
+doc says AI Overviews / AI Mode need no special files or markup (GEO is
+"still SEO"). Ship it for docs and developer-facing products; for a
+small-business landing it is optional. Single-party proposal (2024, no W3C); none
 of the major LLM crawlers fetch it on their own as of early 2026.
 Tools (Cursor, Claude Code, some MCP integrations) fetch it when a
 user pastes a URL, and providers may adopt it later.
@@ -365,8 +376,10 @@ Shared primitives (`publisher`, `breadcrumbList`, `secondsToIsoDuration`,
 For the full page-type → schema mapping (15+ schemas, shape notes per
 type, `@graph` consolidation example, E-E-A-T author wiring,
 `ProductGroup` variants, `NewsMediaOrganization`, and which schemas
-Google retired as rich results — `HowTo` completely, `FAQPage` except
-gov/health), load `references/schemas-by-page-type.md`.
+Google retired as rich results — `HowTo` completely, and `FAQPage`
+entirely: FAQ rich results stopped appearing on 2026-05-07 and the docs were
+removed 2026-06-15. Keep FAQ content as visible HTML (users and AI answers
+use it); `FAQPage` markup is harmless but yields nothing in Google), load `references/schemas-by-page-type.md`.
 
 ## RSS feeds
 

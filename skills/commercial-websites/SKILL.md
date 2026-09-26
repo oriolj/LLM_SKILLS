@@ -15,7 +15,8 @@ details:
 |---|---|
 | Design critique, polish, typography, layout | **impeccable** (`critique`, `audit`, `polish`, …) |
 | Video, posters, product stills, share copy | **content-creation** (makes them with `/brag-slim`) |
-| Titles, canonical, hreflang, JSON-LD, AI crawlers | **seo** |
+| Titles, canonical, hreflang, JSON-LD, AI crawlers | **seo** (load it for every site review) |
+| Build-time performance: budgets, images, fonts, JS, video, cache headers per host, CI gate | **static-site-performance** (load it for every site review) |
 | LCP / CLS / INP measurement and fixes | **core-web-vitals** |
 | Catalan / Spanish / French copy that does not sound translated | **catalan-writing** |
 | No cookie banner: engineering the site cookie-free | **zero-cookies**, legal pages **eu-law** |

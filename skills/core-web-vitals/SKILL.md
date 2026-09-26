@@ -5,6 +5,11 @@ description: Measure and fix Core Web Vitals (LCP, CLS, INP/TBT) on any web proj
 
 # Core Web Vitals: measure → diagnose → fix → re-measure
 
+> Thresholds (unchanged): LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1 at p75. For
+> static/marketing sites, the build-time rules, budgets, cache headers and
+> production traps live in **static-site-performance**; search impact in
+> **seo**.
+
 Always work this loop end to end: measure first (never guess), fix the single
 biggest verified cause, deploy, re-measure. Report lab vs field honestly.
 
@@ -46,7 +51,12 @@ a['network-requests']['details']['items']          # sort by transferSize to fin
 ```
 
 Audit names drift between Lighthouse versions (`largest-contentful-paint-element`
-vs `lcp-breakdown-insight`...). If a key is missing, list candidates:
+vs `lcp-breakdown-insight`...). **Lighthouse 13 (2025-10-10, Node ≥ 22.19)**
+replaced most performance audits with `*-insight` audits and removed
+`offscreen-images`, `third-party-facades` and `preload-fonts` outright (so
+nothing flags a missing `loading="lazy"` or a raw YouTube embed any more);
+full old → new table in
+[static-site-performance/references/research-2026-09.md](../static-site-performance/references/research-2026-09.md). If a key is missing, list candidates:
 `[k for k in a if 'lcp' in k]`.
 
 ### Field data (what Google actually ranks on)
