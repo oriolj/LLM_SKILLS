@@ -243,7 +243,13 @@ Go through this list on every review; each line comes from a real miss.
 - Every claim in it is checked like product copy: grep the site and the
   product backend for the providers actually called (email, SMS/WhatsApp,
   payments, AI APIs, error tracking, hosting, analytics, fonts, widgets) and
-  observe cookies in a real browser. For SaaS, separate the two roles: the
+  observe cookies in a real browser: read them with Playwright's
+  `context.cookies()` (a page-side read returned an empty list and made an
+  agent publish "no cookies" wrongly) and cross-check with
+  `curl -sI | grep -i set-cookie`. A CDN's bot protection sets its own cookie
+  (`__cf_bm`, 30 min, Cloudflare in front of DigitalOcean App Platform) that
+  the site's code never mentions: disclose it as a strictly necessary security
+  cookie (no consent needed) instead of claiming "no cookies". For SaaS, separate the two roles: the
   company is controller for its own customers' account data and a processor
   (art. 28, DPA) for the data those customers enter about their own clients.
 - The LSSI identity block (company name, tax ID, address, email, registry
