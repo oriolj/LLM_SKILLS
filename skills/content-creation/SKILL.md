@@ -387,6 +387,14 @@ already forbid videos, iframes and forms. The pattern that works:
   feature video is one scene file plus an events block. Cursor targets are
   measured from the untransformed layout at `window.ready`
   (`getBoundingClientRect` of the real buttons); hardcoded guesses missed the
-  buttons by 100+ px. Sources: `content-sources/brag/sec_l_ca.html`,
-  `audio_sec.py`. Delivered to Oriol on WhatsApp (whatsapp-waha skill:
+  buttons by 100+ px. Delivered to Oriol on WhatsApp (whatsapp-waha skill:
   an mp4 goes as a document, `sendVideo` needs the chrome image).
+  **EnaCast feature videos live in `~/git/EnaCast/enacast-content-creation`**
+  (Oriol, 2026-09-27), not in the site repo: one `videos/YYYY-MM-DD-<name>/`
+  per video (`scene-<lang>.html`, `soundtrack.py`, `video.conf`, `copy/`,
+  README with story + status), a shared renderer/build script and the
+  soundtrack engine `shared/audio/synth.py` (`Track(dur, cuts).bed()` + the
+  video's events + `.transitions().write()`); `make check V=…` renders the
+  stills and a contact sheet, `make video V=… L=ca` the mp4. Renders stay in
+  the video's git-ignored `renders/` (mp4s move to a NAS later). Only videos
+  embedded on the commercial site keep their sources in its `content-sources/`.
