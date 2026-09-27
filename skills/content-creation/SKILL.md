@@ -382,19 +382,29 @@ already forbid videos, iframes and forms. The pattern that works:
   copied from the catalogs (ramen `messages/ca.json` `regularSections.*`,
   astro `translations.ts` `regularSections.*`) with invented data (program
   "Els matins", Albert Puig), so it could be shot from uncommitted code. It
-  reuses the Insights video's cut points (22.5 s) and soundtrack generator
-  (`audio_sec.py` = `audio_ins.py` with this video's UI events), so a new
+  first reused the Insights video's cut points (22.5 s) and soundtrack
+  generator, since moved into the repo's shared engine (below), so a new
   feature video is one scene file plus an events block. Cursor targets are
   measured from the untransformed layout at `window.ready`
   (`getBoundingClientRect` of the real buttons); hardcoded guesses missed the
   buttons by 100+ px. Delivered to Oriol on WhatsApp (whatsapp-waha skill:
   an mp4 goes as a document, `sendVideo` needs the chrome image).
+  v1 (22.5 s) was judged too fast; **v2 (39.5 s, sent 2026-09-27, not
+  published) was re-cut with a time map, not re-animated**: the scene stays
+  authored in v1 time and the video's `timing.js` defines each cut as
+  `holds` (`[v1 time, seconds frozen]`) and `slows` (`[v1 from, v1 to,
+  factor]`); the page reads it (`?cut=v2`) and `soundtrack.py` reads the SAME
+  file to move its events and cut points, so picture and sound stay in sync.
+  Keep holds in multiples of the beat (0.5 s there) so every cut stays on the
+  beat. `video.conf` lists `CUTS="v2 v1"` (first = default) with per-cut
+  `DUR_<cut>`, `POSTER_T_<cut>`, `STILLS_<cut>`; build one with
+  `make video V=… L=ca C=v2`, renders named `<slug>-<lang>-<cut>-WxH.mp4`.
   **EnaCast feature videos live in `~/git/EnaCast/enacast-content-creation`**
   (Oriol, 2026-09-27), not in the site repo: one `videos/YYYY-MM-DD-<name>/`
   per video (`scene-<lang>.html`, `soundtrack.py`, `video.conf`, `copy/`,
   README with story + status), a shared renderer/build script and the
   soundtrack engine `shared/audio/synth.py` (`Track(dur, cuts).bed()` + the
   video's events + `.transitions().write()`); `make check V=…` renders the
-  stills and a contact sheet, `make video V=… L=ca` the mp4. Renders stay in
+  stills and a contact sheet, `make video V=… L=ca [C=<cut>]` the mp4. Renders stay in
   the video's git-ignored `renders/` (mp4s move to a NAS later). Only videos
   embedded on the commercial site keep their sources in its `content-sources/`.

@@ -120,8 +120,9 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
   2026-09-27:** `sendVideo` answers **422 "Use devlikeapro/waha:chrome docker
   image to send video in WEBJS"** on our Chromium image, so an mp4 goes as a
   document through `sendFile` (`wa.py send … --file x.mp4 --document`); it
-  arrives with its caption and plays from the chat. A 2.2 MB base64 upload
-  went through fine. `sendImage` / `sendFile` for other types are wired in
+  arrives with its caption and plays from the chat. Base64 uploads of 2.2 MB
+  and 3.1 MB mp4s went through fine (the two Seccions habituals cuts,
+  2026-09-27; `sent.jsonl` logs the file path with each send). `sendImage` / `sendFile` for other types are wired in
   `wa.py --file` but not yet exercised. Switching the compose image to
   `devlikeapro/waha:chrome` would enable real video messages (untested).
 
