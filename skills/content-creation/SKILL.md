@@ -13,6 +13,12 @@ output goes live.
 
 ## Preferences (Oriol)
 
+The cross-product preferences, the shared newsletter pattern and the register
+of what content exists per product live in hq
+[`growth/content/README.md`](../../../../../Syncthing/Syncthing-mobile-docs/hq/growth/content/README.md).
+Read it first. A new preference Oriol states goes there (and here only when it
+changes how this skill's pipeline works).
+
 - **Show the real product, as a concept.** The app doing its job (its real top
   bar, components, status chips and copy) beats a landing page describing it,
   and beats stock or abstract visuals. Build it as composed HTML cards from the
