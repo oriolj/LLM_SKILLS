@@ -593,7 +593,8 @@ this section keeps the rules and the lessons.
    **Built (Sprint Bike, 2026-09-27, `make shorts`)** with Oriol's
    feedback: every short **opens on the interviewer's question**
    (verbatim, trimmed only at word boundaries), shown whole on a
-   **question card** styled differently from the subtitles; it ends with
+   **question card** styled differently from the subtitles (no asker's name
+   on it, Oriol); it ends with
    a 0.5 s fade to black into a **shared brand outro** rendered once and
    tracked in the repo (`shared/brand/`), never regenerated per clip.
    The crop follows the mic channels (frame side ≠ channel side: check
