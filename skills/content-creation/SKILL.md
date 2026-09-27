@@ -651,6 +651,40 @@ this section keeps the rules and the lessons.
    does not contain. Platforms (Oriol, 2026-09-27): YouTube (the episode,
    and the verticals as Shorts), Instagram Reels, TikTok and LinkedIn;
    the plan says which pieces go where and adapts the caption to each.
+**Publishing through Postiz** (first run: BikeCRM, 2026-09-27). Load the
+   **`postiz` skill** first (`~/.agents/skills/postiz/SKILL.md`, linked into
+   `~/.claude/skills/` and `~/.claude-enacast/skills/`; Postiz's official
+   skill + `postiz` CLI): it owns the CLI mechanics and its four hard
+   rules (authenticate; every media file through `postiz upload`; TikTok
+   `DIRECT_POST`; read `integrations:settings <id>` first because
+   inapplicable settings are silently dropped). Account facts, keys and
+   the MCP endpoint are in hq `shared/docs/postiz-cloud.md` (**one Postiz
+   Cloud account per company**; the multi-company "customer groups" were
+   not available in the UI). What we learned:
+   - The account key works both in the MCP URL and as `POSTIZ_API_KEY`
+     for the CLI; a stored `postiz auth:login` in `~/.postiz/` **overrides
+     the env key**, so check `postiz auth:status` (it prints the
+     organization) before acting when several companies exist.
+   - `npx -y postiz@<version>` needs no global install; in zsh never keep
+     the command in a variable (`$P args` does not split → nothing runs).
+   - Channel settings seen: Instagram requires `post_type` (`post`; a
+     video posts as a Reel), caption ≤ 2,200; YouTube requires `title`
+     (≤ 100) and `type` (`public`/`private`/`unlisted`), plus
+     `selfDeclaredMadeForKids`, `tags`, description ≤ 5,000. Instagram
+     videos ≤ 100 MB (our shorts are 44–70 MB).
+   - JSON mode (`posts:create --json`) with one `posts[]` entry per
+     channel, the uploaded media `{id, path}`, and `settings.__type`;
+     answers `[{postId, integration}]`, and `posts:list` then shows each
+     as `QUEUE` at the UTC date.
+   - Repeatable in the content repo: `scripts/schedule_postiz.py`
+     (`make schedule`): the plan's weeks → Mondays at a Madrid time,
+     one upload per short, one post per short across connected channels
+     (TikTok/LinkedIn skipped until connected), and **a copy of
+     everything kept in the repo** (Oriol: the schedule in
+     `publish/schedule.md|json`, the exact payload + Postiz's answer per
+     post in `publish/posts/`, and the register `publications.tsv`, one row
+     per piece × platform). Create one post first and check it with
+     `posts:list` before the batch; `--dry-run` shows the schedule.
 9. **Show Oriol** (contact sheet, then the render via the
    `whatsapp-waha` skill as a document) and publish only with his go plus
    the recorded consent covering that use.
