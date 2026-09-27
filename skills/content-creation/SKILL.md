@@ -1,6 +1,6 @@
 ---
 name: content-creation
-description: Make marketing and product content for any of our products — four kinds of video, each with its own pipeline (a PROMO launch/brag video via the /brag-slim skill; a FEATURE HIGHLIGHT, one feature at a readable pace with music; an ANIMATED HOW-TO series of short step-by-step clips on a shared HTML kit; a SCREEN RECORDING of the real app driven by Playwright with redaction, captions and phone framing), assembling clips into a size-capped deliverable (tenders, 25 MB H.265), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "feature video / highlight this feature", "tutorial / how-to video", "record the screen / screen recording of the app", "videos for a tender / licitació", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
+description: Make marketing and product content for any of our products — edit filmed customer interviews (transcribe, trim head/tail, cut flubs/retakes/unanswered questions into a lossless raw cut, a long YouTube episode with sections and chapters, clips, subtitles), and four kinds of made video, each with its own pipeline (a PROMO launch/brag video via the /brag-slim skill; a FEATURE HIGHLIGHT, one feature at a readable pace with music; an ANIMATED HOW-TO series of short step-by-step clips on a shared HTML kit; a SCREEN RECORDING of the real app driven by Playwright with redaction, captions and phone framing), assembling clips into a size-capped deliverable (tenders, 25 MB H.265), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "feature video / highlight this feature", "tutorial / how-to video", "record the screen / screen recording of the app", "edit / transcribe / cut this customer interview", "videos for a tender / licitació", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
 ---
 
 # Content creation
@@ -34,7 +34,8 @@ is a how-to; "prove it works" is a recording; a promo is for the whole product.
 The how-to and the recording are usually made **together, clip by clip**: the
 animation is the precise storyboard (what must be visible, in what order), the
 recording proves it on the real app, and the gaps between them are product
-findings. A promo or a feature highlight can reuse how-to concept cards, and a
+findings. A fifth kind, **customer interviews**, is filmed footage that
+is edited rather than built: [its own pipeline](#customer-interviews-real-footage-edited). A promo or a feature highlight can reuse how-to concept cards, and a
 feature highlight is the natural companion of a release: the highlight sells
 the feature, its how-to clips teach it.
 
@@ -359,6 +360,116 @@ limited range, stills for a legibility check, fails over the cap). Always
 encode from the master, never re-compress an export. H.265 was Oriol's call
 for the tender (VLC plays it; stock Windows players may need the HEVC
 extension); H.264 stays the default for anything public.
+
+## Customer interviews (real footage, edited)
+
+A fifth kind, and the only one that is **filmed, not made**: a customer
+talking in their own shop, which Claude edits as Oriol's video editor
+(Oriol, 2026-09-27). First one: BikeCRM × Sprint Bike (Sant Feliu de
+Llobregat, recorded 2024-12-17), in
+`~/git/BikeCRM/bikecrm-content-creation/interviews/`. The format is
+recurring: a still camera (DJI Osmo Pocket, 4K HEVC, ~11 GB per 20 min),
+two people seated in the workshop, the product person in the product's
+t-shirt. Unlike the four made kinds, the words and faces are real, so the
+truth rule is **cut, never rewrite**: an edit may remove, it may not make
+anyone say something they did not say, or reorder answers so that they
+answer a different question.
+
+The pipeline, in order. Each step leaves a committed file in the
+interview's folder, so the next session can pick up where this one stopped.
+
+1. **File it.** One folder per interview, `interviews/YYYY-MM-DD-<shop>-<town>/`,
+   with the footage in the git-ignored `raw/` and a README: who is on screen
+   (name, side, role), where, the date, the raw file with its sha256, where
+   the backup copy is, the language, and the **consent**: who agreed, when,
+   and for which uses. `make probe` / `make sheet` for the facts.
+2. **Detect the language, don't ask.** Cut three 40 s samples (at ~10 %,
+   45 % and 80 % of the running time) and run `whisper-cli -l auto` on each:
+   Sprint Bike came back `es` on all three (p = 0.79–0.88). An interview can
+   switch language partway, so one sample is not enough.
+3. **Transcribe everything first**, before any cut, because every later
+   decision is made on the transcript's timecodes: 16 kHz mono wav in
+   `work/` → `whisper-cli -m ~/models/ggml-large-v3.bin -l <lang>` writing
+   srt/vtt/txt/json to `transcript/raw-whisper.*` (committed, never edited).
+   Pass the proper nouns with `--prompt` (the shop, the town, the product,
+   the people): without it, Whisper heard "Springbike", "San Felipe de
+   Llobregat" and "motorbike CRM". Whisper does not tell the speakers
+   apart. The **clean transcript** `transcript/transcript.md`
+   (timecode, speaker, text, names corrected) is written from the raw one,
+   and every later step works from it.
+4. **Mark the raw cut** in `edit.tsv` (committed; one row per removal:
+   `in`, `out`, `category`, `note`):
+   - `head` / `tail`: the camera rolls before the interview starts and
+     after it ends (setup, "vale, pues empezamos", getting up). IN is the
+     first settled frame before the first real line; OUT is just after
+     the last answer. Confirm both on frames, not only on the transcript.
+   - `flub`: false starts, stumbles, a sentence restarted: keep the
+     clean take.
+   - `retake`: a question asked again: keep the better question and the
+     better answer, never half of each.
+   - `no-answer` / `declined`: a question the interviewee could not
+     answer or chose not to answer is removed entirely. A declined topic
+     is gone from **every** cut, not just this one.
+   - `chatter`: off-topic talk, interruptions (a customer, the phone),
+     camera adjustments.
+   - `private`: third parties named without their consent (clients,
+     relatives, famous customers), other people's prices, anything
+     the interviewee would not want public. Flag it and let Oriol decide.
+   Oriol reviews `edit.tsv` against the transcript before the raw cut is
+   rendered. The **raw cut** is the full interview minus those rows: the
+   master every later cut is taken from.
+5. **Assemble the raw cut without re-encoding** (Oriol, 2026-09-27: every
+   re-encode loses quality, and cutting does not need one). Stream-copy
+   each kept segment from the original (`-ss <in> -i raw -t <len> -map 0:v:0
+   -map 0:a:0 -c copy`; the DJI file also carries data tracks and an
+   MJPEG thumbnail, so map only video and audio) and join them with the
+   concat demuxer, still `-c copy`. A copy can only start on a keyframe,
+   so **snap every `in`/`out` to a keyframe** and put the cut points in
+   pauses, where half a second either way does not matter. The Osmo Pocket
+   writes one keyframe every 1.001 s (30 frames), so a snap is never more
+   than 0.5 s off. List them with `ffprobe -skip_frame nokey -show_entries
+   frame=pts_time`. Cutting mid-word is the exception that needs pixels
+   re-made: move the cut to a pause instead. Re-encoding happens **once**,
+   at the end, and only for outputs whose pixels change (a crop, a
+   punch-in, burned subtitles), always from the original, never from an
+   export. Keep the source's 10-bit HEVC in the raw cut; a deliverable
+   for the web is the H.264 encode from that step. On a still two-shot
+   every cut is a jump cut. 4K footage delivered at 1080p leaves room for
+   a punch-in on whoever speaks (a 2× crop) in the final encode, which
+   hides it.
+6. **The long episode for YouTube** (Oriol, 2026-09-27): the main
+   deliverable is a podcast-like long version of the raw cut, not only
+   clips. Sections by topic, each opened by a short title card (the
+   question, or the topic in a few words); an **animated product intro**
+   (the brand wordmark scene of the feature-highlight kit, a few seconds,
+   with the soundtrack engine's sting); the names and sides of the people
+   on screen at their first appearance; an outro with the product URL.
+   The same section list becomes the **YouTube chapters** in the
+   description (first one at `00:00`, at least three, each ≥ 10 s, or
+   YouTube ignores them), and the title, description and thumbnail are
+   written in the interview's language from the transcript's own lines.
+   To keep the interview itself un-re-encoded, render the intro and cards
+   to **the raw cut's exact stream parameters** (resolution, frame rate,
+   HEVC Main 10 `yuv420p10le`, BT.709, AAC 48 kHz stereo) and concat them
+   `-c copy` between its segments; YouTube re-encodes the upload anyway,
+   so what we send should be the best we have. (Not yet verified: that
+   x265 cards and the DJI encoder's stream concat cleanly. Check the
+   joins in a player and with `ffprobe` before relying on it; if they
+   do not, fall back to one final encode of the whole episode at high
+   quality.) Anything overlaid on the interview picture (a lower third,
+   a punch-in) forces that re-encode, so prefer putting names and topics
+   on the cards.
+7. **Clips from the raw cut**: selects of 30–60 s, one idea each, standing
+   alone without the question (or with the question as a title card);
+   9:16 crops on the speaker; burned-in subtitles from the clean
+   transcript, in the interview's language; loudness-normalised audio.
+   These change pixels, so they are the one encode, from the original.
+8. **Show Oriol** (contact sheet, then the render via the
+   `whatsapp-waha` skill as a document) and publish only with his go plus
+   the recorded consent covering that use.
+
+Steps 1–4 were first run on Sprint Bike on 2026-09-27; 5–8 are the plan.
+Correct this section as they are carried out.
 
 ## Concept illustrations (the site's product images)
 
