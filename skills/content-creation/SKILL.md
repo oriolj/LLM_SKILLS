@@ -196,7 +196,11 @@ is then an edit and a rerun, by anyone, on any machine.
 ## Feature highlight
 
 One feature, told like a promo but slow enough to read the UI. It is the kind
-Oriol asks for most ("a video of <feature>"). Reference: EnaCast "Seccions
+Oriol asks for most ("a video of <feature>"). **Always an animation of concept
+cards, never a screen recording** (Oriol, 2026-09-27: "I prefer the brag-like
+animations for feature announcements"). Recordings are for proofs and
+tenders; an announcement shows the idea, clean, on-brand and unaffected by
+test data or UI bugs. Reference: EnaCast "Seccions
 habituals" (`enacast-content-creation/videos/2026-09-27-seccions-habituals/`,
 v2 = 39.5 s; v1 at 22.5 s was judged too fast). Not /brag-slim: its
 fast-cut defaults are what made v1 unreadable.
@@ -227,10 +231,38 @@ fast-cut defaults are what made v1 unreadable.
 - **Check before rendering**: `make check V=<video> [C=<cut>]` renders a still
   of every scene and every transition into a contact sheet; look at it, then
   `make video`.
-- **Delivery**: 16:9 first (site section, WhatsApp to Oriol as a document);
-  a 9:16 cut and per-language cuts (written from each language's catalogs)
-  only when the feature is published; a still or GIF plus link for the
-  newsletter (below).
+- **Built for a muted feed**: social autoplays without sound, so every beat's
+  headline carries the story on its own; the hook states the problem in the
+  first 2 s; frame 0 is the poster (feature name + the card), readable as a
+  still.
+- **One claim, the site's claim**: the promise line comes from the feature's
+  release note or site copy; figures only if the site's verified-claims table
+  has them (a baked-in number needs a re-render to fix).
+
+### The announcement package
+
+A feature lands when the video arrives with everything around it. Plan the
+whole set in the video README before rendering, and ship it together, after
+the feature's deploy (Oriol's go for anything public):
+
+| Piece | Spec | Where it goes |
+|---|---|---|
+| Video 16:9 | 30–45 s, H.264 MP4 + poster | the feature's section on the site, the release-note entry, YouTube/LinkedIn |
+| Video 9:16 | the same beats re-laid for vertical safe zones (not a crop), ≤ 30 s | Reels/Shorts/TikTok, WhatsApp status |
+| Square still | the poster frame re-composed 1:1 | LinkedIn/X image post, link previews |
+| Newsletter GIF | 3–6 s of the key beat, 600 px, ≤ 1 MB, frame 0 standalone, linked to the video | the next issue ([below](#video-in-newsletters-and-emails)) |
+| Share copy | per channel and language: LinkedIn (3–5 lines, the problem → the feature → the link), X (1–2 lines), WhatsApp (2 lines, first person from the team) | `copy/<channel>-<lang>.txt` next to the scene |
+| Release note | one line in the product's words, the same promise as the video | the product's changelog / release notes |
+| How-to clip (optional) | the matching animated how-to clip for "how do I use it?" | help centre, linked from the release note |
+| Team mail | Catalan, labels quoted from the `ca` catalog, what changed + how to try it | only when Oriol asks |
+
+- **Same words everywhere**: the feature name, the promise line and the UI
+  labels are identical in the video, the copy, the release note and the site;
+  write them once in the README and copy from there.
+- **Per language, from that language's catalogs**, never translated; a
+  language without a cut gets no video on its page.
+- **Delivery to Oriol first**: the 16:9 on WhatsApp as a document for review;
+  the rest after his verdict.
 
 ## Animated how-to series
 
