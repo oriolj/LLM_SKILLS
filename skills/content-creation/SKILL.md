@@ -377,6 +377,10 @@ answer a different question.
 
 The pipeline, in order. Each step leaves a committed file in the
 interview's folder, so the next session can pick up where this one stopped.
+**The step-by-step operating manual (commands, inputs, outputs, times,
+costs, traps) is the content repo's `docs/interview-workflow.md`**
+(BikeCRM: `~/git/BikeCRM/bikecrm-content-creation/docs/interview-workflow.md`);
+this section keeps the rules and the lessons.
 
 1. **File it.** Intake (Oriol, 2026-09-27): the camera file lands in
    `~/inbox/`, one file per interview, and Oriol says the shop and town;
@@ -573,6 +577,18 @@ interview's folder, so the next session can pick up where this one stopped.
    quality.) Anything overlaid on the interview picture (a lower third,
    a punch-in) forces that re-encode, so prefer putting names and topics
    on the cards.
+**Audio, before any deliverable** (Oriol, 2026-09-27): the two mics are
+   L/R, so every file a person watches is **automixed** (the speaking
+   mic up, the other −12 dB, never silent) into centred mono at −16 LUFS;
+   a voice in one ear is "very distracting" on headphones. Only the
+   audio is re-encoded; the video stays a stream copy. Measure the mics
+   first (speech per person on their own mic, separation, noise floor,
+   peaks, hum) and A/B the chain on one excerpt (automix alone,
+   DeepFilterNet full / limited to 15 dB, + high-pass and gentle
+   compression, other mic lower) before picking it: on Sprint Bike the
+   workshop noise sat only ~23 dB under the speech, DeepFilterNet full
+   gained ~4 dB of speech-to-noise, and compression lifted the noise
+   back up.
 7. **Vertical clips, framed on whoever speaks** (Oriol, 2026-09-27):
    selects of 30–60 s from the raw cut, one idea each, standing alone
    without the question (or with the question as a title card). The
