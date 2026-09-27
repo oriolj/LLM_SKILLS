@@ -590,6 +590,15 @@ this section keeps the rules and the lessons.
    workshop noise sat only ~23 dB under the speech, DeepFilterNet full
    gained ~4 dB of speech-to-noise, and compression lifted the noise
    back up.
+   **Built (Sprint Bike, 2026-09-27, `make shorts`)** with Oriol's
+   feedback: every short **opens on the interviewer's question**
+   (verbatim, trimmed only at word boundaries), shown whole on a
+   **question card** styled differently from the subtitles; it ends with
+   a 0.5 s fade to black into a **shared brand outro** rendered once and
+   tracked in the repo (`shared/brand/`), never regenerated per clip.
+   The crop follows the mic channels (frame side ≠ channel side: check
+   `framing.json`), and a switch that looks wrong on the contact sheet
+   is checked against the channels before "fixing" it.
 7. **Vertical clips, framed on whoever speaks** (Oriol, 2026-09-27):
    selects of 30–60 s from the raw cut, one idea each, standing alone
    without the question (or with the question as a title card). The
