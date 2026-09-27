@@ -23,10 +23,10 @@ behaves differently.
 | emmaclaw | Enantena / EnaCast | `192.168.7.217` | Telegram + Enantena Slack (8 channels, one is an invoices-inbox → Holded purchase-draft flow) |
 | blakeclaw | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram + SmartupSoft Slack (app Blake; DMs Oriol + Enric, `#seaotter2026` no-mention, `#general` on mention) |
 
-All three on **2026.9.5** since 2026-09-23, default model
-`openai/gpt-5.6-luna` — Oriol wants **`gpt-6-luna`**, blocked until the
-Codex plugin ships `@openai/codex` ≥ 0.156.1 (see § Changing the model;
-tracked in hq `docs/next-steps.md`). Each VM ALSO runs
+All three on **2026.9.6** since 2026-09-27, default model
+**`openai/gpt-6-luna`** (fallback `openai/gpt-5.6-luna`) — petraclaw and
+blakeclaw verified 2026-09-27; emmaclaw see its hq server file (its Codex
+login was stranded and needed a fresh device-code sign-in). Each VM ALSO runs
 **Hermes Agent** (Nous Research, v0.19.0, `~/.hermes/`, user unit
 `hermes-gateway.service`, CLI only — no messaging platforms) on the same
 Codex login, already on `gpt-6-luna`; see § Hermes. emmaclaw is the only one that
@@ -58,7 +58,8 @@ copy a token from one claw to another.
   has no secret store); state SQLite `~/.openclaw/state/openclaw.sqlite`;
   agent `main` with workspace `~/.openclaw/workspace` (a git repo:
   `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`, `memory/`, `skills/`);
-  model `openai/gpt-5.6-luna` via the **Codex** plugin.
+  model `openai/gpt-6-luna` via the **Codex** plugin (fallback
+  `gpt-5.6-luna`).
 - User drop-in `openclaw-gateway.service.d/tmpdir.conf` (since
   2026-09-23): `TMPDIR=%h/.cache/openclaw-tmp` + an `ExecStartPre` that
   deletes the previous `openclaw-plugin-build-*` dirs. **Why**: 2026.9.5
@@ -69,6 +70,12 @@ copy a token from one claw to another.
   timing out at the banner. `gateway install --force` keeps the drop-in.
   Export the same `TMPDIR` in any shell where you run `openclaw` by hand,
   and `rm -rf /tmp/openclaw-plugin-build-*` afterwards if you forgot.
+  **The `.service.d/` dir must be `0755` or tighter** (`chmod go-w`): a
+  `mkdir -p` under the default umask made it 775 and 2026.9.6's `gateway
+  install --force` then refused with `[unsafe-permissions] The loaded
+  service definition directory is group/world-writable`. 9.6 also
+  reclaims abandoned plugin copies itself after a one-hour grace; before
+  that, a nightly 03:00 job left ~13 builds per night on disk.
 
 ## Reading the config without leaking it
 
@@ -134,7 +141,10 @@ file (comment-stripped) as above, on the box, and never print it.
    ```
    After it, doctor keeps printing `Plugin "codex" state migration is
    pending` — the agent works regardless (verified by real turns); left
-   as is.
+   as is. **Same path for 9.5 → 9.6 (2026-09-27)** on all three, ~4 min
+   each; `update repair` then reported "Skipped finalize:doctor and plugin
+   convergence: supervised Gateway owner … is verified serving 2026.9.6"
+   — fine, the plugins had already converged (check `plugins list`).
 4. **THE TRAP (not deterministic)** — on blakeclaw and emmaclaw the
    updater's own doctor step failed (`Doctor could not enter maintenance…
    Gateway service ownership or shutdown could not be verified`), it
@@ -327,6 +337,16 @@ day before); the catalog (`generated 2026-09-18`) listed only
 provider directly first — a Hermes one-shot (§ Hermes) or the Codex
 release notes (`gh api repos/openai/codex/releases`).
 
+**2026-09-27 resolution**: 2026.9.6's catalog lists `gpt-6-luna`,
+`gpt-6-sol`, `gpt-6-astra` and a turn on `openai/gpt-6-luna` works with no
+fallback — although its Codex runtime is still **0.155.1**. So the 400
+below was the client-side model catalog, not a backend version floor:
+once the catalog knows the model, it works. Switch with a gateway
+**restart** after `models set`, not just the hot reload — the first
+post-switch turn otherwise hits the "session policy handoff" wedge; and
+re-check `models status` after `models set` (on blakeclaw it silently did
+not stick the first time).
+
 **A model the catalog lacks can be registered by hand** —
 `openclaw config set models.providers.openai.models '[{"id":"<id>","name":"<id>"}]'`
 (without it: `Unknown model … no matching models.providers["openai"].models[]
@@ -362,6 +382,32 @@ provider=openai-codex`. Hermes talks to the Codex backend itself, so it
 got GPT-6 Luna on release while OpenClaw's pinned Codex client could not. Both runtimes are watched by user timers
 `assistant-healthcheck@{openclaw,hermes}` → healthchecks.io — a gateway
 outage during an update will page.
+
+## Pre-flight: a stranded Codex login (emmaclaw, 2026-09-25 → 27)
+
+`health`, `channels status --probe` and the healthchecks.io probe all
+stay green while the agent cannot answer at all. Symptom: every turn →
+`Explicit auth order for openai has no usable profiles`, `openclaw cron
+list` shows `Heartbeat (main) … error (34x)`, `models status` →
+`effective=missing:missing | status=missing`, `models auth list` shows
+every `openai:*` profile with `expires 1970-01-01`. Cause on 2026.9.5: a
+plugin reload during an OAuth refresh (`OAuth token refresh failed for
+openai: Plugin openai was reloaded or disabled` → `auth profile
+"openai:default" is no longer available`) — fixed in 2026.9.6 ("retiring
+catalog workers now wait for already-started OAuth refreshes"), but an
+already-stranded login needs a fresh sign-in. `models auth activate
+<profile>` does NOT revive it. Recovery needs Oriol's browser:
+
+```bash
+setsid nohup script -qfc "openclaw models auth login --provider openai --device-code --profile-id openai:default" ~/backups/openai-login.log >/dev/null 2>&1 </dev/null &
+sleep 30; sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' ~/backups/openai-login.log | grep -E 'URL:|Code:'
+```
+
+He opens `https://auth.openai.com/codex/device`, enters the code (15 min
+validity) and signs in as oriolj@gmail.com; the log ends `Script done`.
+Pre-flight this on every visit: `openclaw models status | grep status=`
+must say `usable`, and `openclaw cron list | grep Heartbeat` must not say
+`error`.
 
 ## Telegram
 
