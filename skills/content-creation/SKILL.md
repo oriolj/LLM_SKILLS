@@ -431,10 +431,14 @@ interview's folder, so the next session can pick up where this one stopped.
    word-by-word subtitles need. It lives in its own venv
    (`.venv-whisperx`, `uv pip install --torch-backend cpu whisperx`):
    its CTranslate2 engine has no AMD/ROCm support, so on the Radeon boxes
-   it runs on CPU. Its diarization model
-   (`pyannote/speaker-diarization-community-1`) is gated: the owner
-   accepts the terms and logs in with `hf auth login`, never a token in
-   chat. `oj-transcribe` (the fleet's memo tool, same whisper.cpp turbo)
+   it runs on CPU: 327 s for 20 min with turbo int8 plus alignment,
+   word timestamps on every word, and names better than whisper.cpp with
+   the same prompt ("Sprint Bike" 3/3, "BikeCRM" 2/2). Its diarization
+   model (`pyannote/speaker-diarization-community-1`) is gated **per
+   account**: a valid token still gets "not in the authorized list"
+   until the owner accepts the model's terms on huggingface.co. The
+   token is the shared read-only one (hq `huggingface.env`, all scopes),
+   installed with `hf auth login` into `~/.cache/huggingface/token`. `oj-transcribe` (the fleet's memo tool, same whisper.cpp turbo)
    is not used here: it gives neither word timestamps nor speakers.
    Both reviewers independently found the real start and end, a phone
    call, a walk-in customer and a private third-party story: their
