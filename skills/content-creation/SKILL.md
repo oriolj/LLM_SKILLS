@@ -577,7 +577,10 @@ parameters, host, timing, code commit, tokens and cost per stage), and
 one line per model in the interview's `ai-costs.jsonl`; `make costs`
 sums them per interview and step. A local model logs $0 so the ledger
 is complete; a run whose cost was lost logs `null` with a note rather
-than a guess.
+than a guess. The content repo's README keeps a **Measured speeds**
+table (step, engine, wall time, × real time, and the machine's specs),
+filled from the sidecars' `wall_seconds`, so a machine change has a
+baseline (Oriol, 2026-09-27).
 
 **It is a repeatable workflow** (Oriol does many of these interviews):
 every step is a `make` target in the content repo taking `I=<interview>`,
