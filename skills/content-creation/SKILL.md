@@ -378,7 +378,10 @@ answer a different question.
 The pipeline, in order. Each step leaves a committed file in the
 interview's folder, so the next session can pick up where this one stopped.
 
-1. **File it.** One folder per interview, `interviews/YYYY-MM-DD-<shop>-<town>/`,
+1. **File it.** Intake (Oriol, 2026-09-27): the camera file lands in
+   `~/inbox/`, one file per interview, and Oriol says the shop and town;
+   move it (don't copy) into `raw/`, sha256 it, and record the backup
+   location. One folder per interview, `interviews/YYYY-MM-DD-<shop>-<town>/`,
    with the footage in the git-ignored `raw/` and a README: who is on screen
    (name, side, role), where, the date, the raw file with its sha256, where
    the backup copy is, the language, and the **consent**: who agreed, when,
@@ -391,10 +394,20 @@ interview's folder, so the next session can pick up where this one stopped.
    decision is made on the transcript's timecodes: 16 kHz mono wav in
    `work/` → `whisper-cli -m ~/models/ggml-large-v3.bin -l <lang>` writing
    srt/vtt/txt/json to `transcript/raw-whisper.*` (committed, never edited).
-   Pass the proper nouns with `--prompt` (the shop, the town, the product,
-   the people): without it, Whisper heard "Springbike", "San Felipe de
-   Llobregat" and "motorbike CRM". Whisper does not tell the speakers
-   apart. The **clean transcript** `transcript/transcript.md`
+   Pass a **glossary** with `--prompt` (Oriol, 2026-09-27): the product's
+   own terms (from its i18n catalogs), the trade's vocabulary (for bike
+   shops: bujes, dirección, rodamientos, desviador, horquilla…) and the
+   interview's proper nouns (the shop, the town, the people). Without it
+   Whisper heard "Springbike", "San Felipe de Llobregat" and "motorbike
+   CRM". The product and trade lists are one shared file per product and
+   language (`shared/glossary.<lang>.md` in the content repo), the proper
+   nouns go in the interview README; Whisper's prompt holds ~220 tokens,
+   so it gets a compact line of the most error-prone words, and the LLM
+   steps get the whole glossary. whisper.cpp gives segment times and no
+   speakers; **WhisperX** (24k★: forced alignment for word timestamps +
+   pyannote diarization, which needs a Hugging Face token) gives both,
+   and the word timestamps are what the word-by-word subtitles and
+   silence-snapped cuts need. The **clean transcript** `transcript/transcript.md`
    (timecode, speaker, text, names corrected) is written from the raw one,
    and every later step works from it.
 4. **Mark the raw cut** in `edit.tsv` (committed; one row per removal:
@@ -415,8 +428,16 @@ interview's folder, so the next session can pick up where this one stopped.
    - `private`: third parties named without their consent (clients,
      relatives, famous customers), other people's prices, anything
      the interviewee would not want public. Flag it and let Oriol decide.
-   Oriol reviews `edit.tsv` against the transcript before the raw cut is
-   rendered. The **raw cut** is the full interview minus those rows: the
+   The LLM pass (a PydanticAI script, like every LLM step here, with the
+   full glossary) reads a **phrase view** of the transcript, not the
+   raw segments: one line per phrase with `[start–end]` and the speaker,
+   a new line at every silence ≥ 0.5 s or speaker change (the
+   `takes_packed.md` idea of browser-use/video-use, 27k★, the best
+   agent editing skill found on 2026-09-27). Retakes show up as a
+   repeated n-gram within ~30 s whose first copy ends abruptly: keep the
+   last complete take. Cut points go in silences ≥ 0.4 s, never
+   mid-word. Every row carries its reason, and Oriol reviews `edit.tsv`
+   against the transcript before the raw cut is assembled. The **raw cut** is the full interview minus those rows: the
    master every later cut is taken from.
 5. **Assemble the raw cut without re-encoding** (Oriol, 2026-09-27: every
    re-encode loses quality, and cutting does not need one). Stream-copy
@@ -436,7 +457,13 @@ interview's folder, so the next session can pick up where this one stopped.
    for the web is the H.264 encode from that step. On a still two-shot
    every cut is a jump cut. 4K footage delivered at 1080p leaves room for
    a punch-in on whoever speaks (a 2× crop) in the final encode, which
-   hides it.
+   hides it. **Check before handing over** (also from video-use): a frame
+   at ±1.5 s around every cut, the output's `ffprobe` duration against the
+   sum of the kept segments, a full decode with `ffmpeg -v error -i out -f
+   null -` (a clean stream copy prints nothing), and a listen at each join.
+   Frame-accurate "smart cut" (re-encoding only the GOP at a cut) exists
+   (LosslessCut, `smartcut`) but is unreliable on HEVC (freezes, black
+   frames at seams); keyframe snapping in pauses is the method.
 6. **The long episode for YouTube** (Oriol, 2026-09-27): the main
    deliverable is a podcast-like long version of the raw cut, not only
    clips. Sections by topic, each opened by a short title card (the
@@ -469,12 +496,13 @@ interview's folder, so the next session can pick up where this one stopped.
    boundaries (hold short interjections, a "sí" or a "vale", on the
    current speaker instead of cutting to them). **Subtitles are never
    the raw Whisper text**: an LLM review pass (PydanticAI, per the global
-   rule) corrects mishearings, names and punctuation against the
+   rule, with the full glossary) corrects mishearings, names and punctuation against the
    glossary and the audio's context, keeping the segment timings and
    never changing what was said. It writes `transcript/subtitles.<lang>.srt`
    plus a diff against the raw text, which a person reads before burning
-   anything. Subtitles are burned in, at most two lines, placed in the
-   vertical safe zone (see [Vertical](#vertical-reels--shorts--tiktok)),
+   anything. Style (Oriol, 2026-09-27): **word by word**, 2–4 words on
+   screen with the spoken word highlighted in the brand colour, built
+   from the word timestamps; burned in, placed in the vertical safe zone (see [Vertical](#vertical-reels--shorts--tiktok)),
    in the interview's language, with loudness-normalised audio. These
    clips change pixels, so they are the one encode, made from the
    original.
@@ -489,10 +517,27 @@ interview's folder, so the next session can pick up where this one stopped.
    the reason for it (e.g. the strongest standalone short first, the
    episode once two or three shorts can point to it, shorts that answer
    the same question kept apart). Nothing in it is a claim the transcript
-   does not contain.
+   does not contain. Platforms (Oriol, 2026-09-27): YouTube (the episode,
+   and the verticals as Shorts), Instagram Reels, TikTok and LinkedIn;
+   the plan says which pieces go where and adapts the caption to each.
 9. **Show Oriol** (contact sheet, then the render via the
    `whatsapp-waha` skill as a document) and publish only with his go plus
    the recorded consent covering that use.
+
+**The LLM steps are meant to get better with every interview** (Oriol,
+2026-09-27: that is the point of a PydanticAI script over an agent doing
+it by hand). So: the prompts and output schemas live in the content repo
+(`shared/prompts/`), versioned; each interview keeps what the LLM
+proposed next to what the human finally accepted (the subtitle diff, the
+reviewed `edit.tsv`), and those pairs are the eval set. A prompt or model
+change is measured on the past interviews with the `llm-bench` skill
+before it replaces the current one, and the traces go to Langfuse with
+the product as `user_id`.
+
+**It is a repeatable workflow** (Oriol does many of these interviews):
+every step is a `make` target in the content repo taking `I=<interview>`,
+and anything learned on one interview goes into the shared glossary, the
+scripts or this section, not only into that interview's folder.
 
 Steps 1–4 were first run on Sprint Bike on 2026-09-27; 5–9 are the plan.
 Correct this section as they are carried out.
