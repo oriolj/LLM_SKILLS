@@ -390,42 +390,58 @@ interview's folder, so the next session can pick up where this one stopped.
    45 % and 80 % of the running time) and run `whisper-cli -l auto` on each:
    Sprint Bike came back `es` on all three (p = 0.79–0.88). An interview can
    switch language partway, so one sample is not enough.
-3. **Transcribe everything first**, before any cut, because every later
-   decision is made on the transcript's timecodes: 16 kHz mono wav in
-   `work/` → `whisper-cli -m ~/models/ggml-large-v3.bin -l <lang>` writing
-   srt/vtt/txt/json to `transcript/raw-whisper.*` (committed, never edited).
-   Pass a **glossary** with `--prompt` (Oriol, 2026-09-27): the product's
-   own terms (from its i18n catalogs), the trade's vocabulary (for bike
-   shops: bujes, dirección, rodamientos, desviador, horquilla…) and the
-   interview's proper nouns (the shop, the town, the people). Without it
-   Whisper heard "Springbike", "San Felipe de Llobregat" and "motorbike
-   CRM". The product and trade lists are one shared file per product and
-   language (`shared/glossary.<lang>.md` in the content repo), the proper
-   nouns go in the interview README; Whisper's prompt holds ~220 tokens,
-   so it gets a compact line of the most error-prone words, and the LLM
-   steps get the whole glossary. whisper.cpp gives segment times and no
-   speakers; **WhisperX** (24k★: forced alignment for word timestamps +
-   pyannote diarization, which needs a Hugging Face token) gives both,
-   and the word timestamps are what the word-by-word subtitles and
-   silence-snapped cuts need.
-   **Then two LLMs review it and argue** (Oriol, 2026-09-27;
-   `make review-transcript I=…` in the BikeCRM content repo): each model
-   corrects the transcript on its own (mishearings, names, punctuation,
-   hallucinations, speaker turns, editor notes), then for every segment
-   where they differ in words or speaker each sees the other's version
-   and argument and answers, for up to two rounds. Agreed text becomes
-   `transcript/transcript.md`; what is still disputed is marked ⚠ and
-   listed in the run's `report.md` for a person. First run (Sprint Bike,
-   431 segments, `openai/gpt-6-luna` + `google/gemini-3.8-flash` via
-   OpenRouter): 21 fixes each, 49 disputes → 9 after discussion, $0.10
-   in all (Gemini ~90 % of it). Every remaining dispute but one was
-   *who* said a short "sí"/"vale": **text cannot settle speakers; that
-   needs diarization from the audio**. Both models independently found
-   the real start and end, a phone call, a walk-in customer and a
-   private third-party story, which makes their editor notes the
-   first draft of `edit.tsv`. The **clean transcript** `transcript/transcript.md`
-   (timecode, speaker, text, names corrected) is written from the raw one,
-   and every later step works from it.
+3. **Transcribe everything first, twice, and have two LLMs review it.**
+   Every later decision is made on the transcript's timecodes, so it
+   comes before any cut. Quality first (Oriol, 2026-09-27), in this order:
+   - **Pass 1, no prompt**: `make transcribe I=… NAME=pass1 PROMPT=0`,
+     whisper.cpp **`large-v3-turbo`** (`~/llm_models/`, the model ansible
+     puts on every host; Oriol's choice for both passes: ~105 s for 20
+     min on the Radeon 780M, vs ~300 s for full large-v3) → 16 kHz mono wav
+     in `work/`, then srt/vtt/txt/json in `transcript/pass1.*` (committed,
+     never edited).
+   - **Review pass 1** (`make review-transcript I=… INPUT=pass1`): two models from two
+     labs (default `openai/gpt-6-sol` + `anthropic/claude-opus-5.5`, the
+     `llm-bench` panel) each correct it on their own (mishearings, names,
+     punctuation, hallucinations, speaker turns, editor notes); then, for
+     every segment where they differ in words or speaker, each sees the
+     other's version and argument and answers, up to two rounds. Agreed
+     text becomes the run's `transcript.md`; what stays disputed is
+     marked ⚠ and listed in `report.md`. The run also writes
+     `glossary-candidates.md`: every word the reviewers agreed to change.
+   - **Feed the glossary**: product and trade terms from the candidates go
+     into `shared/glossary.<lang>.md` (its "Whisper prompt" block when
+     Whisper keeps missing them; everyday slips like "Fíticamente" →
+     "éticamente" go into its reviewer-only list), proper nouns into the
+     interview README's "Proper nouns".
+   - **Pass 2 with the prompt** (`make transcribe I=… NAME=pass2`): the glossary's
+     Whisper prompt + the interview's proper nouns (whisper.cpp's
+     `--prompt`, ~220 tokens max), then **review pass 2 the same way with
+     `PROMOTE=1`**: its transcript becomes `transcript/transcript.md`, the
+     one every later step reads.
+   Findings from Sprint Bike (2026-09-27), same reviewers on both passes:
+   pass 1 (no prompt) 61 disputes → 40 after discussion, $0.94; pass 2
+   (prompt) 23 → **1**, $0.57. The prompt fixes some names ("Sprint
+   Bike" 2 of 3 vs 0) but not all ("San Feliu", "BicRM" persist), so the
+   review is never optional, and the second pass is what makes the
+   reviewers converge. A cheap pair (gpt-6-luna + gemini-3.8-flash, $0.10)
+   was tried first; quality won (Oriol). Whisper does not tell speakers
+   apart and text cannot settle who said a short "sí"/"vale" (the one
+   dispute left). **WhisperX** (24k★: faster-whisper + word timestamps by
+   forced alignment + pyannote diarization) is the fix and what
+   word-by-word subtitles need. It lives in its own venv
+   (`.venv-whisperx`, `uv pip install --torch-backend cpu whisperx`):
+   its CTranslate2 engine has no AMD/ROCm support, so on the Radeon boxes
+   it runs on CPU. Its diarization model
+   (`pyannote/speaker-diarization-community-1`) is gated: the owner
+   accepts the terms and logs in with `hf auth login`, never a token in
+   chat. `oj-transcribe` (the fleet's memo tool, same whisper.cpp turbo)
+   is not used here: it gives neither word timestamps nor speakers.
+   Both reviewers independently found the real start and end, a phone
+   call, a walk-in customer and a private third-party story: their
+   editor notes are the first draft of the raw cut.
+   PydanticAI trap: `claude-opus-5.5` rejects forced tool calls (400
+   "tool_choice … not supported"), which is PydanticAI's default way to
+   get structured output: use `NativeOutput(...)` (works on both).
 4. **Mark the raw cut** in `edit.tsv` (committed; one row per removal:
    `in`, `out`, `category`, `note`):
    - `head` / `tail`: the camera rolls before the interview starts and
