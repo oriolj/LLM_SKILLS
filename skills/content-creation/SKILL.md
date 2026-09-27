@@ -698,6 +698,13 @@ this section keeps the rules and the lessons.
      Studio (full-quality master, no re-encode), with the generated
      `youtube-description.md`. A delivery encode under 2 GiB is the
      fallback if it ever must go through Postiz.
+   - **A pacing monitor per product account** keeps the queue from
+     silently running dry: a Cloudflare Worker with a daily cron reads
+     Postiz's public API (`/public/v1/posts`, `Authorization: <key>`;
+     posts carry `state` and `releaseURL`) and alerts by Pushover + email
+     when nothing is queued in 14 days, the queue ends within them, or a
+     post failed (BikeCRM: `monitors/postiz-queue/`, hq growth/pacing.md).
+     Fetch far enough ahead (180 days) or "runs out on" is wrong.
    - Postiz's API can answer **502** mid-batch (it did on the 3rd of 10):
      before retrying a `posts:create`, list the posts at that date and
      channel, since a failed call may still have created them.
