@@ -685,6 +685,9 @@ this section keeps the rules and the lessons.
      post in `publish/posts/`, and the register `publications.tsv`, one row
      per piece × platform). Create one post first and check it with
      `posts:list` before the batch; `--dry-run` shows the schedule.
+   - Postiz's API can answer **502** mid-batch (it did on the 3rd of 10):
+     before retrying a `posts:create`, list the posts at that date and
+     channel, since a failed call may still have created them.
 9. **Show Oriol** (contact sheet, then the render via the
    `whatsapp-waha` skill as a document) and publish only with his go plus
    the recorded consent covering that use.
