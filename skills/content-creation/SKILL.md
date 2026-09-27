@@ -556,6 +556,16 @@ this section keeps the rules and the lessons.
    Frame-accurate "smart cut" (re-encoding only the GOP at a cut) exists
    (LosslessCut, `smartcut`) but is unreliable on HEVC (freezes, black
    frames at seams); keyframe snapping in pauses is the method.
+   **Built (Sprint Bike, 2026-09-27, `make episode`)**: the stream-copy
+   concat of scenes and camera footage works once the scenes are
+   encoded to the camera's exact HEVC parameters (no B-frames) and every
+   keyframe carries its parameter sets in-band, which forces the `hev1`
+   tag (`hvc1` strips them; fine for YouTube, may fail on Apple players).
+   Chapter starts are chosen by audio level on keyframes inside pauses;
+   one without a keyframe in its pause re-encodes only up to the next.
+   Loudness traps: measure on the **dual-mono** signal (mono measured and
+   duplicated is ~3 LU too loud), and speech with peaks ~17 dB over its
+   loudness makes loudnorm go dynamic: use one linear gain + a limiter.
 6. **The long episode for YouTube** (Oriol, 2026-09-27): the main
    deliverable is a podcast-like long version of the raw cut, not only
    clips. Sections by topic, each opened by a short title card (the
