@@ -651,7 +651,15 @@ this section keeps the rules and the lessons.
    does not contain. Platforms (Oriol, 2026-09-27): YouTube (the episode,
    and the verticals as Shorts), Instagram Reels, TikTok and LinkedIn;
    the plan says which pieces go where and adapts the caption to each.
-**Publishing through Postiz** (first run: BikeCRM, 2026-09-27). Load the
+**Thumbnails are a reproducible step** (Oriol, 2026-09-28: "be smart with
+   thumbnails"): a spec per interview (frame time on the raw cut + three
+   text lines from the plan or the transcript) rendered through a brand
+   scene (`make thumbnails`). The editorial part comes first and is done
+   by eye: contact sheets of the plan's moment, then full-resolution
+   candidates; pick the most expressive sharp face with the object the
+   plan names. Real person, real words, brand type; check the render
+   (word wraps, a gradient over the face).
+   **Publishing through Postiz** (first run: BikeCRM, 2026-09-27). Load the
    **`postiz` skill** first (`~/.agents/skills/postiz/SKILL.md`, linked into
    `~/.claude/skills/` and `~/.claude-enacast/skills/`; Postiz's official
    skill + `postiz` CLI): it owns the CLI mechanics and its four hard
