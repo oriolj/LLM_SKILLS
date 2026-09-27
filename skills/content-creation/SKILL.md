@@ -19,6 +19,14 @@ of what content exists per product live in hq
 Read it first. A new preference Oriol states goes there (and here only when it
 changes how this skill's pipeline works).
 
+- **Pace feature videos for reading the UI** (Oriol, 2026-09-27: "you move a
+  little bit too fast, I don't have time to see what I am seeing"). Our videos
+  are almost always feature showcases, so override /brag-slim's 15–25 s
+  default: one UI step per beat; after each action the result holds, settled,
+  for ≥ 2 s before anything moves again; UI scenes of 6–8 s; 30–45 s in total
+  for 4–5 steps; cursor moves ≥ 0.6 s; lists fill one row every ~0.6 s, not
+  0.3–0.4 s. Pass `--duration` accordingly and check the storyboard against
+  this before building. A short teaser is the exception, and only when asked.
 - **Show the real product, as a concept.** The app doing its job (its real top
   bar, components, status chips and copy) beats a landing page describing it,
   and beats stock or abstract visuals. Build it as composed HTML cards from the
