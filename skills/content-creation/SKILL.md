@@ -459,8 +459,9 @@ this section keeps the rules and the lessons.
    interviewee (264 of 327 segments agree with the LLMs' speakers). The
    LLMs, conversely, miss short interjections. Speakers are settled by
    combining the two: the audio speaker per segment goes to the LLM
-   review as evidence, not as truth. (A lavalier mic per person at the
-   shoot would make the audio side much stronger.)
+   review as evidence, not as truth. (That was the voice model on the
+   mono mix; the shoots already have one clip-on mic per person on
+   separate channels, which is the real fix: see the channel method.)
    **Bad audio** (noisy shop, wind, a weak mic): denoise the working
    audio with DeepFilterNet (4.8k★) before transcription and diarization,
    and measure it (review fix count with vs without). Not needed yet
