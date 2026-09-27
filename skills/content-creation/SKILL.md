@@ -685,8 +685,11 @@ this section keeps the rules and the lessons.
      post in `publish/posts/`, and the register `publications.tsv`, one row
      per piece × platform). Create one post first and check it with
      `posts:list` before the batch; `--dry-run` shows the schedule.
-   - `postiz upload` refuses files over **2 GiB**: a long episode needs a
-     delivery encode under that (4K HEVC two-pass ~14.5 Mb/s for 17 min).
+   - `postiz upload` refuses files over **2 GiB**, so only the shorts go
+     through Postiz; the long episode is uploaded by Oriol in YouTube
+     Studio (full-quality master, no re-encode), with the generated
+     `youtube-description.md`. A delivery encode under 2 GiB is the
+     fallback if it ever must go through Postiz.
    - Postiz's API can answer **502** mid-batch (it did on the 3rd of 10):
      before retrying a `posts:create`, list the posts at that date and
      channel, since a failed call may still have created them.
