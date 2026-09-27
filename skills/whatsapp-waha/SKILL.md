@@ -62,6 +62,7 @@ $W chats --limit 20            # newest first, with last message
 $W read 34600111222 --limit 30 # a phone number or a chat id
 $W send 34600111222 "Hola! Sóc la Petra, l'assistent d'IA de l'Oriol. …"   # dry run
 $W send 34600111222 @/path/msg.txt --yes                                    # sends
+$W send 34600111222 @caption.txt --file video.mp4 --document --yes          # a file; TEXT = caption
 $W transcribe 34600111222 --last 2   # newest 2 voice notes -> oj-transcribe --stdout
 $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloads/
 ```
@@ -115,8 +116,14 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
   `contacts-check-exists`, …). NOT registered in Claude Code on purpose: the
   Petra guard and the send log live in wa.py; use the script for sends.
 - Core vs Plus: the tier is `CORE` (`/api/server/version`). Which endpoints
-  are Plus-only is not marked in the spec; sending media has not been
-  tested yet — verify before promising it.
+  are Plus-only is not marked in the spec. **Sending media, verified
+  2026-09-27:** `sendVideo` answers **422 "Use devlikeapro/waha:chrome docker
+  image to send video in WEBJS"** on our Chromium image, so an mp4 goes as a
+  document through `sendFile` (`wa.py send … --file x.mp4 --document`); it
+  arrives with its caption and plays from the chat. A 2.2 MB base64 upload
+  went through fine. `sendImage` / `sendFile` for other types are wired in
+  `wa.py --file` but not yet exercised. Switching the compose image to
+  `devlikeapro/waha:chrome` would enable real video messages (untested).
 
 ## Agents on WhatsApp: OpenClaw and Hermes do NOT speak WAHA (checked 2026-09-26)
 
@@ -174,5 +181,5 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 ## Keep this current
 
 Verified facts first recorded 2026-09-26 (install, auth, spec, QR, dry-run
-guard). Linked 2026-09-26 (session `personal`, WORKING). Verified the same day: `wa.py chats` lists the account's chats. First real send verified 2026-09-26 (`wa.py send` to Oriol's own number; the returned id was `true_<n>@lid_<hex>_out` — WhatsApp answered with the chat's `@lid`, not the `@c.us` we sent to). Not yet verified: media download and transcription on
+guard). Linked 2026-09-26 (session `personal`, WORKING). Verified the same day: `wa.py chats` lists the account's chats. First real send verified 2026-09-26 (`wa.py send` to Oriol's own number; the returned id was `true_<n>@lid_<hex>_out` — WhatsApp answered with the chat's `@lid`, not the `@c.us` we sent to). First media send verified 2026-09-27 (an mp4 as a document to Oriol's own number, see API facts). Not yet verified: media download and transcription on
 a live linked account — record the first successful run of each here.

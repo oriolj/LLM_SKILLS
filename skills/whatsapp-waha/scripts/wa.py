@@ -9,7 +9,7 @@ base URL from $WAHA_URL (default http://localhost:3010).
   wa.py find QUERY                     contacts + groups matching a name/number
   wa.py chats [--limit N]              recent chats, newest first
   wa.py read CHAT [--limit N]          last messages of a chat (oldest first)
-  wa.py send TO TEXT|@file [--persona petra] [--yes]
+  wa.py send TO TEXT|@file [--file PATH] [--persona petra] [--yes]
                                        dry run unless --yes; TEXT must name the persona
   wa.py media CHAT MSG_ID [--out DIR]  download a message's attachment
   wa.py transcribe CHAT [--id MSG_ID | --last N]
@@ -138,19 +138,38 @@ def cmd_send(a):
     if persona.lower() not in text.lower():
         sys.exit(f"refused: the message must identify the sender as {persona} "
                  f"(e.g. start with '{persona}, l'assistent de l'Oriol: …')")
-    print(f"TO   {chat}\nTEXT {text}")
+    f = Path(a.file) if a.file else None
+    if f is not None and not f.is_file():
+        sys.exit(f"no such file {f}")
+    print(f"TO   {chat}\nTEXT {text}" + (f"\nFILE {f} ({f.stat().st_size // 1024} KB)" if f else ""))
     if not a.yes:
         print("(dry run — add --yes to send)")
         return
     call("POST", "/api/startTyping", body={"chatId": chat, "session": SESSION})
     time.sleep(min(2 + len(text) / 40, 6))
     call("POST", "/api/stopTyping", body={"chatId": chat, "session": SESSION})
-    r = call("POST", "/api/sendText", body={"chatId": chat, "text": text, "session": SESSION})
+    if f is None:
+        r = call("POST", "/api/sendText", body={"chatId": chat, "text": text, "session": SESSION})
+    else:
+        # The text is the caption. Video (mp4) → sendVideo, image → sendImage, anything else → sendFile.
+        mime = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+                ".webp": "image/webp", ".pdf": "application/pdf"}.get(f.suffix.lower(), "application/octet-stream")
+        ep = "/api/sendVideo" if mime.startswith("video/") else "/api/sendImage" if mime.startswith("image/") else "/api/sendFile"
+        if a.document:
+            # WEBJS on the Chromium image refuses sendVideo (422 "use devlikeapro/waha:chrome"),
+            # so a video goes as a document; it still plays from the chat.
+            ep = "/api/sendFile"
+        body = {"chatId": chat, "caption": text, "session": SESSION,
+                "file": {"mimetype": mime, "filename": f.name, "data": base64.b64encode(f.read_bytes()).decode()}}
+        if ep == "/api/sendVideo":
+            body["convert"] = False
+        r = call("POST", ep, body=body)
     mid = r.get("id") if isinstance(r.get("id"), str) else (r.get("id") or {}).get("_serialized") or r.get("key", {}).get("id")
     DATA.mkdir(parents=True, exist_ok=True)
-    with SENT_LOG.open("a") as f:
-        f.write(json.dumps({"utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "chatId": chat,
-                            "persona": persona, "text": text, "messageId": mid}, ensure_ascii=False) + "\n")
+    with SENT_LOG.open("a") as log:
+        log.write(json.dumps({"utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "chatId": chat,
+                            "persona": persona, "text": text, "file": str(f) if f else None,
+                            "messageId": mid}, ensure_ascii=False) + "\n")
     print(f"sent, message id {mid}  (logged to {SENT_LOG})")
 
 
@@ -206,6 +225,8 @@ def main():
     s = sp.add_parser("read"); s.add_argument("chat"); s.add_argument("--limit", type=int, default=20); s.set_defaults(f=cmd_read)
     s = sp.add_parser("send"); s.add_argument("to"); s.add_argument("text")
     s.add_argument("--persona", choices=PERSONAS, default="petra"); s.add_argument("--yes", action="store_true")
+    s.add_argument("--file", help="attach a video/image/file; TEXT becomes its caption")
+    s.add_argument("--document", action="store_true", help="send --file as a document (needed for mp4 on the Chromium WEBJS image)")
     s.set_defaults(f=cmd_send)
     s = sp.add_parser("media"); s.add_argument("chat"); s.add_argument("msg_id"); s.add_argument("--out"); s.set_defaults(f=cmd_media)
     s = sp.add_parser("transcribe"); s.add_argument("chat"); s.add_argument("--id"); s.add_argument("--last", type=int, default=1)
