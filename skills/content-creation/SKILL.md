@@ -447,7 +447,11 @@ interview's folder, so the next session can pick up where this one stopped.
    LLMs, conversely, miss short interjections. Speakers are settled by
    combining the two: the audio speaker per segment goes to the LLM
    review as evidence, not as truth. (A lavalier mic per person at the
-   shoot would make the audio side much stronger.) `oj-transcribe` (the fleet's memo tool, same whisper.cpp turbo)
+   shoot would make the audio side much stronger.)
+   **Bad audio** (noisy shop, wind, a weak mic): denoise the working
+   audio with DeepFilterNet (4.8k★) before transcription and diarization,
+   and measure it (review fix count with vs without). Not needed yet
+   (Oriol, 2026-09-27: noted as a future improvement). `oj-transcribe` (the fleet's memo tool, same whisper.cpp turbo)
    is not used here: it gives neither word timestamps nor speakers.
    Both reviewers independently found the real start and end, a phone
    call, a walk-in customer and a private third-party story: their
