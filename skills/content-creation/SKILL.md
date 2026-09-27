@@ -1,6 +1,6 @@
 ---
 name: content-creation
-description: Make marketing and product content for any of our products — edit filmed customer interviews (transcribe, trim head/tail, cut flubs/retakes/unanswered questions into a lossless raw cut, a long YouTube episode with sections and chapters, clips, subtitles), and four kinds of made video, each with its own pipeline (a PROMO launch/brag video via the /brag-slim skill; a FEATURE HIGHLIGHT, one feature at a readable pace with music; an ANIMATED HOW-TO series of short step-by-step clips on a shared HTML kit; a SCREEN RECORDING of the real app driven by Playwright with redaction, captions and phone framing), assembling clips into a size-capped deliverable (tenders, 25 MB H.265), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "feature video / highlight this feature", "tutorial / how-to video", "record the screen / screen recording of the app", "edit / transcribe / cut this customer interview", "videos for a tender / licitació", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
+description: Make marketing and product content for any of our products — edit filmed customer interviews (transcribe, trim head/tail, cut flubs/retakes/unanswered questions into a lossless raw cut, a long YouTube episode with sections and chapters, speaker-framed vertical clips with LLM-reviewed subtitles, a content plan with the publishing order), and four kinds of made video, each with its own pipeline (a PROMO launch/brag video via the /brag-slim skill; a FEATURE HIGHLIGHT, one feature at a readable pace with music; an ANIMATED HOW-TO series of short step-by-step clips on a shared HTML kit; a SCREEN RECORDING of the real app driven by Playwright with redaction, captions and phone framing), assembling clips into a size-capped deliverable (tenders, 25 MB H.265), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "feature video / highlight this feature", "tutorial / how-to video", "record the screen / screen recording of the app", "edit / transcribe / cut this customer interview", "videos for a tender / licitació", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
 ---
 
 # Content creation
@@ -478,11 +478,23 @@ interview's folder, so the next session can pick up where this one stopped.
    in the interview's language, with loudness-normalised audio. These
    clips change pixels, so they are the one encode, made from the
    original.
-8. **Show Oriol** (contact sheet, then the render via the
+8. **The content plan**, `content-plan.md` in the interview folder
+   (Oriol, 2026-09-27), written from the clean transcript once the
+   selects exist. It is the editorial brief a person can approve in one
+   read: the long episode (title, one-paragraph description, chapters) and
+   one entry per short (working title, the hook line as said on camera,
+   what it talks about in one sentence, speaker, source timecodes in the
+   raw cut, length, caption and hashtags in the interview's language,
+   platforms), then the **publishing order** with dates or a cadence and
+   the reason for it (e.g. the strongest standalone short first, the
+   episode once two or three shorts can point to it, shorts that answer
+   the same question kept apart). Nothing in it is a claim the transcript
+   does not contain.
+9. **Show Oriol** (contact sheet, then the render via the
    `whatsapp-waha` skill as a document) and publish only with his go plus
    the recorded consent covering that use.
 
-Steps 1–4 were first run on Sprint Bike on 2026-09-27; 5–8 are the plan.
+Steps 1–4 were first run on Sprint Bike on 2026-09-27; 5–9 are the plan.
 Correct this section as they are carried out.
 
 ## Concept illustrations (the site's product images)
