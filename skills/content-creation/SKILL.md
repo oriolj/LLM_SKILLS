@@ -1,15 +1,39 @@
 ---
 name: content-creation
-description: Make marketing content for any of our products — launch/brag videos (via the /brag-slim skill), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
+description: Make marketing and product content for any of our products — three kinds of video, each with its own pipeline (a PROMO launch/brag video via the /brag-slim skill; an ANIMATED HOW-TO series of short step-by-step clips on a shared HTML kit; a SCREEN RECORDING of the real app driven by Playwright with redaction, captions and phone framing), assembling clips into a size-capped deliverable (tenders, 25 MB H.265), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "tutorial / how-to video", "record the screen / screen recording of the app", "videos for a tender / licitació", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
 ---
 
 # Content creation
 
-Marketing content for our products: short launch videos, their vertical cuts,
-share copy, and getting the result onto the product's website. The video
-itself is made by the **/brag-slim** skill; this skill holds what that skill
-does not know — our preferences, what went wrong the first time, and how the
-output goes live.
+Marketing and product content for our products: videos, their vertical cuts,
+share copy, and getting the result onto the product's website. Only the
+**promo** kind of video is made by the **/brag-slim** skill; the two other kinds
+have their own pipelines below. This skill holds what /brag-slim does not
+know — our preferences, what went wrong the first time, and how the output
+goes live.
+
+## Three kinds of video — pick one first
+
+They answer different questions, so they differ in length, sound, data and
+truth rules. Decide which one is being asked for before building anything;
+"a video of feature X" is usually a how-to, not a promo.
+
+| | **Promo** (launch / brag) | **Animated how-to** | **Screen recording** |
+|---|---|---|---|
+| Answers | "why should I care?" | "how do I do it?" (and "what does it look like?") | "does the real product really do it?" |
+| Made with | `/brag-slim` + [its section](#making-a-promo-video-brag-slim) | the how-to kit, [below](#animated-how-to-series) | Playwright + CDP screencast, [below](#screen-recordings-of-the-real-app) |
+| Shape | one piece, 20–45 s, a story with a hook and an outro | a SERIES of 10–20 s clips, one per task, each standing alone; assembled into longer tutorials with curtains | the same clips as the how-to, shot on the running app |
+| On screen | headlines + concept cards of the app | numbered steps that tick off (left), an enlarged concept card of the real screen with a pointer doing the steps (right), one caption (bottom) | the real app, a drawn pointer, one caption, phone clips in a phone frame |
+| Sound | music bed + UI events (it is a promo) | none by default (tutorials, tenders), optional | none |
+| Data | invented, plausible | invented, plausible; **labels copied exactly** from the catalogs | the account it is recorded on (test account for rehearsals, the client's for the deliverable) |
+| Truth rule | the product's own claims only | **only what the product does**: a step the product can't do is not drawn | the product as it is, bugs included; sobre-C-style data redacted |
+| Uses | site hero, social, newsletter | help centre, onboarding, commercial showcase, the storyboard/checklist for a recording | tenders and proofs, support, "is this real?" |
+| Reference | BikeCRM / EnaCast launch videos | Ràdio Sant Vicenç tender, `enacast-content-creation/videos/2026-09-27-licitacio-rsv/animated/` | same folder, `recorded/` |
+
+The how-to and the recording are usually made **together, clip by clip**: the
+animation is the precise storyboard (what must be visible, in what order), the
+recording proves it on the real app, and the gaps between them are product
+findings. A promo can reuse how-to concept cards.
 
 ## Preferences (Oriol)
 
@@ -22,7 +46,7 @@ changes how this skill's pipeline works).
 - **Pace feature videos for reading the UI** (Oriol, 2026-09-27: "you move a
   little bit too fast, I don't have time to see what I am seeing"). Our videos
   are almost always feature showcases, so override /brag-slim's 15–25 s
-  default: one UI step per beat; after each action the result holds, settled,
+  default (promos; how-to clips have their own 10–20 s budget per task, below): one UI step per beat; after each action the result holds, settled,
   for ≥ 2 s before anything moves again; UI scenes of 6–8 s; 30–45 s in total
   for 4–5 steps; cursor moves ≥ 0.6 s; lists fill one row every ~0.6 s, not
   0.3–0.4 s. Pass `--duration` accordingly and check the storyboard against
@@ -50,7 +74,7 @@ changes how this skill's pipeline works).
   the job; pushing it (production deploy on most of our sites) and posting to
   social accounts wait for Oriol's explicit go.
 
-## Making the video: /brag-slim
+## Making a promo video: /brag-slim
 
 `/brag-slim` (installed in `~/.agents/skills/brag-slim`, symlinked into
 `~/.claude/skills/`) turns a project directory or URL into a ~20 s video with
@@ -163,6 +187,102 @@ relative to the script), no credentials in them, and prove it: rerun them from
 the repo and compare the outputs with what is live byte for byte. BikeCRM:
 `bikecrm-web-comercial/content-sources/` (`f52914f`). A re-roll of one scene
 is then an edit and a rerun, by anyone, on any machine.
+
+## Animated how-to series
+
+A series of short, silent, precise tutorials, one per task, on a shared kit so
+every clip reads as one product. Built 2026-09-27 for the Ràdio Sant Vicenç
+tender (32 clips, two assembled tutorials); copy that folder to start a new
+series: `enacast-content-creation/videos/2026-09-27-licitacio-rsv/`
+(`README.md` is the full brief, `kit/kit.js` documents the API, `animated/A3.html`
+is the reference clip).
+
+- **A manifest is the single source**: `clips.json` holds id, section, title,
+  caption (rètol), duration, device (desktop/phone) and a `show` line (what
+  must be visible). Pages, overlays, assembly and `status` all read it
+  (`kit/clips.js` is generated from it for the pages).
+- **One layout for every clip**: left = section, title and 3–4 numbered
+  imperative steps that go pending → active → ✓ (so the clip doubles as a
+  checklist); right = a window with NO address bar, or a phone; bottom = the
+  caption. `K.clip({id, steps:[{at,text}], html, cursor:[[t, selector, {click}]],
+  render(t,U)})`; every style a pure function of `t`, so the shared
+  `render.mjs` renders it like any scene.
+- **Concept cards are the real screen, enlarged**: look at the running app
+  first (screenshot it), copy the layout and the labels EXACTLY from the
+  catalogs and cite the keys in the clip's header comment; text ≥ 17 px so it
+  survives a 720p export. Invented station and data.
+- **Never draw a feature the product lacks.** The how-to is a promise; a step
+  the product cannot do is reported, and the title/caption rewritten (the
+  tender's "automatic news" clip became "news from a transcribed program").
+- **Pointer targets are selectors measured live** each frame (a moving or
+  scrolling element keeps the pointer on it); keyboard shortcuts get
+  on-stage keycaps, since a pointer cannot show them.
+- **Pacing per clip**: 10–20 s, ≥ 1.5 s settled after every click, the last
+  ~1.5 s holds the finished state with every step ticked.
+- Kit class names are global: prefix kit selectors (`.k-win > .bar`, not
+  `.k-win .bar`), or a clip's own `.bar` restyles the window.
+
+## Screen recordings of the real app
+
+The same clips shot on the running product, fully scripted so a take can be
+redone on another account by changing four env vars (`SITE_URL`,
+`STUDIO_URL`, user, password). Reference: `recorded/rec.mjs` + `recorded/A3.mjs`
+in the tender folder.
+
+- **Capture the page, not the screen**: headless Chrome + CDP
+  `Page.startScreencast` (JPEG q92, per-frame timestamps) → an ffconcat with
+  each frame's real duration → 30 fps CFR. No browser chrome is ever captured,
+  so no URL can leak; Wayland/X grabs are never needed.
+- **Legibility**: desktop = a 1280×720 viewport at `deviceScaleFactor` 1.5 →
+  1920×1080 frames with the UI 1.5× larger than a 1080p screen, readable after
+  a 720p/480 kbps export. Phone = 390×798 (844 minus a 46 px status bar) at 2×,
+  touch, iPhone UA; post-production draws the status bar and the phone frame,
+  so the frame's dynamic island never covers the site header.
+- **A drawn pointer** (headless has none): an init script draws an arrow (or a
+  touch dot on phones) and a click ripple, moved by the helper's eased
+  `moveTo`; its position survives navigations via `sessionStorage`. Every
+  click is followed by ≥ 1 s. `addInitScript(fn, arg)` takes ONE argument:
+  pass an object, or the second value arrives `undefined`.
+- **Redaction in the page, before capture**: a MutationObserver hides any
+  element whose text matches a forbidden list, with its card (walk up to the
+  grid child), and any text that is only a domain or URL (a panel sidebar
+  prints the tenant's domain). Hide dev badges (`nextjs-portal`,
+  `astro-dev-toolbar`) and the PWA install banner. Still check every frame.
+- **Locale**: set the app's language cookie AND run Chrome with
+  `LANG=ca_ES.UTF-8` (process env) — `<input type=time>` follows the process
+  locale ("10:00:00 AM" otherwise).
+- **Post-production** (ffmpeg): caption PNG rendered from the same kit and
+  faded in; on desktop it **fades out after ~6 s**, because a bottom caption
+  covers the site's player bar; fades from/to the kit background. Bound every
+  encode with `-t <duration>`: looped PNG inputs plus `anullsrc` make
+  `-shortest` never end (one encode reached 1,033 s and 2.6 GB before it was
+  killed).
+- **Data**: rehearse on the test account (EnaCast: `oriol.radiotest` on the
+  LOCAL stack, ramen `start-local` against the local backend, astro dev with
+  `.env.local`); note originals before a write and restore them after the take
+  (API or Django shell; the backend's per-process cache can hide shell
+  writes, so restore through the API). Warm every route before `s.start()`
+  (dev servers compile on first visit). Cache slow AI answers before the take
+  rather than waiting on camera.
+- **Parallel agents** (one per section worked well: 7 agents, 64 renders in ~70
+  min): give each its own data (which episode it may edit, which is read-only),
+  forbid edits to the shared kit/recorder (they report needed changes; the
+  coordinator applies them), no commits from agents, per-agent scratch
+  subfolders. Replace a script other processes may be running with
+  write-new-then-`mv` (bash reads scripts as it runs), and use `command mv -f`
+  / `command rm -f`: the shell aliases them to `-i` and an agent's command
+  hangs on the prompt.
+
+### Assembling a size-capped deliverable
+
+Curtain + clips in manifest order + curtain → a CRF 14 master → the last step
+is a two-pass encode whose bitrate is derived from the master's duration and
+a byte target (`client-requests/radio-sant-vicenc-public-tender/export.sh`:
+target 24,000,000 B for a "25 MB" cap, H.265 Main 8-bit, `hvc1`, BT.709
+limited range, stills for a legibility check, fails over the cap). Always
+encode from the master, never re-compress an export. H.265 was Oriol's call
+for the tender (VLC plays it; stock Windows players may need the HEVC
+extension); H.264 stays the default for anything public.
 
 ## Concept illustrations (the site's product images)
 
@@ -348,7 +468,10 @@ already forbid videos, iframes and forms. The pattern that works:
   brand Signal Green `#2DD4A8`, Studio Navy `#0A1628`, Inter; vector
   wordmark SVGs in `enacast-ramen/public/enacast/`. Product UI comes from
   EnaCast Studio (`enacast-ramen`) on its local dev server
-  `ramen.localhost:3203`, which **talks to production**: capture as the
+  `ramen.localhost:3203`, which **talks to production** (`make start`; for
+  recordings that write, use the LOCAL stack instead: ramen with
+  `ENACAST_API_URL=http://enacast.localhost:8201` and astro dev with its
+  `.env.local`, test radio `radiotest.localhost`): capture as the
   `oriol.radiotest` test account, read-only (never submit a form or press
   "Genera notícia"), and skip its transcript view (radiotest airs music, so it
   holds song lyrics). Promo videos (2026-09-26, `265dee8`): launch + Insights,
