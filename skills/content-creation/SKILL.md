@@ -454,18 +454,18 @@ this section keeps the rules and the lessons.
    needs a mix (as recorded, each person is in one ear).
    Measured on Sprint Bike: diarization adds ~690 s on CPU (1,070 s for
    the whole WhisperX run, 1.1× real time), and it is **not reliable on
-   its own**: with one camera mic, two male voices and a workshop's
-   echo it gave several of the interviewer's longer questions to the
+   its own**: run on the mono mix, with two male voices and a workshop's
+   echo, it gave several of the interviewer's longer questions to the
    interviewee (264 of 327 segments agree with the LLMs' speakers). The
-   LLMs, conversely, miss short interjections. Speakers are settled by
-   combining the two: the audio speaker per segment goes to the LLM
-   review as evidence, not as truth. (That was the voice model on the
-   mono mix; the shoots already have one clip-on mic per person on
-   separate channels, which is the real fix: see the channel method.)
+   LLMs, conversely, miss short interjections. Both are now only the
+   fallback: speakers come from the two mic channels (above), and the
+   voice model and the LLM judges handle the ~5 % the channels leave
+   unclear.
    **Bad audio** (noisy shop, wind, a weak mic): denoise the working
    audio with DeepFilterNet (4.8k★) before transcription and diarization,
-   and measure it (review fix count with vs without). Not needed yet
-   (Oriol, 2026-09-27: noted as a future improvement). `oj-transcribe` (the fleet's memo tool, same whisper.cpp turbo)
+   and measure it (review fix count with vs without). On Sprint Bike's
+   delivered audio it was A/B-tested (+4 dB speech-to-noise); a blind
+   headphone test decides whether it joins the chain. `oj-transcribe` (the fleet's memo tool, same whisper.cpp turbo)
    is not used here: it gives neither word timestamps nor speakers.
    Both reviewers independently found the real start and end, a phone
    call, a walk-in customer and a private third-party story: their
