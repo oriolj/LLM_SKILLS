@@ -407,7 +407,23 @@ interview's folder, so the next session can pick up where this one stopped.
    speakers; **WhisperX** (24k★: forced alignment for word timestamps +
    pyannote diarization, which needs a Hugging Face token) gives both,
    and the word timestamps are what the word-by-word subtitles and
-   silence-snapped cuts need. The **clean transcript** `transcript/transcript.md`
+   silence-snapped cuts need.
+   **Then two LLMs review it and argue** (Oriol, 2026-09-27;
+   `make review-transcript I=…` in the BikeCRM content repo): each model
+   corrects the transcript on its own (mishearings, names, punctuation,
+   hallucinations, speaker turns, editor notes), then for every segment
+   where they differ in words or speaker each sees the other's version
+   and argument and answers, for up to two rounds. Agreed text becomes
+   `transcript/transcript.md`; what is still disputed is marked ⚠ and
+   listed in the run's `report.md` for a person. First run (Sprint Bike,
+   431 segments, `openai/gpt-6-luna` + `google/gemini-3.8-flash` via
+   OpenRouter): 21 fixes each, 49 disputes → 9 after discussion, $0.10
+   in all (Gemini ~90 % of it). Every remaining dispute but one was
+   *who* said a short "sí"/"vale": **text cannot settle speakers; that
+   needs diarization from the audio**. Both models independently found
+   the real start and end, a phone call, a walk-in customer and a
+   private third-party story, which makes their editor notes the
+   first draft of `edit.tsv`. The **clean transcript** `transcript/transcript.md`
    (timecode, speaker, text, names corrected) is written from the raw one,
    and every later step works from it.
 4. **Mark the raw cut** in `edit.tsv` (committed; one row per removal:
@@ -533,6 +549,15 @@ reviewed `edit.tsv`), and those pairs are the eval set. A prompt or model
 change is measured on the past interviews with the `llm-bench` skill
 before it replaces the current one, and the traces go to Langfuse with
 the product as `user_id`.
+
+**Every step leaves a sidecar and a cost line** (Oriol, 2026-09-27):
+a metadata JSON next to its output (`raw-whisper.meta.json`,
+`review/<run>/run.json`: inputs and prompts with sha256, models and
+parameters, host, timing, code commit, tokens and cost per stage), and
+one line per model in the interview's `ai-costs.jsonl`; `make costs`
+sums them per interview and step. A local model logs $0 so the ledger
+is complete; a run whose cost was lost logs `null` with a note rather
+than a guess.
 
 **It is a repeatable workflow** (Oriol does many of these interviews):
 every step is a `make` target in the content repo taking `I=<interview>`,
