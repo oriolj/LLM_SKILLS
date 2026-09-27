@@ -487,6 +487,35 @@ interview's folder, so the next session can pick up where this one stopped.
    last complete take. Cut points go in silences ≥ 0.4 s, never
    mid-word. Every row carries its reason, and Oriol reviews `edit.tsv`
    against the transcript before the raw cut is assembled. The **raw cut** is the full interview minus those rows: the
+   How it runs now (`make settle-speakers`, then `make propose-cuts`, BikeCRM
+   content repo, 2026-09-27):
+   - **Speakers first, combined**: every segment where the reviewers'
+     speaker and the diarized voice disagree goes to the two models with
+     its context and the audio share; agreed → settled, split → one more
+     round, then ⚠ for a person. Sprint Bike: 64 disagreements → 2, $0.44.
+   - **The phrase view comes from WhisperX's word timestamps**, not from
+     whisper.cpp segments: whisper.cpp's segment times drift by up to
+     several seconds and the two engines segment differently, so they
+     cannot be matched 1:1.
+   - Both models propose removals as phrase ranges; overlapping proposals
+     are agreed as their intersection (when in doubt, keep), a one-sided
+     one goes to the other model to accept or reject. Sprint Bike: 6
+     agreed (setup, phone call, walk-in customer, a declined and an
+     unanswered question, the Contador/Iniesta story) + 1 contested
+     (a sale with its price: sol cut, opus kept), $0.38, 20:16 → 16:21.
+   - **Placement for a stream copy**: a removal's `in` (the kept part's
+     end) can be anywhere; its `out` (the next kept part's start) is a
+     keyframe, snapped inside the pause when one falls there, otherwise
+     the row says how much removed speech stays or kept speech is lost.
+     Adjacent or overlapping rows are joined at assembly.
+   - **Phrase granularity is the limit at the edges**: the head's "vale,
+     pues empezamos. Venga." and the tail's "Ay, no, estaba grabando" sat
+     inside phrases (pauses under 0.5 s), so both models left them; the
+     editor fixed them from word times. Improvement to make: also split
+     phrases at sentence-final punctuation followed by ≥ 0.25 s.
+   - The editor's own adjustments are marked `proposed_by: editor
+     (Claude)` in `edit.tsv`, which carries a `decision` column for Oriol.
+
    master every later cut is taken from.
 5. **Assemble the raw cut without re-encoding** (Oriol, 2026-09-27: every
    re-encode loses quality, and cutting does not need one). Stream-copy
