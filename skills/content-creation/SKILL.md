@@ -369,3 +369,16 @@ already forbid videos, iframes and forms. The pattern that works:
   EnaCast"). Check a video's figures against the site's verified-claims table
   (`PRODUCT.md`) before rendering, because a baked-in number needs a
   re-render to fix.
+  **Feature video "Seccions habituals" (ca, 2026-09-27)**, made before the
+  feature was deployed: **concept cards in HTML** (no captures), every label
+  copied from the catalogs (ramen `messages/ca.json` `regularSections.*`,
+  astro `translations.ts` `regularSections.*`) with invented data (program
+  "Els matins", Albert Puig), so it could be shot from uncommitted code. It
+  reuses the Insights video's cut points (22.5 s) and soundtrack generator
+  (`audio_sec.py` = `audio_ins.py` with this video's UI events), so a new
+  feature video is one scene file plus an events block. Cursor targets are
+  measured from the untransformed layout at `window.ready`
+  (`getBoundingClientRect` of the real buttons); hardcoded guesses missed the
+  buttons by 100+ px. Sources: `content-sources/brag/sec_l_ca.html`,
+  `audio_sec.py`. Delivered to Oriol on WhatsApp (whatsapp-waha skill:
+  an mp4 goes as a document, `sendVideo` needs the chrome image).
