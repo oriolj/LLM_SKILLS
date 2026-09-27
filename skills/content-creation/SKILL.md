@@ -439,6 +439,15 @@ interview's folder, so the next session can pick up where this one stopped.
    until the owner accepts the model's terms on huggingface.co. The
    token is the shared read-only one (hq `huggingface.env`, all scopes),
    installed with `hf auth login` into `~/.cache/huggingface/token`.
+   **Check the channels before any voice model.** The BikeCRM interviews
+   are shot with two mics recorded one per channel (left = interviewer,
+   right = interviewee): per-word L−R level (± 3 dB threshold) names the
+   speaker for 95 % of the words and fixed every line the voice model
+   got wrong. It costs nothing and needs no model; pyannote and the LLM
+   judges are for the undecided ~5 % (crosstalk, overlaps) or a
+   single-mic shoot. Mixing to mono (`-ac 1`) before transcription is
+   what hid this on the first run. It also means the delivered audio
+   needs a mix (as recorded, each person is in one ear).
    Measured on Sprint Bike: diarization adds ~690 s on CPU (1,070 s for
    the whole WhisperX run, 1.1× real time), and it is **not reliable on
    its own**: with one camera mic, two male voices and a workshop's
