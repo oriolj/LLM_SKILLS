@@ -172,6 +172,16 @@ once it is fixed.
   release, builtAt}` out of the live `main-*.js` and compares brands, skipping a
   mismatch younger than a deploy.
 
+- **Validating a BikeCRM suite against beta before production** (2026-09-27): point
+  `BIKECRM_BASE_URL` / `BIKECRM_APP_URL` at `beta.api` / `beta.bikecrm.app` and run
+  `uv run pytest projects/bikecrm/<suite>` directly (not `talaia run`, which records and
+  alerts). The browser suites' `BrowserErrors.assert_clean()` always fails there: beta's
+  media bucket (`s3mediabeta`) lacks the production images, so logos/avatars 404 into the
+  console. Skip only that check for the beta run (monkeypatch it), never in the suite — and
+  print the console messages once before dismissing them: that run found a real `w-NaN`
+  ImageKit URL in production code. A suite for endpoints that only exist after a release
+  is committed but NOT pushed/deployed until that release is live.
+
 ## Reviewing BikeCRM results and test changes
 
 Read the repo's `docs/COVERAGE.md` and `DEPLOY.md` for current coverage and pending
