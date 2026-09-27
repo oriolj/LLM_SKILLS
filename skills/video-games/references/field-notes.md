@@ -3,6 +3,34 @@
 Dated lessons from real games, newest first. One entry per lesson: what
 happened, the rule it produced, and where the rule now lives.
 
+## 2026-09-27 — Going public: purging the fan art from history
+
+- Oriol made the monorepo public. The fan-character packs (Sonic, Minions,
+  Mario...: 424 files in 14 games, 918 paths across history) had been
+  committed while it was private. Steps that worked:
+  1. Audit: every IP file sat under `private_pack/` or `art_src/private/`;
+     the public manifests and contact sheets (looked at) showed only the
+     original cast; text mentions of the names are harmless.
+  2. `git rm -r --cached` those dirs, add `**/private_pack/` and
+     `**/art_src/private/` to `.gitignore`, and prove a clean clone passes
+     every game's tests without the pack.
+  3. Back up the full history first (`git bundle create <outside>.bundle --all`).
+  4. `uvx git-filter-repo --force --invert-paths --path-glob
+     'games/*/game/private_pack/*' ...` (including the pre-monorepo paths).
+  5. **Delete and recreate the GitHub repo**, then push: a force-push leaves
+     the old commits fetchable by SHA, and they become public with the
+     repo. Needs `gh auth refresh -s delete_repo` (a browser step for the
+     user). Verified afterwards: `gh api repos/<o>/<r>/commits/<old sha>`
+     answers 422.
+- **Trap: `git filter-repo --force` resets the working tree and discards
+  uncommitted changes.** My doc edits and the `.gitignore` lines were
+  unstaged (the earlier `git commit` without `-a` took only the
+  `rm --cached` deletions), so the rewrite silently threw them away and the
+  private dirs showed as untracked, one `git add .` from being re-committed.
+  Rule: before filter-repo, `git status` must be empty; commit with
+  `git add -u` + explicit paths, and check the ignore rules exist right
+  after the rewrite.
+
 ## 2026-09-27 — The TV launcher and the pad quit combo
 
 - Built `launcher/` in the monorepo: a 1080p Godot carousel (canvas_items
