@@ -609,7 +609,14 @@ this section keeps the rules and the lessons.
    in the interview's language, with loudness-normalised audio. These
    clips change pixels, so they are the one encode, made from the
    original.
-8. **The content plan**, `content-plan.md` in the interview folder
+8. **The content plan** (built 2026-09-27: `make plan`, opus drafts, sol
+   reviews, opus revises; the script checks the hooks verbatim and the
+   ranges; opus left the publishing order empty twice, so a focused call
+   fills it; Sprint Bike $0.52 for 10 chapters, 10 shorts, 11 weeks). All
+   times are on the **raw cut's timeline** (`make raw-cut-transcript`).
+   A **podcast export** is an idea on the list: audio-only episode opening
+   with a cold open of the best questions and the start of each answer,
+   the key part beeped as a teaser. The content plan, `content-plan.md` in the interview folder
    (Oriol, 2026-09-27), written from the clean transcript once the
    selects exist. It is the editorial brief a person can approve in one
    read: the long episode (title, one-paragraph description, chapters) and
