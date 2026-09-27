@@ -3,6 +3,43 @@
 Dated lessons from real games, newest first. One entry per lesson: what
 happened, the rule it produced, and where the rule now lives.
 
+## 2026-09-27 — The TV launcher and the pad quit combo
+
+- Built `launcher/` in the monorepo: a 1080p Godot carousel (canvas_items
+  stretch) that discovers `games/*/game/project.godot`, launches each game
+  as its own process (`OS.create_process` + `OS.is_process_running` poll),
+  waits underneath it and restores on exit. Verified by a real launch under
+  xvfb (`make -C launcher launch-test`: PixelPals ran 3.7 s and the
+  launcher came back on the same card) and a fresh-cache run.
+- **The games had no way to quit from a pad.** Added, additively, to the
+  shared `players.gd`: hold Back/Select + Start 1.5 s (any pad) or Ctrl+Q.
+  It runs on a `PROCESS_MODE_ALWAYS` watcher node, so paused games quit too,
+  and a hold that started before the app (or before re-enabling) arms only
+  after a release, so the combo that closed a game cannot also close the
+  launcher. All 16 game suites stayed green. Rule now in the monorepo
+  CLAUDE.md: never bind Back+Start to anything else.
+- **Fonts on a 1080p UI:** `SystemFont` with MSDF on variable system fonts
+  (Adwaita Sans/Inter) rendered letters with holes, and a thick outline on
+  big text showed the overlapping contours as ghost strokes. Plain
+  rasterisation plus a drop shadow is clean.
+- **`window/size/window_width_override` beats `--resolution`**: movie
+  captures came out 1280x720 instead of 1920x1080. Keep the override out of
+  a project that is captured at another size; pass the dev window size on
+  the command line.
+- **Parallel `xvfb-run -a` can race** for a display and cut a capture
+  short (2 of 14 in one run). The covers tool retries a capture that is
+  shorter than the frame it needs.
+- **Demo captures are not deterministic** (games randomise), so a picked
+  frame index shows a slightly different moment each run: look at the
+  result, and crop only when the subject stays put (Train Conductor).
+- **Pixel covers on a non-pixel UI:** pre-scale the image by a whole factor
+  with nearest filtering, then draw with mipmapped linear filtering. At the
+  focused size (exactly 2x for 320x180) the pixels are crisp, and the small
+  side cards do not shimmer.
+- A `Control`'s own `_draw()` paints under its children: an icon drawn on a
+  card vanished behind the cover `TextureRect`. Draw overlays on a child
+  Control added last.
+
 ## 2026-09-27 — 12 games built in parallel, one agent per game
 
 - Oriol asked for every plan to be implemented in full. Twelve background

@@ -103,7 +103,10 @@ and grows with each game; add dated lessons to
 - **Every press is answered** with sound, screen shake or a world reaction
   within a frame or two.
 - **No text.** Icons, colours, characters. Menus navigable by the parent;
-  a pause/exit combo only a parent can do.
+  a pause/exit combo only a parent can do. In the monorepo that combo is
+  shared: hold Back/Select + Start 1.5 s (or Ctrl+Q) quits any game back to
+  the TV launcher (`make launcher`); every game also needs a `cover.png`
+  (`make covers`).
 - **Short sessions** (3-10 minutes) ending in a celebration screen.
 - **Playtest the grey box** (coloured rectangles) on the couch before
   investing in art: which role was too hard, which too boring.
