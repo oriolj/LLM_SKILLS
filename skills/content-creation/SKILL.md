@@ -459,11 +459,25 @@ interview's folder, so the next session can pick up where this one stopped.
    quality.) Anything overlaid on the interview picture (a lower third,
    a punch-in) forces that re-encode, so prefer putting names and topics
    on the cards.
-7. **Clips from the raw cut**: selects of 30–60 s, one idea each, standing
-   alone without the question (or with the question as a title card);
-   9:16 crops on the speaker; burned-in subtitles from the clean
-   transcript, in the interview's language; loudness-normalised audio.
-   These change pixels, so they are the one encode, from the original.
+7. **Vertical clips, framed on whoever speaks** (Oriol, 2026-09-27):
+   selects of 30–60 s from the raw cut, one idea each, standing alone
+   without the question (or with the question as a title card). The
+   camera is still, so each person has **one fixed 9:16 crop box**,
+   measured once on a frame of the 4K picture (a 1216×2160 window leaves
+   room for a 1080×1920 output). The speaker turns in the clean
+   transcript decide which box is on screen, switching at the turn
+   boundaries (hold short interjections, a "sí" or a "vale", on the
+   current speaker instead of cutting to them). **Subtitles are never
+   the raw Whisper text**: an LLM review pass (PydanticAI, per the global
+   rule) corrects mishearings, names and punctuation against the
+   glossary and the audio's context, keeping the segment timings and
+   never changing what was said. It writes `transcript/subtitles.<lang>.srt`
+   plus a diff against the raw text, which a person reads before burning
+   anything. Subtitles are burned in, at most two lines, placed in the
+   vertical safe zone (see [Vertical](#vertical-reels--shorts--tiktok)),
+   in the interview's language, with loudness-normalised audio. These
+   clips change pixels, so they are the one encode, made from the
+   original.
 8. **Show Oriol** (contact sheet, then the render via the
    `whatsapp-waha` skill as a document) and publish only with his go plus
    the recorded consent covering that use.
