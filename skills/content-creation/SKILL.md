@@ -1,39 +1,42 @@
 ---
 name: content-creation
-description: Make marketing and product content for any of our products — three kinds of video, each with its own pipeline (a PROMO launch/brag video via the /brag-slim skill; an ANIMATED HOW-TO series of short step-by-step clips on a shared HTML kit; a SCREEN RECORDING of the real app driven by Playwright with redaction, captions and phone framing), assembling clips into a size-capped deliverable (tenders, 25 MB H.265), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "tutorial / how-to video", "record the screen / screen recording of the app", "videos for a tender / licitació", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
+description: Make marketing and product content for any of our products — four kinds of video, each with its own pipeline (a PROMO launch/brag video via the /brag-slim skill; a FEATURE HIGHLIGHT, one feature at a readable pace with music; an ANIMATED HOW-TO series of short step-by-step clips on a shared HTML kit; a SCREEN RECORDING of the real app driven by Playwright with redaction, captions and phone framing), assembling clips into a size-capped deliverable (tenders, 25 MB H.265), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "feature video / highlight this feature", "tutorial / how-to video", "record the screen / screen recording of the app", "videos for a tender / licitació", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
 ---
 
 # Content creation
 
 Marketing and product content for our products: videos, their vertical cuts,
 share copy, and getting the result onto the product's website. Only the
-**promo** kind of video is made by the **/brag-slim** skill; the two other kinds
-have their own pipelines below. This skill holds what /brag-slim does not
+**promo** kind of video is made by the **/brag-slim** skill; the three other
+kinds have their own pipelines below. This skill holds what /brag-slim does not
 know — our preferences, what went wrong the first time, and how the output
 goes live.
 
-## Three kinds of video — pick one first
+## Four kinds of video — pick one first
 
 They answer different questions, so they differ in length, sound, data and
 truth rules. Decide which one is being asked for before building anything;
-"a video of feature X" is usually a how-to, not a promo.
+"a video of feature X" is usually a feature highlight; "how do you do X"
+is a how-to; "prove it works" is a recording; a promo is for the whole product.
 
-| | **Promo** (launch / brag) | **Animated how-to** | **Screen recording** |
-|---|---|---|---|
-| Answers | "why should I care?" | "how do I do it?" (and "what does it look like?") | "does the real product really do it?" |
-| Made with | `/brag-slim` + [its section](#making-a-promo-video-brag-slim) | the how-to kit, [below](#animated-how-to-series) | Playwright + CDP screencast, [below](#screen-recordings-of-the-real-app) |
-| Shape | one piece, 20–45 s, a story with a hook and an outro | a SERIES of 10–20 s clips, one per task, each standing alone; assembled into longer tutorials with curtains | the same clips as the how-to, shot on the running app |
-| On screen | headlines + concept cards of the app | numbered steps that tick off (left), an enlarged concept card of the real screen with a pointer doing the steps (right), one caption (bottom) | the real app, a drawn pointer, one caption, phone clips in a phone frame |
-| Sound | music bed + UI events (it is a promo) | none by default (tutorials, tenders), optional | none |
-| Data | invented, plausible | invented, plausible; **labels copied exactly** from the catalogs | the account it is recorded on (test account for rehearsals, the client's for the deliverable) |
-| Truth rule | the product's own claims only | **only what the product does**: a step the product can't do is not drawn | the product as it is, bugs included; sobre-C-style data redacted |
-| Uses | site hero, social, newsletter | help centre, onboarding, commercial showcase, the storyboard/checklist for a recording | tenders and proofs, support, "is this real?" |
-| Reference | BikeCRM / EnaCast launch videos | Ràdio Sant Vicenç tender, `enacast-content-creation/videos/2026-09-27-licitacio-rsv/animated/` | same folder, `recorded/` |
+| | **Promo** (launch / brag) | **Feature highlight** | **Animated how-to** | **Screen recording** |
+|---|---|---|---|---|
+| Answers | "why should I care about the product?" | "what does this ONE feature do for me?" | "how do I do it?" (and "what does it look like?") | "does the real product really do it?" |
+| Made with | `/brag-slim` + [its section](#making-a-promo-video-brag-slim) | a scene file + the shared soundtrack engine, [below](#feature-highlight) | the how-to kit, [below](#animated-how-to-series) | Playwright + CDP screencast, [below](#screen-recordings-of-the-real-app) |
+| Shape | one piece, 15–25 s, fast cuts, the whole product | one piece, 30–45 s: hook (the problem) → the feature in 2–4 UI beats → outro | a SERIES of 10–20 s clips, one per task, each standing alone; assembled into longer tutorials with curtains | the same clips as the how-to, shot on the running app |
+| On screen | headlines + concept cards of the app | a headline per beat (left) + one concept card of the feature with a pointer (right); brand wordmark scene and outro | numbered steps that tick off (left), an enlarged concept card of the real screen with a pointer doing the steps (right), one caption (bottom) | the real app, a drawn pointer, one caption, phone clips in a phone frame |
+| Sound | music bed + UI events | a calmer bed + UI events (clicks, plucks, typing) on the beats | none by default (tutorials, tenders), optional | none |
+| Data | invented, plausible | invented, plausible; labels copied exactly from the catalogs | invented, plausible; **labels copied exactly** from the catalogs | the account it is recorded on (test account for rehearsals, the client's for the deliverable) |
+| Truth rule | the product's own claims only | the feature as it ships; published only after its deploy | **only what the product does**: a step the product can't do is not drawn | the product as it is, bugs included; sobre-C-style data redacted |
+| Uses | site hero, social | release announcements, the feature's section on the site, newsletter issue, WhatsApp/social share | help centre, onboarding, commercial showcase, the storyboard/checklist for a recording | tenders and proofs, support, "is this real?" |
+| Reference | BikeCRM / EnaCast launch videos | EnaCast "Seccions habituals" v2, `enacast-content-creation/videos/2026-09-27-seccions-habituals/` | Ràdio Sant Vicenç tender, `enacast-content-creation/videos/2026-09-27-licitacio-rsv/animated/` | same folder, `recorded/` |
 
 The how-to and the recording are usually made **together, clip by clip**: the
 animation is the precise storyboard (what must be visible, in what order), the
 recording proves it on the real app, and the gaps between them are product
-findings. A promo can reuse how-to concept cards.
+findings. A promo or a feature highlight can reuse how-to concept cards, and a
+feature highlight is the natural companion of a release: the highlight sells
+the feature, its how-to clips teach it.
 
 ## Preferences (Oriol)
 
@@ -45,8 +48,10 @@ changes how this skill's pipeline works).
 
 - **Pace feature videos for reading the UI** (Oriol, 2026-09-27: "you move a
   little bit too fast, I don't have time to see what I am seeing"). Our videos
-  are almost always feature showcases, so override /brag-slim's 15–25 s
-  default (promos; how-to clips have their own 10–20 s budget per task, below): one UI step per beat; after each action the result holds, settled,
+  are almost always feature showcases, so the **feature highlight** (below) is
+  the usual kind and its pacing is this rule; a promo keeps /brag-slim's
+  15–25 s only when a fast teaser is asked for; how-to clips have their own
+  10–20 s budget per task. The rule: one UI step per beat; after each action the result holds, settled,
   for ≥ 2 s before anything moves again; UI scenes of 6–8 s; 30–45 s in total
   for 4–5 steps; cursor moves ≥ 0.6 s; lists fill one row every ~0.6 s, not
   0.3–0.4 s. Pass `--duration` accordingly and check the storyboard against
@@ -187,6 +192,45 @@ relative to the script), no credentials in them, and prove it: rerun them from
 the repo and compare the outputs with what is live byte for byte. BikeCRM:
 `bikecrm-web-comercial/content-sources/` (`f52914f`). A re-roll of one scene
 is then an edit and a rerun, by anyone, on any machine.
+
+## Feature highlight
+
+One feature, told like a promo but slow enough to read the UI. It is the kind
+Oriol asks for most ("a video of <feature>"). Reference: EnaCast "Seccions
+habituals" (`enacast-content-creation/videos/2026-09-27-seccions-habituals/`,
+v2 = 39.5 s; v1 at 22.5 s was judged too fast). Not /brag-slim: its
+fast-cut defaults are what made v1 unreadable.
+
+- **Story, 30–45 s**: a navy **hook** that states the listener's/user's
+  problem in their words (4–6 s) → the **wordmark + feature name + one-line
+  promise** (3–4 s) → **2–4 UI beats**, each a headline on the left and one
+  concept card on the right where the pointer does ONE thing and the result
+  holds ≥ 2 s (6–8 s per beat) → a navy **outro** with the feature name, the
+  promise and the product URL (3–4 s).
+- **One idea per beat, one action per beat.** If a beat needs two clicks, it is
+  two beats or it belongs in a how-to.
+- **Concept cards from uncommitted code are fine** (the feature may not be
+  deployed yet): copy every label from the catalogs, invented data, cite the
+  keys in the video README. Publishing waits for the deploy.
+- **Pointer targets measured, never guessed**: at `window.ready`, from the
+  untransformed layout (`getBoundingClientRect` of the real buttons);
+  hand-placed coordinates missed by 100+ px.
+- **Sound**: the shared engine (`shared/audio/synth.py`: `Track(dur,
+  cuts).bed()` + the video's events on the scene times + `.transitions()`),
+  softer than a promo; every cut on the beat.
+- **Re-pace with a time map, never by re-animating**: author the scene once
+  and define cuts in `timing.js` as `holds` (`[t, seconds frozen]`) and
+  `slows` (`[from, to, factor]`); the page (`?cut=v2`) and `soundtrack.py`
+  read the same file, so picture and sound stay in sync; holds in multiples
+  of the beat. `video.conf` lists `CUTS`, per-cut `DUR_`, `POSTER_T_`,
+  `STILLS_`.
+- **Check before rendering**: `make check V=<video> [C=<cut>]` renders a still
+  of every scene and every transition into a contact sheet; look at it, then
+  `make video`.
+- **Delivery**: 16:9 first (site section, WhatsApp to Oriol as a document);
+  a 9:16 cut and per-language cuts (written from each language's catalogs)
+  only when the feature is published; a still or GIF plus link for the
+  newsletter (below).
 
 ## Animated how-to series
 
