@@ -438,7 +438,16 @@ interview's folder, so the next session can pick up where this one stopped.
    account**: a valid token still gets "not in the authorized list"
    until the owner accepts the model's terms on huggingface.co. The
    token is the shared read-only one (hq `huggingface.env`, all scopes),
-   installed with `hf auth login` into `~/.cache/huggingface/token`. `oj-transcribe` (the fleet's memo tool, same whisper.cpp turbo)
+   installed with `hf auth login` into `~/.cache/huggingface/token`.
+   Measured on Sprint Bike: diarization adds ~690 s on CPU (1,070 s for
+   the whole WhisperX run, 1.1× real time), and it is **not reliable on
+   its own**: with one camera mic, two male voices and a workshop's
+   echo it gave several of the interviewer's longer questions to the
+   interviewee (264 of 327 segments agree with the LLMs' speakers). The
+   LLMs, conversely, miss short interjections. Speakers are settled by
+   combining the two: the audio speaker per segment goes to the LLM
+   review as evidence, not as truth. (A lavalier mic per person at the
+   shoot would make the audio side much stronger.) `oj-transcribe` (the fleet's memo tool, same whisper.cpp turbo)
    is not used here: it gives neither word timestamps nor speakers.
    Both reviewers independently found the real start and end, a phone
    call, a walk-in customer and a private third-party story: their
