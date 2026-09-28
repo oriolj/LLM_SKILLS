@@ -243,6 +243,26 @@ fast-cut defaults are what made v1 unreadable.
   headline carries the story on its own; the hook states the problem in the
   first 2 s; frame 0 is the poster (feature name + the card), readable as a
   still.
+- **Lessons from BikeCRM V1 "Terminal compartido"** (2026-09-28, the kit
+  ported to `bikecrm-content-creation/shared/`):
+  - **One scene page for both formats** (`?fmt=9x16` + a per-format layout
+    object), not a second scene file: same timings, one soundtrack, pointer
+    targets measured per format.
+  - **Use the frame.** The first cut left the 9:16 bottom half empty and the
+    16:9 card at a third of the width, unreadable on a phone: the card fills
+    the 9:16 frame down to the bottom safe zone (~984×1026 px) and ~57 % of the
+    16:9 width; list text ≥ 28 px on screen. Look for empty space on the
+    stills as hard as for clipped text.
+  - **Draw only what the product shows.** A beat planned as "an action signed
+    with your name" was dropped because the app never renders who finished
+    a line; the traceability went to the owner's switch log instead.
+  - Tooltips go on the side away from the pointer (it covered them).
+  - The build normalises loudness to −14 LUFS with a fixed gain capped at
+    −1 dBTP (sidecar), converts JPEG frames to limited-range BT.709
+    (`scale=in_range=pc:out_range=tv`, else the MP4 is `yuvj420p`), and
+    fails when a font does not load.
+  - A time map can also shorten: a slow with factor < 1 compresses a stretch
+    where nothing moves, trimming the tails left after adding holds.
 - **One claim, the site's claim**: the promise line comes from the feature's
   release note or site copy; figures only if the site's verified-claims table
   has them (a baked-in number needs a re-render to fix).
