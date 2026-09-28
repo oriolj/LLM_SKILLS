@@ -279,6 +279,9 @@ absent.
 - `check-dist.mjs` works on a Starlight dist unchanged. Default Starlight
   is third-party-free (system fonts, no analytics): the zero-cookie audit
   is a grep for foreign origins plus `Set-Cookie` on the live host.
+- Starlight ships **no `og:image`** and a default star favicon: see the
+  [seo skill](../seo/SKILL.md), "Starlight docs sites: favicon and
+  `og:image`".
 
 ## 2. Custom domain when the zone is NOT on Cloudflare
 

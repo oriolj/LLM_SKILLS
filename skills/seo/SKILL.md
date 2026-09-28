@@ -349,6 +349,39 @@ Emit on every share-worthy page.
   only diverges when one path passes `description` but not
   `ogDescription` or vice versa, leaving inconsistent dupes.
 
+### Starlight docs sites: favicon and `og:image` (2026-09-28)
+
+Audited all 13 Starlight sites under `~/git` that day: 8 still showed
+Starlight's default star favicon and **none** had an `og:image`.
+
+- **Starlight emits `og:title/description/url/locale/site_name` and
+  `twitter:card=summary_large_image` but no `og:image`**, so every shared
+  link previewed as a bare card. Add it through the sanctioned per-page
+  hook, a route-data middleware (`routeMiddleware: './src/routeData.ts'`
+  in `starlight()`), pushing `og:image` (absolute, from `context.site`),
+  `og:image:width`/`height` and `twitter:image`, keyed on
+  `starlightRoute.lang` when the brand has a card per language. Don't
+  re-emit `og:site_name` — Starlight already does. Needs `site:` set.
+- **Version trap**: `routeMiddleware` exists from Starlight 0.32, but on
+  0.32.6 the route data has no `head` array and the standard template
+  crashes the build (EnaChat); upgrade, or push into the page's own head
+  list. 0.34+ takes the template as is.
+- **Favicon**: Starlight's default `favicon` is `/favicon.svg`, and
+  `public/favicon.svg` whose path starts `M81 36 64 0 47 36` IS the
+  Starlight star — replace it, don't keep it. `favicon:` = the primary
+  brand icon (a real brand SVG if one exists, else `.ico`); the other
+  sizes go in `head` as `<link rel="icon" sizes="32x32|16x16">` +
+  `apple-touch-icon` 180×180 on a solid background (transparent corners
+  render black on iOS).
+- **Card source**: reuse the product's marketing card
+  (`public/og/*`, 1200×630) before generating one; generate only when none
+  exists, with the brand fonts and colours. Per-page generated cards are
+  what the Starlight maintainers show (`astro-og-canvas`), but it has
+  ~280 GitHub stars — below the >1k bar; satori is the >1k route if
+  per-page cards are ever wanted. One static card per site/locale is the
+  current standard.
+- Starlight's `og:locale` is the bare language (`ca`), not `ca_ES`.
+
 ## JSON-LD structured data
 
 One `<script type="application/ld+json">` per page (or one `@graph`
