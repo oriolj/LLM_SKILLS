@@ -18,9 +18,15 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
    `catalan-writing` skill.
    - The other two assistants: **Emma** = EnaCast/Enantena, **Blake** =
      BikeCRM/SmartupSoft (the OpenClaw VMs emmaclaw/blakeclaw; see the
-     `openclaw` skill). This WAHA session is Oriol's PERSONAL number, so it
-     signs as Petra. Use `--persona emma|blake` only if a company number is
-     ever linked as its own session and Oriol says to.
+     `openclaw` skill). The persona follows the SESSION: `personal` (Oriol's
+     number) signs as Petra; `bikecrm` (the BikeCRM support number, WhatsApp
+     Business, linked 2026-09-28) signs as **Blake** (`--persona blake`).
+     Always pass `WAHA_SESSION=personal|bikecrm`: with two WORKING sessions
+     wa.py refuses to guess.
+   - **Recipients: hq [address-book.md](../../../../../Syncthing/Syncthing-mobile-docs/hq/homelab/whatsapp/address-book.md)**
+     (Oriol, 2026-09-28): look the person up there before `wa.py find`. "Enric" is
+     Enric Riba's personal number by default, and his work one only when Oriol
+     says "feina" or "both". Add a row when Oriol names someone new.
 2. **Send only what Oriol asked for, to whom he asked.** His request is the
    authorization; do not add recipients, follow-ups or "friendly" extras. If
    the recipient is ambiguous (two "Anna"s, a name not found), stop and ask —
@@ -189,5 +195,5 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 ## Keep this current
 
 Verified facts first recorded 2026-09-26 (install, auth, spec, QR, dry-run
-guard). Linked 2026-09-26 (session `personal`, WORKING). Verified the same day: `wa.py chats` lists the account's chats. First real send verified 2026-09-26 (`wa.py send` to Oriol's own number; the returned id was `true_<n>@lid_<hex>_out` — WhatsApp answered with the chat's `@lid`, not the `@c.us` we sent to). First media send verified 2026-09-27 (an mp4 as a document to Oriol's own number, see API facts). Not yet verified: media download and transcription on
+guard). Linked 2026-09-26 (session `personal`, WORKING). Second session `bikecrm` linked 2026-09-28 by relaying the QR image to Enric over WhatsApp (each QR is re-fetched right after `POST /api/sessions/bikecrm/restart` so it has the ~60 s first-code life); send and receive between the two sessions verified the same minute (`wa.py read` on each side shows the other's message). Verified the same day: `wa.py chats` lists the account's chats. First real send verified 2026-09-26 (`wa.py send` to Oriol's own number; the returned id was `true_<n>@lid_<hex>_out` — WhatsApp answered with the chat's `@lid`, not the `@c.us` we sent to). First media send verified 2026-09-27 (an mp4 as a document to Oriol's own number, see API facts). Not yet verified: media download and transcription on
 a live linked account — record the first successful run of each here.
