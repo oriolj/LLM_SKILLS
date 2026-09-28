@@ -91,7 +91,7 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
   `SCAN_QR_CODE` → `WORKING` (or `FAILED`/`STOPPED`). Pair by
   `GET /api/personal/auth/qr?format=image` (`Accept: image/png`, the first code
   lives ~60 s, then 20 s each), or by phone code:
-  `POST /api/personal/auth/request-code {"phoneNumber":"34…"}`.
+  `POST /api/personal/auth/request-code {"phoneNumber":"34…"}`. **That phone-code path is broken on WEBJS 2026.9.1** (2026-09-28: HTTP 500 from whatsapp-web.js `requestPairingCode`), so pairing is QR only. To get the QR to Oriol away from his desk, email it (`oj-sendmail --to oriolj@gmail.com --attach qr.png`, arrives in seconds); Taildrop to his iPhone answered "feature currently unavailable" on the phone even though `tailscale file cp` reported success. Fetch the QR right after a `restart` (the first code lives ~60 s).
   `GET /api/sessions/personal` → `me` = linked account.
   `GET /api/screenshot?session=personal` = what the headless browser sees
   (WEBJS only, good for debugging).
