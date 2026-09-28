@@ -40,7 +40,11 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
    source of truth for leads (Oriol, 2026-09-28). Use `POST /api/messages/`
    with `{account, direction:"outbound", channel:"whatsapp", original_text,
    original_language, generation_mode:"log_sent", status:"sent", sent_at}`.
-   Log replies as `direction:"inbound"`. The token and the other mechanics
+   Log replies as `direction:"inbound"`. Since LeadHunter release f751449
+   (2026-09-28), pass `external_id` = the WAHA message id, so a retry returns
+   the stored row instead of a duplicate. Append account notes with
+   `POST /api/accounts/{id}/add-note/ {text}`, and fix contacts with
+   `/api/contacts/` (the surname may be blank). The token and the other mechanics
    are in hq growth/outreach. BikeCRM leads are in LeadHunter project `bikecrm` (organization
    `smartupsoft`; since 2026-09-28 `?project=smartupsoft` matches nothing).
 3. **Reminders** ("remind X to…"): send one message now, unless a time is
