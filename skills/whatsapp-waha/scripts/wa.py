@@ -9,7 +9,7 @@ base URL from $WAHA_URL (default http://localhost:3010).
   wa.py find QUERY                     contacts + groups matching a name/number
   wa.py chats [--limit N]              recent chats, newest first
   wa.py read CHAT [--limit N]          last messages of a chat (oldest first)
-  wa.py send TO TEXT|@file [--file PATH] [--persona petra] [--yes]
+  wa.py send TO TEXT|@file [--file PATH] [--persona petra|blake|oriol|enric] [--approved] [--yes]
                                        dry run unless --yes; TEXT must name the persona
   wa.py media CHAT MSG_ID [--out DIR]  download a message's attachment
   wa.py transcribe CHAT [--id MSG_ID | --last N]
@@ -26,7 +26,10 @@ URL = os.environ.get("WAHA_URL", "http://localhost:3010").rstrip("/")
 SESSION = os.environ.get("WAHA_SESSION")  # unset = the one WORKING session (Oriol's is "personal")
 DATA = Path.home() / ".local/share/waha"
 SENT_LOG = DATA / "sent.jsonl"
-PERSONAS = {"petra": "Petra", "emma": "Emma", "blake": "Blake"}
+PERSONAS = {"petra": "Petra", "emma": "Emma", "blake": "Blake", "oriol": "Oriol", "enric": "Enric"}
+# Signing as a human (Oriol/Enric) is for people OUTSIDE the team, and only
+# with a text Oriol approved word for word (Oriol, 2026-09-28) -> --approved.
+HUMAN = {"oriol", "enric"}
 
 
 def api_key():
@@ -138,6 +141,8 @@ def cmd_send(a):
     if persona.lower() not in text.lower():
         sys.exit(f"refused: the message must identify the sender as {persona} "
                  f"(e.g. start with '{persona}, l'assistent de l'Oriol: …')")
+    if a.persona in HUMAN and a.yes and not a.approved:
+        sys.exit(f"refused: signing as {persona} needs --approved (Oriol approved this exact text)")
     f = Path(a.file) if a.file else None
     if f is not None and not f.is_file():
         sys.exit(f"no such file {f}")
@@ -224,7 +229,7 @@ def main():
     s = sp.add_parser("chats"); s.add_argument("--limit", type=int, default=20); s.set_defaults(f=cmd_chats)
     s = sp.add_parser("read"); s.add_argument("chat"); s.add_argument("--limit", type=int, default=20); s.set_defaults(f=cmd_read)
     s = sp.add_parser("send"); s.add_argument("to"); s.add_argument("text")
-    s.add_argument("--persona", choices=PERSONAS, default="petra"); s.add_argument("--yes", action="store_true")
+    s.add_argument("--persona", choices=PERSONAS, default="petra"); s.add_argument("--yes", action="store_true"); s.add_argument("--approved", action="store_true")
     s.add_argument("--file", help="attach a video/image/file; TEXT becomes its caption")
     s.add_argument("--document", action="store_true", help="send --file as a document (needed for mp4 on the Chromium WEBJS image)")
     s.set_defaults(f=cmd_send)

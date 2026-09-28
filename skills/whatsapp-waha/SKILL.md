@@ -1,28 +1,31 @@
 ---
 name: whatsapp-waha
-description: Send and read WhatsApp messages from Oriol's own account through the local WAHA instance (WhatsApp HTTP API, WEBJS engine — headless WhatsApp Web holding one Linked-devices slot) on minisforum-um880, and transcribe voice notes locally. Use when Oriol asks to "send X a WhatsApp", "remind X on WhatsApp", "tell X that…", "what did X say", "read my WhatsApp with X", "transcribe the audio X sent me", "is X on WhatsApp", or mentions WAHA, whatsapp-web.js, the WhatsApp API, the pairing QR, or Petra/Emma/Blake writing on WhatsApp. Covers the Petra identity rule (every outgoing message names the sender as Petra, Oriol's personal AI assistant — Emma is the EnaCast one, Blake the BikeCRM one), the send-only-when-asked and confirm-the-recipient rules, the bundled `scripts/wa.py` client (status, qr, find, chats, read, send with a persona guard and a dry run, media, transcribe via oj-transcribe), the API surface learned from the live Swagger (auth, chat-id formats, messages, media download, sessions, the built-in MCP endpoint), ban-risk limits of an unofficial client, and the install/firewall facts.
+description: Send and read WhatsApp messages from Oriol's own account through the local WAHA instance (WhatsApp HTTP API, WEBJS engine — headless WhatsApp Web holding one Linked-devices slot) on minisforum-um880, and transcribe voice notes locally. Use when Oriol asks to "send X a WhatsApp", "remind X on WhatsApp", "tell X that…", "what did X say", "read my WhatsApp with X", "transcribe the audio X sent me", "is X on WhatsApp", or mentions WAHA, whatsapp-web.js, the WhatsApp API, the pairing QR, or Petra/Emma/Blake writing on WhatsApp. Covers the signing rule (to the team: Petra on the personal session, Blake on bikecrm; to anyone outside the team: as Oriol or Enric, only with a text Oriol approved), the send-only-when-asked and confirm-the-recipient rules, the bundled `scripts/wa.py` client (status, qr, find, chats, read, send with a persona guard and a dry run, media, transcribe via oj-transcribe), the API surface learned from the live Swagger (auth, chat-id formats, messages, media download, sessions, the built-in MCP endpoint), ban-risk limits of an unofficial client, and the install/firewall facts.
 ---
 
-# WhatsApp via the local WAHA (Petra)
+# WhatsApp via the local WAHA (sessions personal + bikecrm)
 
 Oriol's own WhatsApp number, driven by an agent. Unofficial (WhatsApp Web
 automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
 
 ## Rules (Oriol, 2026-09-26)
 
-1. **Every message you send identifies the sender as Petra**, Oriol's
-   personal AI assistant — never impersonate Oriol. Write it in the
-   recipient's language, e.g. Catalan `Hola Anna! Sóc la Petra, l'assistent
-   d'IA de l'Oriol. …`, Spanish `Soy Petra, la asistente de IA de Oriol. …`,
-   English `This is Petra, Oriol's AI assistant. …`. Catalan text: load the
-   `catalan-writing` skill.
-   - The other two assistants: **Emma** = EnaCast/Enantena, **Blake** =
-     BikeCRM/SmartupSoft (the OpenClaw VMs emmaclaw/blakeclaw; see the
-     `openclaw` skill). The persona follows the SESSION: `personal` (Oriol's
-     number) signs as Petra; `bikecrm` (the BikeCRM support number, WhatsApp
-     Business, linked 2026-09-28) signs as **Blake** (`--persona blake`).
-     Always pass `WAHA_SESSION=personal|bikecrm`: with two WORKING sessions
-     wa.py refuses to guess.
+1. **Who signs depends on who reads it** (Oriol, 2026-09-28, which replaces the "always Petra" rule of 2026-09-26):
+   - **To the team (Oriol, Enric, a project CLAUDE.md's named team):** the
+     assistant signs by session. On `personal` it is Petra, e.g. Catalan
+     `Hola Anna! Sóc la Petra, l'assistent d'IA de l'Oriol. …`. On `bikecrm`
+     it is Blake. Emma is the EnaCast assistant. Always pass
+     `WAHA_SESSION=personal|bikecrm`: with two WORKING sessions, wa.py
+     refuses to guess.
+   - **To anyone outside the team (customers, leads, suppliers):** write as
+     **Oriol** (default) or **Enric** (when Oriol says so). No AI, no Petra
+     or Blake: these are messages the two of them validate word for word
+     before they go out (rule 2). Use `--persona oriol|enric --approved`.
+     wa.py refuses a human-signed send without `--approved`, and the text
+     must carry the name, e.g. a closing `Oriol (BikeCRM)`.
+   - Catalan text: load the `catalan-writing` skill. Write in the
+     recipient's language; a Catalan lead gets Catalan (Oriol approved this
+     for the Sea Otter follow-ups).
    - **Recipients: hq [address-book.md](../../../../../Syncthing/Syncthing-mobile-docs/hq/homelab/whatsapp/address-book.md)**
      (Oriol, 2026-09-28): look the person up there before `wa.py find`. "Enric" is
      Enric Riba's personal number by default, and his work one only when Oriol
