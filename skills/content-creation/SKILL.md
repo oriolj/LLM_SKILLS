@@ -267,6 +267,11 @@ fast-cut defaults are what made v1 unreadable.
   release note or site copy; figures only if the site's verified-claims table
   has them (a baked-in number needs a re-render to fix).
 
+**Cadence** (Oriol, 2026-09-28): feature announcements are time-sensitive
+and go out as soon as possible — the compilation first (so the WhatsApp
+channel and newsletter can link it the same day), then the single videos one
+a day; interview content is evergreen and drips weekly over weeks.
+
 ### The compilation (the "novedades" video)
 
 Oriol, 2026-09-28: several feature highlights **joined one after another
