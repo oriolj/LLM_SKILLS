@@ -57,6 +57,13 @@ changes how this skill's pipeline works).
   for 4–5 steps; cursor moves ≥ 0.6 s; lists fill one row every ~0.6 s, not
   0.3–0.4 s. Pass `--duration` accordingly and check the storyboard against
   this before building. A short teaser is the exception, and only when asked.
+  Stressed again 2026-09-28: **every** change on screen counts as an action
+  (a list filling, a status or badge appearing, a screen opening), the UI is
+  shown big enough to read at phone width, each caption says what the step
+  shows (not a slogan), and when in doubt take the longer hold — EnaCast's
+  first cut at 22.5 s was too fast, the re-paced 39.5 s was right. Before
+  rendering, write in the video README a table of each beat: when the
+  action happens and how long its result holds.
 - **Show the real product, as a concept.** The app doing its job (its real top
   bar, components, status chips and copy) beats a landing page describing it,
   and beats stock or abstract visuals. Build it as composed HTML cards from the
