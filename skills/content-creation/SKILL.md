@@ -262,7 +262,12 @@ fast-cut defaults are what made v1 unreadable.
   - The build normalises loudness to −14 LUFS with a fixed gain capped at
     −1 dBTP (sidecar), converts JPEG frames to limited-range BT.709
     (`scale=in_range=pc:out_range=tv`, else the MP4 is `yuvj420p`), and
-    fails when a font does not load.
+    fails when a font does not load. `-color_primaries/-color_trc` as output
+    options alone leave primaries and transfer `unknown` in the stream: add
+    `setparams=range=tv:colorspace=bt709:color_primaries=bt709:color_trc=bt709`
+    to the filter chain (EnaCast's kit does since 2026-09-28; BikeCRM's kit
+    and compile tool still lack it). EnaCast's feature renders made before
+    2026-09-28 are `yuvj420p`; re-render before publishing.
   - A time map can also shorten: a slow with factor < 1 compresses a stretch
     where nothing moves, trimming the tails left after adding holds.
 - **One claim, the site's claim**: the promise line comes from the feature's
