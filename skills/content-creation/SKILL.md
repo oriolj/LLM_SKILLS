@@ -720,7 +720,14 @@ this section keeps the rules and the lessons.
    does not contain. Platforms (Oriol, 2026-09-27): YouTube (the episode,
    and the verticals as Shorts), Instagram Reels, TikTok and LinkedIn;
    the plan says which pieces go where and adapts the caption to each.
-**Thumbnails are a reproducible step** (Oriol, 2026-09-28: "be smart with
+**The thumbnail style Oriol liked** (2026-09-28, BikeCRM September newsletter
+   image): the headline on a solid dark brand panel on the left (a small kicker,
+   the big line in the brand orange, a white second line, the orange bar, the
+   logo at the bottom), the **real app card from the video** on the right, a
+   short fade between them, and for email a drawn play button over the card.
+   It is the default for compilations and newsletter images; for a person
+   (an interview), the mirror: the face on the left, the text on the right.
+   **Thumbnails are a reproducible step** (Oriol, 2026-09-28: "be smart with
    thumbnails"): a spec per interview (frame time on the raw cut + three
    text lines from the plan or the transcript) rendered through a brand
    scene (`make thumbnails`). The editorial part comes first and is done
