@@ -726,7 +726,9 @@ this section keeps the rules and the lessons.
    - `npx -y postiz@<version>` needs no global install; in zsh never keep
      the command in a variable (`$P args` does not split → nothing runs).
    - Channel settings seen: Instagram requires `post_type` (`post`; a
-     video posts as a Reel), caption ≤ 2,200; YouTube requires `title`
+     single video posts as a **Reel**: Postiz sends `media_type=REELS`,
+     verified in its `instagram.provider.ts` 2026-09-28; `VIDEO` is only
+     for carousels; Reels need 9:16, 5–90 s), caption ≤ 2,200; YouTube requires `title`
      (≤ 100) and `type` (`public`/`private`/`unlisted`), plus
      `selfDeclaredMadeForKids`, `tags`, description ≤ 5,000. Instagram
      videos ≤ 100 MB (our shorts are 44–70 MB).
