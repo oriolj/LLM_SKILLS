@@ -131,6 +131,11 @@ homelab/secrets/            # deny-all except *.enc in the ROOT .gitignore (see 
 - **Never `source` a secrets file.** Values carry `#`, `$`, spaces,
   quotes; some files repeat keys across blocks. Read one key with
   `grep '^KEY=' file | cut -d= -f2-`, or a tiny `env_get` helper.
+  Sourcing does not just misparse, it **leaks**: Coolify API tokens have the
+  form `<id>|<secret>`, so `set -a; . coolify-*.env` runs the part after the
+  `|` as a command and the shell prints it in `command not found: <secret>`
+  (2026-09-28, BikeCRM session: a token fragment landed in the transcript and
+  had to be rotated). Parse with Python or `grep | cut`, print keys, never values.
 - Keep the decrypted plaintext `chmod 600`; the Makefile enforces it.
 
 ## The Makefile (passphrase mode)
