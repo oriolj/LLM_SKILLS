@@ -269,6 +269,13 @@ fast-cut defaults are what made v1 unreadable.
   release note or site copy; figures only if the site's verified-claims table
   has them (a baked-in number needs a re-render to fix).
 
+**Evidence before announcing** (2026-09-28): a feature list built from
+release notes is not yet announceable. Check each item against production and
+the plans: new or a fix of an older feature, GA or beta (show the beta badge;
+V5 hid it), which plan it needs, and its defaults. The BikeCRM newsletter's
+evidence pass caught four slips in the September copy after the videos were
+made; do this check before the videos, not after.
+
 **Cadence** (Oriol, 2026-09-28): feature announcements are time-sensitive
 and go out as soon as possible — the compilation first (so the WhatsApp
 channel and newsletter can link it the same day), then the single videos one
