@@ -1,6 +1,6 @@
 ---
 name: content-creation
-description: Make marketing and product content for any of our products — edit filmed customer interviews (transcribe, trim head/tail, cut flubs/retakes/unanswered questions into a lossless raw cut, a long YouTube episode with sections and chapters, speaker-framed vertical clips with LLM-reviewed subtitles, a content plan with the publishing order), feature videos made in parallel on a shared kit and joined into a compilation (the newsletter / WhatsApp-channel / YouTube video) with a channel message, publishing through Postiz (Instagram Reels, YouTube Shorts, a publication register, a pacing monitor), and four kinds of made video, each with its own pipeline (a PROMO launch/brag video via the /brag-slim skill; a FEATURE HIGHLIGHT, one feature at a readable pace with music; an ANIMATED HOW-TO series of short step-by-step clips on a shared HTML kit; a SCREEN RECORDING of the real app driven by Playwright with redaction, captions and phone framing), assembling clips into a size-capped deliverable (tenders, 25 MB H.265), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26: render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "feature video / highlight this feature", "tutorial / how-to video", "record the screen / screen recording of the app", "edit / transcribe / cut this customer interview", "make feature videos of what we shipped", "compile the feature videos", "schedule these on Postiz / Instagram / YouTube", "write the WhatsApp channel message", "videos for a tender / licitació", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
+description: Make marketing and product content for any of our products — edit filmed customer interviews (transcribe, trim head/tail, cut flubs/retakes/unanswered questions into a lossless raw cut, a long YouTube episode with sections and chapters, speaker-framed vertical clips with LLM-reviewed subtitles, a content plan with the publishing order), feature videos made in parallel on a shared kit and joined into a compilation (the newsletter / WhatsApp-channel / YouTube video) with a channel message, publishing through Postiz (Instagram Reels, YouTube Shorts, a publication register, a pacing monitor), and four kinds of made video, each with its own pipeline (a PROMO launch/brag video via the /brag-slim skill; a FEATURE HIGHLIGHT, one feature at a readable pace with music; an ANIMATED HOW-TO series of short step-by-step clips on a shared HTML kit; a SCREEN RECORDING of the real app driven by Playwright with redaction, captions and phone framing), assembling clips into a size-capped deliverable (tenders, 25 MB H.265), Reels/Shorts vertical cuts, share copy, posters, concept illustrations for product sites (composed app cards, not screenshots; HTML rendered to transparent WebP with a checked contact sheet), putting the finished video on the product's website, keeping every asset's sources in the site repo (build-excluded `content-sources/`, no masters or intermediates in git), per-language renders, byte-reproducible re-encodes, and showing video in newsletters (a linked still or GIF, never an embedded MP4). Carries Oriol's content preferences (the real product shown as concept illustrations rather than raw screenshots, the product's own copy and claims, the market's language, no generic SaaS phrasing), the field lessons from the BikeCRM launch video (2026-09-26; render pipeline, verifying a soundtrack you cannot hear, vertical safe zones, transition collisions), and the web-embedding rules (self-hosted H.264 MP4, click-to-play vs muted autoplay, preload, posters, per-breakpoint cuts, per-locale pages, file-size budgets). Use when the user says "make a video / launch video / promo / brag about this", "feature video / highlight this feature", "tutorial / how-to video", "record the screen / screen recording of the app", "edit / transcribe / cut this customer interview", "make feature videos of what we shipped", "compile the feature videos", "schedule these on Postiz / Instagram / YouTube", "write the WhatsApp channel message", "videos for a tender / licitació", "/brag", "make a vertical version for reels/tiktok/shorts", "write the share copy / post", "add the video to the website / landing page", "how do we embed this video", "is mp4 the right format", or asks for social or marketing content for BikeCRM, EnaCast, Panotxa or any other project.
 ---
 
 # Content creation
@@ -279,7 +279,16 @@ release notes is not yet announceable. Check each item against production and
 the plans: new or a fix of an older feature, GA or beta (show the beta badge;
 V5 hid it), which plan it needs, and its defaults. The BikeCRM newsletter's
 evidence pass caught four slips in the September copy after the videos were
-made; do this check before the videos, not after.
+made; do this check before the videos, not after. The same day's WhatsApp
+channel copy, written by the content session, called the daily digest opt-in
+(it is ON by default for owners), listed the invoice book as new (a fix to a
+February feature) and included a feature whose catalog still carries a beta
+badge. So the content repo verifies, **before writing any copy**: production
+availability, plan eligibility (Plus-only is labelled), defaults, and the exact
+UI labels from the deployed i18n catalog; and it **hands that evidence along
+with the copy** (sources per claim in the video README or `copy/`). A newsletter
+or any other channel that reuses social copy re-verifies it against production
+and plan evidence; it is never pasted in as-is.
 
 **Cadence** (Oriol, 2026-09-28): feature announcements are time-sensitive
 and go out as soon as possible — the compilation first (so the WhatsApp
@@ -721,12 +730,19 @@ this section keeps the rules and the lessons.
    and the verticals as Shorts), Instagram Reels, TikTok and LinkedIn;
    the plan says which pieces go where and adapts the caption to each.
 **The thumbnail style Oriol liked** (2026-09-28, BikeCRM September newsletter
-   image): the headline on a solid dark brand panel on the left (a small kicker,
-   the big line in the brand orange, a white second line, the orange bar, the
-   logo at the bottom), the **real app card from the video** on the right, a
-   short fade between them, and for email a drawn play button over the card.
+   image; full spec in [Video in newsletters and emails](#video-in-newsletters-and-emails)):
+   text on a dark brand panel on the left, the **real app screen from the
+   video** on the right, a fade between them, a drawn play button for email.
    It is the default for compilations and newsletter images; for a person
    (an interview), the mirror: the face on the left, the text on the right.
+   **YouTube: set the custom thumbnail yourself.** Postiz cannot set or change
+   a thumbnail after publishing; YouTube then shows an auto-picked frame
+   (verified 2026-09-28 on the BikeCRM compilation via
+   `https://i.ytimg.com/vi/<id>/maxresdefault.jpg`). Upload the custom one in
+   YouTube Studio (a user step: `USER_TODO.md`), or at creation time: Postiz's
+   YouTube settings document an optional `thumbnail` media object (`postiz`
+   skill, `PROVIDER_SETTINGS.md`; not yet tried by us). Check the
+   `maxresdefault.jpg` afterwards.
    **Thumbnails are a reproducible step** (Oriol, 2026-09-28: "be smart with
    thumbnails"): a spec per interview (frame time on the raw cut + three
    text lines from the plan or the transcript) rendered through a brand
@@ -969,16 +985,44 @@ client). The BikeCRM newsletter's own
 [email-HTML rules](../../../../BikeCRM/bikecrm-newsletter/.agents/skills/bikecrm-email-html/SKILL.md)
 already forbid videos, iframes and forms. The pattern that works:
 
-- **A still that links to the video.** A settled frame (the poster rule above)
-  with a drawn play button, as an absolute-URL PNG/JPEG with explicit
-  width/height and real `alt` text, linking to where the clip plays: for a
-  feature issue, **the compilation on YouTube** (Oriol, 2026-09-28; first:
-  BikeCRM September, image `bikecrm.com/images/newsletter/2026-09-novedades-video-v1.jpg`,
-  1200×675 = 2× the 552 px it is shown at, ~80 KB, a **versioned name whose bytes
-  never change** because the prepared email is frozen; the newsletter checks
-  the live bytes' sha256 before sending), otherwise the product site's page or
-  anchor for the feature. Most readers see it; the click lands where sound and
-  controls work. Make it with the thumbnail spec (`play: true`, `size`).
+- **A linked JPEG thumbnail, never an embedded video, iframe or MP4.** It links
+  to where the clip plays: for a feature issue, **the compilation on YouTube**
+  (Oriol, 2026-09-28), otherwise the product site's page or anchor for the
+  feature. Most readers see it; the click lands where sound and controls work.
+  The spec (first run: BikeCRM September 2026):
+  - **1200×675 JPEG** (shown ~552 px wide in a 600 px email, so 2× for retina),
+    **≤ 150 KB** (BikeCRM's is ~78 KB), the **play button drawn into the image**
+    (no CSS overlays in email), in the default style below.
+  - In the HTML: explicit `width`/`height`, real `alt` text ("Vídeo: ..."), and a
+    **caption link under the image** to the same URL (readers with images off
+    still get a link). The plain-text part carries `caption: video URL`.
+  - **Hosted at a stable public HTTPS URL with a versioned filename that is never
+    overwritten** (`https://bikecrm.com/images/newsletter/2026-09-novedades-video-v1.jpg`;
+    a changed image becomes `-v2`), because the prepared email is frozen.
+    Reference implementation, the BikeCRM newsletter
+    ([authoring guide, "Linking a video"](../../../../BikeCRM/bikecrm-newsletter/docs/authoring.md)):
+    five frontmatter fields (`VIDEO_FIELDS` in `newsletter/rendering.py`) and
+    one `{{video}}` paragraph rendered by `video_block`; the JPEG is frozen as
+    `video.jpg` in the campaign bundle and embedded as a data URI in the
+    offline preview and PDF; before every test or client send
+    `verify_video_image` (`newsletter/workflow.py`) calls `verify_asset`
+    (`newsletter/provider.py`), which downloads the public URL (no auth
+    header, no redirects, 1 MB cap) and refuses to continue unless its sha256
+    matches the frozen bytes. The EnaCast newsletter has not ported it yet
+    (planned in its `TODO.md`).
+  - **The default thumbnail style** (Oriol liked it, 2026-09-28; BikeCRM
+    September: `bikecrm-content-creation/videos/2026-09-28-novedades-septiembre/thumbnail/email-play-1200x675.jpg`,
+    rendered by that repo's `scripts/render_thumbnails.py` from the folder's
+    `thumbnail.json`, variant `email-play-1200x675`: `t`, `side: left`,
+    `play: true`, `size`, three text lines). Left ~45 %: a solid dark panel
+    (`#1f1f1f`-ish) with a small white kicker ("Novedades de BikeCRM"), a large
+    headline in the brand orange ("5 novedades"), a white second line ("de
+    septiembre"), a short orange underline, the logo bottom-left. Right ~55 %:
+    a **real app screen from the video** (here the shared-terminal lock screen
+    «¿Quién está trabajando?»), fading in from the dark panel, with a
+    semi-transparent dark circular play button drawn over it. Same layout
+    without the button for the YouTube thumbnail; other products swap in
+    their own brand colours and type.
 - **Or a short animated GIF** for a feature that is pure motion (a click and
   its result): 3-6 s, 600 px wide, few colours, under ~1 MB. Outlook desktop
   shows only frame 0, so frame 0 must stand alone as a still (the poster rule
