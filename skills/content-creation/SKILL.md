@@ -270,6 +270,26 @@ fast-cut defaults are what made v1 unreadable.
     2026-09-28 are `yuvj420p`; re-render before publishing.
   - A time map can also shorten: a slow with factor < 1 compresses a stretch
     where nothing moves, trimming the tails left after adding holds.
+- **Lessons from EnaCast's September set** (2026-09-28: seven feature videos,
+  one agent each, in parallel, plus the compilation):
+  - **Parallel agents on one machine share process names.** One agent's
+    `pkill -f build-video.sh` killed three other videos' renders; stop only
+    the PIDs you started. Give each render its own log (under the video's
+    `work/`, not a shared scratchpad), never pipe `make video` through `tail`
+    in a loop (the pipe's exit 0 hid a missing cut), and check every mp4 has
+    its sidecar before calling a video done.
+  - **Re-verify labels even from a sent newsletter.** The 21 September issue
+    called the schedule dropdown "Repetició"; the product had renamed it
+    "Periodicitat" before the deploy. Quote the deployed catalog, never an
+    earlier announcement.
+  - **Release notes go stale on deploy status.** EnaCast's public-site notes
+    still said "not deployed" for pages that answered 200 on client sites; a
+    live `curl` of the page settles it.
+  - **Two features in one video run long.** "Periodicitat i vacances" needed
+    50 s at reading pace; going over the 45 s ceiling beat dropping a beat.
+  - The thumbnail headline must auto-fit ("7 novedades" wrapped at the
+    Catalan size): EnaCast's `shared/brand/thumbnail-16x9.html` shrinks it
+    until each authored line stays one line.
 - **One claim, the site's claim**: the promise line comes from the feature's
   release note or site copy; figures only if the site's verified-claims table
   has them (a baked-in number needs a re-render to fix).
