@@ -267,6 +267,23 @@ fast-cut defaults are what made v1 unreadable.
   release note or site copy; figures only if the site's verified-claims table
   has them (a baked-in number needs a re-render to fix).
 
+### The compilation (the "novedades" video)
+
+Oriol, 2026-09-28: several feature highlights **joined one after another
+with a good transition** make one video, and **this is the kind of video
+sent in the newsletter and the WhatsApp channel and uploaded to YouTube**
+(the single highlights stay for social and the feature's own place).
+- Join the finished cuts in order, no re-authoring; a brand transition
+  between them (a short wipe/crossfade in the brand colours, the sound
+  crossfaded), the repeated per-video outros removed so only the last
+  one remains (cut each video where its outro starts), one intro/title
+  if it helps.
+- One encode at the end: 16:9 1080p H.264 for YouTube (chapters in the
+  description, one per feature, first at 00:00); the newsletter gets a
+  poster still / GIF linking to it (never an embedded MP4); for the
+  WhatsApp channel, the file itself (as a document) or the YouTube link.
+- Loudness −14 LUFS on the whole; check every seam on stills and by ear.
+
 ### The announcement package
 
 A feature lands when the video arrives with everything around it. Plan the
