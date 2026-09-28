@@ -31,6 +31,8 @@ is a how-to; "prove it works" is a recording; a promo is for the whole product.
 | Uses | site hero, social | release announcements, the feature's section on the site, newsletter issue, WhatsApp/social share | help centre, onboarding, commercial showcase, the storyboard/checklist for a recording | tenders and proofs, support, "is this real?" |
 | Reference | BikeCRM / EnaCast launch videos | EnaCast "Seccions habituals" v2, `enacast-content-creation/videos/2026-09-27-seccions-habituals/` | Ràdio Sant Vicenç tender, `enacast-content-creation/videos/2026-09-27-licitacio-rsv/animated/` | same folder, `recorded/` |
 
+**A screen recording is never the announcement video** (Oriol: feature
+announcements are concept animations); recordings are for proofs and tenders.
 The how-to and the recording are usually made **together, clip by clip**: the
 animation is the precise storyboard (what must be visible, in what order), the
 recording proves it on the real app, and the gaps between them are product
@@ -950,9 +952,14 @@ already forbid videos, iframes and forms. The pattern that works:
 
 - **A still that links to the video.** A settled frame (the poster rule above)
   with a drawn play button, as an absolute-URL PNG/JPEG with explicit
-  width/height and real `alt` text, linking to a web page that plays the clip
-  (the product site, one page or anchor per feature). Most readers see it; the
-  click lands where sound and controls work.
+  width/height and real `alt` text, linking to where the clip plays: for a
+  feature issue, **the compilation on YouTube** (Oriol, 2026-09-28; first:
+  BikeCRM September, image `bikecrm.com/images/newsletter/2026-09-novedades-video-v1.jpg`,
+  1200×675 = 2× the 552 px it is shown at, ~80 KB, a **versioned name whose bytes
+  never change** because the prepared email is frozen; the newsletter checks
+  the live bytes' sha256 before sending), otherwise the product site's page or
+  anchor for the feature. Most readers see it; the click lands where sound and
+  controls work. Make it with the thumbnail spec (`play: true`, `size`).
 - **Or a short animated GIF** for a feature that is pure motion (a click and
   its result): 3-6 s, 600 px wide, few colours, under ~1 MB. Outlook desktop
   shows only frame 0, so frame 0 must stand alone as a still (the poster rule
