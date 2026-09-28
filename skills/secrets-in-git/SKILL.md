@@ -36,8 +36,10 @@ token belongs to.
 
 ## The model: three places a secret lives
 
-1. **The provider / SaaS store** — Coolify env vars, Vercel env, the
-   provider's own dashboard. Runtime source of truth for the deployed app.
+1. **The provider / SaaS store** — Coolify env vars, Vercel env, Cloudflare
+   Worker secrets (`wrangler secret put` / `wrangler secret bulk`; write-only,
+   `wrangler secret list` shows names, never values), the provider's own
+   dashboard. Runtime source of truth for the deployed app.
 2. **The repo's encrypted store** — `secrets/*.enc`, committed. The
    durable copy and the cross-machine carrier: a fresh clone + one
    `make secrets-decrypt` restores everything.
@@ -309,8 +311,11 @@ Correct a stale bullet in place; never append a contradicting one.
 
 - **Rotation = new value at the provider → edit the plaintext →
   `make secrets-encrypt FILE=…` → commit the `.enc` → update every
-  consumer that holds a copy** (Coolify env, hub config, the deployed
-  `~/.config/...` file via the ansible tag). The catalog's "consumers"
+  consumer that holds a copy** (Coolify env, Worker secrets, hub config,
+  the deployed `~/.config/...` file via the ansible tag). A Worker secret
+  is never the only copy: the value it was set from stays in hq
+  `homelab/secrets/` (e.g. the BikeCRM Postiz queue Worker reuses
+  `postiz-smartupsoft.env`, `coolify-envs.env` Pushover, `resend.env`). The catalog's "consumers"
   line is the checklist.
 - **Git history keeps every old ciphertext forever.** Changing the
   passphrase does not un-leak anything already committed; if the

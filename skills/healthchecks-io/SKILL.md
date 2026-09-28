@@ -17,7 +17,7 @@ are per-project**. Keys live in `hq/homelab/secrets/healthchecks.env` as
 | `ORIOLJ` | delivered | API-verified, 0 checks (fresh) |
 | `ENANTENA` | delivered | API-verified, 12 checks |
 | bikecrm | ⏳ | Oriol's paste duplicated the enantena key — not stored |
-| smartupsoft | ⏳ | unknown whether the project exists |
+| smartupsoft | ⏳ | still missing (2026-09-28): blocks the FichaChat beat dead-man switch and the ping of the BikeCRM Postiz pacing Worker (hq `USER_TODO.md`) |
 
 Checks in the oriolj project (2026-09-02, 11): `llmwatch-beat` (5 min/grace 15 min, fed by a no-op `beat_heartbeat` Celery task on a 5-min beat schedule — the beat→worker dead-man switch) + `llmwatch-dispatch-daily-batches` (1 h/30 min), `licita-radar-pipeline` (10-min supercronic pipeline, timeout 600 s / grace 900 s) + `licita-radar-daily-digest` (cron `0 7 * * *` UTC, grace 1 h) — both pinged by the repo's `backend/run-job.sh` wrapper (the supercronic variant below), `panotxa-orphan-resume`
 (hourly Celery sweep ping), `talaia-scheduler` (pinged by talaia's most
@@ -95,6 +95,16 @@ success) beats one-check-per-job; per-job depth belongs in Grafana
   keep meaning what they mean. Unset URL = no ping (dev/tests). The
   crontab needs `sh -c` semantics (supercronic runs commands through
   `$SHELL -c`, default `/bin/sh`) — quote the whole command as one arg.
+- **Cloudflare Worker with a Cron Trigger** (the estate default for small
+  API-only scheduled checks since 2026-09-28; `cloudflare-deploy` skill):
+  the ping URL is a Worker secret (`HC_PING_URL`), pinged at the end of
+  each successful run, best-effort; unset = no ping. First:
+  `bikecrm-postiz-queue-check`, waiting for the SmartupSoft key.
+- **Dead-man switch for a human action** (hq `growth/pacing.md`): a check
+  with a long period (e.g. 7 days) pinged by the action itself (a send
+  script, a posting step, a `make` target), or by a pacing Worker only
+  when the measured pace is met — so doing nothing is what alerts, and
+  healthchecks owns the grace period and routing.
 - 🔴 **Audit where an EXISTING ping sits relative to the job's error
   handling — a green check is not evidence.** EnaStats' 20 s stats
   collector (a `while True` management command, not Celery) pinged the

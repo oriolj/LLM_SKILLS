@@ -35,6 +35,13 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
 5. Low volume only. No bulk sends, no messaging strangers cold: WhatsApp
    rate-limits new chats (`/api/sessions/{s}/capping`, and error **463** =
    "reachout timelock", `/api/sessions/{s}/timelock`) and can ban the number.
+6. **Product WhatsApp channels (`@newsletter`) are not ours to post in.**
+   Only Oriol posts in a product's clients' channel (BikeCRM, 2026-09-28):
+   the agent prepares the channel message (`whatsapp-canal.md` next to the
+   compilation, `content-creation` skill "The compilation") and puts the send
+   in the content repo's `USER_TODO.md`. Channels are one-way, so the message
+   points readers to the product's help/docs, not "reply here". What this
+   session sends is Oriol's review copy (a render as a document, below).
 
 ## Where it runs
 

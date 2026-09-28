@@ -14,7 +14,8 @@ details:
 | Topic | Owning skill |
 |---|---|
 | Design critique, polish, typography, layout | **impeccable** (`critique`, `audit`, `polish`, …) |
-| Video, posters, product stills, share copy | **content-creation** (makes them with `/brag-slim`) |
+| Video, posters, product stills, share copy | **content-creation** (promo via `/brag-slim`, feature highlights, the "novedades" compilation for newsletter / WhatsApp channel / YouTube, the announcement package) |
+| Social posting and scheduling (Reels, Shorts, the publication register) | **content-creation** + the `postiz` skill; one Postiz Cloud account per company (hq `shared/docs/postiz-cloud.md`) |
 | Titles, canonical, hreflang, JSON-LD, AI crawlers | **seo** (load it for every site review) |
 | Build-time performance: budgets, images, fonts, JS, video, cache headers per host, CI gate | **static-site-performance** (load it for every site review) |
 | LCP / CLS / INP measurement and fixes | **core-web-vitals** |

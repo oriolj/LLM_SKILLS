@@ -784,6 +784,19 @@ series gets `noDataState: OK` — `hq-target-down` owns scrape loss. Token + use
 Grafana's `$__file{...}` provisioning interpolation — **verified working**
 alongside `$__env{...}` (2026-08-25).
 
+**Every Pushover sender logs one line per push** to stdout —
+`pushover sent: <title> priority=<n>` (`pushover FAILED: …` on rejection) —
+so it lands in Loki under the project's labels and `make logs-pushover`
+(hq root Makefile) sees every page from every sender; Pushover keeps no
+history, so an unlogged send is unrecoverable. A new sender is not done
+until its lines show there. **Exception still open (2026-09-28): Cloudflare
+Worker senders** (the estate default for small scheduled checks, e.g. the
+BikeCRM Postiz pacing Worker `bikecrm-postiz-queue-check`) log the same
+line, but only to Workers logs (`[observability] enabled`): a Worker cannot
+reach the tailnet-only Loki, so their sends are invisible to
+`make logs-pushover` until a public path exists (Logpush or a public Loki
+writer). List each such sender in hq `shared/docs/alerting.md`.
+
 **Provisioned alert rules do NOT die with their file.** Deleting a
 provisioning yml only stops UPDATES — the rules live on in grafana.db,
 still firing (a leftover always-true test rule paged every 30 m for an

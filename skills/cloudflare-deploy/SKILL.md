@@ -1,6 +1,6 @@
 ---
 name: cloudflare-deploy
-description: Deploy and operate services on Cloudflare — Pages (static Astro sites), custom domains on external-DNS zones, R2 S3-compatible storage, API/wrangler auth. Use when deploying a static site to Cloudflare Pages, when the user says "deploy to cloudflare pages" / "pages not workers", when wiring a custom domain onto a Pages project whose zone is NOT on Cloudflare (CNAME validation), when using the ENACAST_ Cloudflare credentials from homelab/secrets, or when touching R2 via the S3 API. Also use when a deployed static site shows localhost/dev URLs in production, or when visitors report a browser prompt like "<site> wants to access devices on your local network" (build-time PUBLIC_*/VITE_*/NEXT_PUBLIC_* fallback leaked into the artifact — section 1b). Also when an MP4 on Pages does not play on iPhone (no Range/206), unknown URLs answer the home page with 200, or a token that verifies fine gets 10000 / 9109 (client-IP filter). Covers wrangler direct-upload deploys, the Pages-vs-Workers rule for static sites, pre-deploy artifact gating + post-deploy smoke tests, custom-domain attach + external-DNS CNAME flow, and credential handling.
+description: Deploy and operate services on Cloudflare — Pages (static Astro sites), custom domains on external-DNS zones, R2 S3-compatible storage, API/wrangler auth, and small scheduled checks as Workers with Cron Triggers. Use when deploying a static site to Cloudflare Pages, when the user says "deploy to cloudflare pages" / "pages not workers", when wiring a custom domain onto a Pages project whose zone is NOT on Cloudflare (CNAME validation), when using the ENACAST_ Cloudflare credentials from homelab/secrets, when touching R2 via the S3 API, or when writing a scheduled monitor/pacing check (Worker + Cron Trigger). Also use when a deployed static site shows localhost/dev URLs in production, or when visitors report a browser prompt like "<site> wants to access devices on your local network" (build-time PUBLIC_*/VITE_*/NEXT_PUBLIC_* fallback leaked into the artifact — section 1b). Also when an MP4 on Pages does not play on iPhone (no Range/206), unknown URLs answer the home page with 200, or a token that verifies fine gets 10000 / 9109 (client-IP filter). Covers wrangler direct-upload deploys, the Pages-vs-Workers rule for static sites, pre-deploy artifact gating + post-deploy smoke tests, custom-domain attach + external-DNS CNAME flow, and credential handling.
 ---
 
 # Cloudflare deployments
@@ -14,6 +14,20 @@ with the EnaChat comercial Astro site → Cloudflare Pages.
   Astro sites are built as purely static output (`astro build` → `dist/`) —
   no adapter, no SSR, no `@astrojs/cloudflare`. If a site seems to need SSR,
   ask before reaching for Workers.
+- **Small scheduled checks ARE Workers: a Worker with a Cron Trigger**
+  (Oriol, 2026-09-28; global CLAUDE "Scheduled checks and monitors") for a
+  job that only talks to APIs — a SaaS queue/quota/expiry check, a
+  dead-man ping, a digest mail — instead of a server cron or a Celery beat
+  added for it. The scope's Cloudflare account, source in the product's
+  repo (`wrangler.toml` + worker, `wrangler deploy`), credentials as Worker
+  secrets (`wrangler secret bulk`; durable copy in hq `homelab/secrets/`),
+  alerts Pushover + Resend email, a healthchecks.io ping per run. Cron
+  Triggers need the account's **workers.dev subdomain registered** even
+  when the Worker sets `workers_dev = false` (no public URL); set
+  `[observability] enabled = true` for its logs. Reference: BikeCRM
+  `bikecrm-postiz-queue-check` (SmartupSoft account,
+  `bikecrm-content-creation/monitors/postiz-queue/`, hq `growth/pacing.md`).
+  Needs a host (tailnet, local files, long runtimes) → supercronic/beat.
 - Credentials live in `hq/homelab/secrets/cloudflare-enacast.env`
   (age-encrypted committed copy; `ENACAST_` prefix): API token, account id,
   R2 access-key pair + endpoint. Parse with grep/cut or the ansible
