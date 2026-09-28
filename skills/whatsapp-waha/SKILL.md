@@ -36,6 +36,13 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
    the recipient is ambiguous (two "Anna"s, a name not found), stop and ask —
    show the candidate ids from `wa.py find`. Show the exact text you sent in
    your reply.
+   **After a send to a customer or lead, log it in H2A-LeadHunter**, the
+   source of truth for leads (Oriol, 2026-09-28). Use `POST /api/messages/`
+   with `{account, direction:"outbound", channel:"whatsapp", original_text,
+   original_language, generation_mode:"log_sent", status:"sent", sent_at}`.
+   Log replies as `direction:"inbound"`. The token and the other mechanics
+   are in hq growth/outreach. BikeCRM leads are in LeadHunter project
+   `smartupsoft`.
 3. **Reminders** ("remind X to…"): send one message now, unless a time is
    given — then schedule it (CronCreate / a one-off timer) and say when it
    will go out. Never repeat a reminder unasked.
