@@ -41,8 +41,8 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
    with `{account, direction:"outbound", channel:"whatsapp", original_text,
    original_language, generation_mode:"log_sent", status:"sent", sent_at}`.
    Log replies as `direction:"inbound"`. The token and the other mechanics
-   are in hq growth/outreach. BikeCRM leads are in LeadHunter project
-   `smartupsoft`.
+   are in hq growth/outreach. BikeCRM leads are in LeadHunter project `bikecrm` (organization
+   `smartupsoft`; since 2026-09-28 `?project=smartupsoft` matches nothing).
 3. **Reminders** ("remind X to…"): send one message now, unless a time is
    given — then schedule it (CronCreate / a one-off timer) and say when it
    will go out. Never repeat a reminder unasked.
