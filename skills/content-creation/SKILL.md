@@ -283,6 +283,12 @@ sent in the newsletter and the WhatsApp channel and uploaded to YouTube**
   poster still / GIF linking to it (never an embedded MP4); for the
   WhatsApp channel, the file itself (as a document) or the YouTube link.
 - Loudness −14 LUFS on the whole; check every seam on stills and by ear.
+- First run (BikeCRM, 2026-09-28): `make compile V=<folder>` in the content
+  repo (`scripts/compile_videos.py`, spec `compilation.json` with each item's
+  `outro_start`), V1→V5 = 3:21, xfade `smoothleft` 0.6 s + acrossfade, both
+  formats in one run (~1 min each), chapters.md written. Five feature videos
+  were made in parallel by one agent each on the shared kit, then reviewed
+  from sampled frames before joining.
 
 ### The announcement package
 
