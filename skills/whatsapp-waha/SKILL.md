@@ -27,7 +27,7 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
      (Oriol, 2026-09-28): look the person up there before `wa.py find`. "Enric" is
      Enric Riba's personal number by default, and his work one only when Oriol
      says "feina" or "both". Add a row when Oriol names someone new.
-2. **Anyone other than Oriol or Enric gets a draft first** (Oriol, 2026-09-28): show him the session, the recipient and the exact text, and send only after he approves it. Oriol and Enric (both of Enric's numbers) can be messaged directly when asked.
+2. **Anyone outside the team gets a draft first** (Oriol, 2026-09-28; same rule in the global CLAUDE.md, for every project and channel): show him the session, the recipient and the exact text, and send only after he approves it. The team is Oriol and Enric (both of Enric's numbers), plus whoever a project's CLAUDE.md names as its team; they can be messaged directly when asked.
    **Send only what Oriol asked for, to whom he asked.** His request is the
    authorization; do not add recipients, follow-ups or "friendly" extras. If
    the recipient is ambiguous (two "Anna"s, a name not found), stop and ask —
