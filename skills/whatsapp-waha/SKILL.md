@@ -122,7 +122,7 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
   `/api/sendImage|sendFile|sendVideo {file:{mimetype,url}|{mimetype,data(b64)}, caption}`,
   `/api/sendVoice {file, convert:true}` (ffmpeg → opus). Typing:
   `/api/startTyping`, `/api/stopTyping`. Reactions `PUT /api/reaction`.
-  Edit/delete own message: `PUT|DELETE /api/personal/chats/{chat}/messages/{id}`.
+  Edit/delete own message: `PUT|DELETE /api/personal/chats/{chat}/messages/{id}`. Editing was verified on 2026-09-28: `PUT` with `{"text"}` inside WhatsApp's 15-minute window, and the receiver sees the edited text. **But a `PUT` on a message already deleted from the phone also answers 200 and does nothing.** Before editing, check that the id still exists with `GET …/messages/{id}`, which answers 404 when it is gone. In the chat list the deleted one shows as `type: revoked`.
 - **Read**: `GET /api/personal/chats/overview?limit=` (name + last message),
   `GET /api/personal/chats/{chatId}/messages?limit=&sortOrder=desc&downloadMedia=true`
   (`limit` is required; filters `filter.timestamp.gte/lte`, `filter.fromMe`;
