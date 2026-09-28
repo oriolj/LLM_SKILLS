@@ -95,6 +95,17 @@ reasoned 2,350 tokens to write 60 characters.
 - **Freeze the prompt's source, not the assembled prompt**, when the prompt is built
   from data; freeze Langfuse prompts into the manifest so edits there don't change a
   rerun.
+- **The judge sees the writer's prompt, instructions included**, not only the source:
+  LeadHunter 2026-09-28, judges given only the scraped page counted the inference the
+  prompt *requires* (country from phone code and postal-code format) as invented.
+  Extract the prompt builder and pass its output to `judge_input`.
+- **The claim verifier must accept faithful paraphrase** and check the seller's own
+  product claims against the product description in the source; a strict verifier
+  flagged "X automates podcast creation" against "automated transcription and
+  distribution" and inflated every row's hallucination rate. Version the claim prompt
+  (`CLAIM_VERSION` in the cache key) so a fix re-runs only the claims.
+- **A production function that swallows model errors** (returns `[]` on exception)
+  must count as a failure: fail the item when the call recorder saw no successful call.
 - **Reasoning tokens are the hidden cost** of short outputs; bench effort levels
   (minimal/low/medium) as well as models.
 - **The model matters more than the prompt** (both EnaCast benches), but prompts
@@ -167,6 +178,16 @@ asked for the bench; state the estimate (`--dry-run`) before long runs.
 - **EnaCast (text, OpenRouter)** — reference implementations: enacast
   `enacast_backend/llm_bench/` + `docs/llm_bench.md`, enacast-ai
   `backend/enacast_ai/bench/` + `backend/docs/{BENCH,ACCURACY,QUOTING,LLM_NOTES}.md`.
+- **LeadHunter (text, PydanticAI 2.x, Gemini direct + OpenRouter)** — reference for
+  a PydanticAI codebase whose prompts take ORM objects (2026-09-28): humans2agents
+  `agents/leadhunter/backend/leadhunterbackend/llm_bench/` + `backend/bench/`, docs
+  `backend/docs/{LLM_BENCH,LLM_USAGE,LLM_NOTES}.md`, `make bench-*`. Adapters rebuild
+  **unsaved** model instances from frozen fields and call the production prompt builders
+  (a patched `Campaign.icp` property returns the frozen persona), so nothing touches
+  the DB; datasets are built from a prod dump restored into a separate local DB
+  (`make bench-source-db`), never the dev DB. First reading: gpt-6-luna/low 91.8 vs
+  gemini-3.1-flash-lite 80.2 over 5 features. The bench also exposed that prod's
+  `google-gla:` model id is dead on pydantic-ai 2.x.
 - **Panotxa / NutriLens (vision, google-genai direct)** — reference implementation
   for vision since 2026-09-24: `backend/nutrilens/llm_bench/` + `backend/bench/`
   (`make bench-*`), docs `backend/docs/{LLM_BENCH,LLM_USAGE,LLM_NOTES}.md` + the plan

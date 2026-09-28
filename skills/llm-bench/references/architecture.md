@@ -118,6 +118,8 @@ def bench_mode(*, effort=None, frozen_prompts=None):
 
 Rules that came from real bugs:
 
+- **pydantic-ai 2.x model ids**: `google:` (the 1.x `google-gla:` raises "Unknown model" at the first call), `openrouter:vendor/model`, `openai:`. `RunUsage` has only `input_tokens`/`output_tokens`; `_cached_async_http_client` is gone. Run the bench on the SAME pydantic-ai version production installs (check the running container), or a replay can pass while production fails.
+
 - **A bench never writes to production Langfuse.** Disable the client *and*
   `LANGFUSE_TRACING_ENABLED` (the `@observe` decorator and PydanticAI/OTel
   instrumentation do not go through your client getter). Unit tests need the same
@@ -159,6 +161,7 @@ finish reason, BYOK flag. Transports seen in the estate:
 | `requests.post` to OpenRouter | `mock.patch("requests.post", recording_post)` |
 | `httpx` (OpenAI SDK, PydanticAI, google-genai all use it) | `httpx.Client.send` / `httpx.AsyncClient.send` |
 | PydanticAI | also `result.usage()` after the run; cost is not in it — compute from the price table |
+| PydanticAI **2.x** OpenAI / OpenRouter providers | `httpx2.AsyncClient.send` (a separate package — patching `httpx` sees nothing); google-genai still uses `httpx` |
 | google-genai direct | `response.usage_metadata` (prompt/candidates/thoughts token counts); no cost field |
 
 Cost, in order of trust: OpenRouter body `usage.cost_details.upstream_inference_cost`
