@@ -87,7 +87,7 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 
 - **Auth**: header `X-Api-Key: <WAHA_API_KEY>` on every `/api/*` call; 401
   without it. `/ping` and `/health` are open.
-- **Session**: Core runs ONE session. Oriol's is named **`personal`** (created from the dashboard 2026-09-26; `default` no longer exists), so paths below read `/api/personal/…`; wa.py uses the one WORKING session unless `WAHA_SESSION` is set. Status flow `STARTING` →
+- **Session**: multiple sessions are allowed — since WAHA 2026.6.1 every former Plus feature (unlimited sessions, media) is in the free Core image ([docs](https://waha.devlike.pro/docs/how-to/waha-plus/), checked 2026-09-28; our `2026.9.1` reports tier `CORE`). Each session is its own linked number. Oriol's is named **`personal`** (created from the dashboard 2026-09-26; `default` no longer exists), so paths below read `/api/personal/…`; wa.py uses the one WORKING session unless `WAHA_SESSION` is set, and refuses to guess once two are WORKING. Status flow `STARTING` →
   `SCAN_QR_CODE` → `WORKING` (or `FAILED`/`STOPPED`). Pair by
   `GET /api/personal/auth/qr?format=image` (`Accept: image/png`, the first code
   lives ~60 s, then 20 s each), or by phone code:
