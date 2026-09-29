@@ -54,7 +54,15 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
    `smartupsoft`; since 2026-09-28 `?project=smartupsoft` matches nothing).
 3. **Reminders** ("remind X to…"): send one message now, unless a time is
    given — then schedule it (CronCreate / a one-off timer) and say when it
-   will go out. Never repeat a reminder unasked.
+   will go out. A scheduled send that must survive this session is a
+   one-off **user systemd timer** on minisforum (first used 2026-09-29):
+   put the approved text, a send-and-log script and a log file in
+   `~/.local/share/waha/scheduled/`, then run `systemd-run --user
+   --unit=wa-<who>-<date> --on-calendar="YYYY-MM-DD HH:MM:SS Europe/Madrid"
+   --timer-property=Persistent=false <script>`. `Persistent=false` means
+   that if the box was off, the message is not sent late at an odd hour.
+   The script logs to LeadHunter and mails Oriol "Sent" or "FAILED".
+   Cancel with `systemctl --user stop wa-<…>.timer`. Never repeat a reminder unasked.
 4. **Reading** chats and **transcribing** voice notes is read-only and
    needs no confirmation — but don't mark chats as read (`sendSeen`,
    `messages/read`) unless asked: the blue ticks tell people Oriol saw them.
