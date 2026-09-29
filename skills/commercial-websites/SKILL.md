@@ -128,6 +128,25 @@ Go through this list on every review; each line comes from a real miss.
   submit, or the retry re-sends a spent token and fails until reload. Run the
   cheap gates (signed challenge, honeypot, throttle) before siteverify; that is
   normal, and it is not a reason to move siteverify first.
+- **Turnstile has no Catalan** (EnaSuite, 2026-09-29). `data-language="ca"`
+  logs «Language ca is not supported, falling back to: en-us» — it still works,
+  but in English (verified in Chromium; the supported list has no `ca`, and
+  `auto` falls back the same way for a Catalan browser). Map `ca` → `es` for the
+  widget; keep the page itself in Catalan. Also: with **pre-clearance off**
+  (`clearance_level=no_clearance`, the default) Turnstile sets no
+  `cf_clearance` cookie on your domain, so it fits a zero-cookie site; name
+  Cloudflare as a strictly-necessary security processor in the privacy page. A
+  widget listing `example.com` covers its subdomains, and the API creates
+  widgets (`POST /accounts/{id}/challenges/widgets`, Turnstile Sites: Edit).
+  Headless Chromium never obtains a token on a real site key (bot-detected), so
+  prove a production widget with a real browser; the headless check only shows
+  that the widget loads without a Cloudflare error code (a hostname/key mismatch
+  logs `110200`/`110100` in the console).
+- **A per-account login lockout needs Turnstile in front of it**: challenge
+  tokens are free with a GET, so a lockout that refuses even the correct
+  password lets anyone keep a known admin locked out; and never add a *global*
+  per-hour cap on a login flow (a few IPs shadow-reject every real user as
+  «wrong password»). Rate refusals must say so.
 - **Cloudflare's "Siteverify isn't being called for <widget>" warning is a
   heuristic**, not proof of a missing integration: it compares tokens solved
   (one per page view) with siteverify calls, and also fires after 24 h without
