@@ -114,6 +114,29 @@ Go through this list on every review; each line comes from a real miss.
 - Lead capture goes to the product's real signup (with the estate anti-bot kit:
   Tor block, enforced Turnstile, signed challenge, honeypot, caps, POST-confirm;
   see the global rules), not to a second footer form with its own captcha.
+- **Turnstile on a static site, done right** (BikeCRM, 2026-09-29). The site
+  only renders the widget; the backend must call siteverify and check three
+  fields, not one: `success`, the `action` and the `hostname`. Give every form
+  its own `data-action` (`demo`, `newsletter`, `booking`) even when forms share
+  one widget, and reject a token whose action or hostname is not that form's:
+  checking `success` alone let a token solved on the newsletter page pass the
+  demo signup. Put the check in one backend helper with keyword args
+  (`turnstile_verified(secret, token, ip, action=, hostnames=)`), fail-closed on
+  any non-200, parse error or timeout, never one inline copy per form (BikeCRM
+  had three, and only one checked the action). Tokens are single-use and live
+  5 minutes: the form calls `turnstile.reset()` after ANY refused or failed
+  submit, or the retry re-sends a spent token and fails until reload. Run the
+  cheap gates (signed challenge, honeypot, throttle) before siteverify; that is
+  normal, and it is not a reason to move siteverify first.
+- **Cloudflare's "Siteverify isn't being called for <widget>" warning is a
+  heuristic**, not proof of a missing integration: it compares tokens solved
+  (one per page view) with siteverify calls, and also fires after 24 h without
+  a call. Before changing code, prove the wiring: the live page's `data-sitekey`
+  matches the widget, the backend secret's sha256 matches the widget's secret
+  (compare hashes, never print values), and the account GraphQL
+  `turnstileAdaptiveGroups` (filter `siteKey`, dimensions `date eventType
+  action`; one-week window max) shows `*_siteverify_*` events. BikeCRM had ~60
+  issued / 18 solved / 2 siteverify in a week, all correct.
 
 **Imagery**
 - **Concept illustrations, not screenshots** (Oriol, 2026-09-26: "I don't like
