@@ -1669,6 +1669,23 @@ api.resend.com; curl's default UA happens to pass).
   "The redis_conf should be base64 encoded"). It becomes
   `/usr/local/etc/redis/redis.conf`; `appendonly yes\nappendfsync everysec`
   there is how a Coolify Redis resource gets AOF (verify: `config get`).
+- 🔴 **2026-09-30 (Cuentakos): the API no longer accepts `host_path` at all** —
+  `POST …/storages {"type":"persistent", …, "host_path": …}` and the `PATCH`
+  conversion both answer 422 `host_path: This field is not allowed` (and
+  `fs_path` is "not valid for type persistent"); the OpenAPI spec lists no
+  `host_path` either. A bind mount is now a UI-only click (Storages →
+  "Directory Mount"). Without it, web + worker cannot share files; the
+  choices are a bucket (R2/S3 — needs a key that can create one) or, for a
+  small app, media in Postgres (a 40-line Django `DatabaseStorage` over a
+  `MediaBlob(name, content BinaryField)` table — shared by every resource and
+  covered by the DB backup). Same day: `GET /deploy` is now **POST**
+  (405 "This endpoint has changed to a POST request"); `POST /databases/redis`
+  wants `redis_conf` **base64-encoded** (422 otherwise); a new app's
+  `custom_labels` comes back from `GET` as **plain text**, not base64 (older
+  apps return base64 — decode defensively, send base64); and envs created by
+  the bulk API are passed at BUILD time too (the build log warns about
+  `APP_ENV`): the API exposes no runtime-only flag, so keep secrets out of
+  any Dockerfile `ARG`/`RUN` that could echo them.
 - **Named persistent storage cannot be shared between two resources** —
   Coolify prefixes the volume with the resource uuid, so a web and a
   worker each get a private volume. For media written by the worker and

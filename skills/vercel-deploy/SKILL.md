@@ -161,7 +161,7 @@ defaults to the team's current one). `POST /v10/projects/<name>/domains
 team already serves; add the DNS-only `CNAME → cname.vercel-dns.com` right
 after. A resolver that looked the host up before the record existed keeps
 answering NXDOMAIN for the zone's negative TTL — prove the deploy with
-`curl --resolve <host>:443:76.76.21.21` instead of waiting.
+`curl --resolve <host>:443:<ip>` instead of waiting — take the IP from `dig +short cname.vercel-dns.com @1.1.1.1` (it moves: 76.76.21.21 in 2026-09, 76.76.21.61 on 2026-10-01, when the old one no longer answered for a new project).
 
 ## Static Astro sites on Vercel (2026-09-26)
 
