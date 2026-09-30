@@ -853,8 +853,33 @@ every step is a `make` target in the content repo taking `I=<interview>`,
 and anything learned on one interview goes into the shared glossary, the
 scripts or this section, not only into that interview's folder.
 
-Steps 1–4 were first run on Sprint Bike on 2026-09-27; 5–9 are the plan.
-Correct this section as they are carried out.
+Every step was first run on Sprint Bike (2026-09-27); on 2026-09-30 four older
+BikeCRM interviews (2024 shoots) went through the whole pipeline in parallel,
+one agent per interview, and taught that **the shoot is not always the
+format**. Before step 3, check each one:
+
+- **Resolution and clips**: a 1080p shoot in several clips (one is the
+  interview); the episode scenes are rendered at 4K, so a 1080p source needs
+  the scenes scaled (a wrapper in that interview's folder until the script
+  does it).
+- **People and mics**: three people with two mics (the third voice lands on
+  one channel and needs the reviewers' speakers there); the channel sides
+  swapped (interviewer on the right); an interviewer who is not Oriol. Never
+  assume the interviewer's name: label them and ask.
+- **The source**: a flickering shop light meant the usable picture was a
+  DaVinci deflicker export, which is **open GOP** (CRA + RASL, B-frames): a
+  stream copy that starts on one shows broken frames the decode check misses.
+  Re-encode it once to the camera's structure (IDR every 1.001 s, no
+  B-frames) as the edit master and cut from that.
+- **Whisper pass 2** can split a question over several segments: a question
+  card must be able to take consecutive segments, and a card gets its
+  opening «¿» and capital even when the run starts mid-segment.
+- **Prompts must not carry an interview's names**: the content-plan prompt
+  had "Sprint Bike, Sant Feliu" hard-coded, so every other plan flagged a
+  false "wrong shop" blocker. Names come from the interview's README.
+- A batch run by agents stops when the session ends: each step is
+  restartable (scene masters cached, outputs checked on disk), so re-run the
+  step rather than the batch.
 
 ## Concept illustrations (the site's product images)
 
