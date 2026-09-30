@@ -805,7 +805,9 @@ this section keeps the rules and the lessons.
      answers `[{postId, integration}]`, and `posts:list` then shows each
      as `QUEUE` at the UTC date.
    - Repeatable in the content repo: `scripts/schedule_postiz.py`
-     (`make schedule`): the plan's weeks → Mondays at a Madrid time,
+     (`make schedule START=<date> [SKIP=holidays]`): the plan's week N →
+     the Nth weekly slot from START (any weekday, skipped dates left out)
+     at a Madrid time,
      one upload per short, one post per short across connected channels
      (TikTok/LinkedIn skipped until connected), and **a copy of
      everything kept in the repo** (Oriol: the schedule in
@@ -813,6 +815,9 @@ this section keeps the rules and the lessons.
      post in `publish/posts/`, and the register `publications.tsv`, one row
      per piece × platform). Create one post first and check it with
      `posts:list` before the batch; `--dry-run` shows the schedule.
+     Verify a batch through the public API (`GET /public/v1/posts`,
+     header `Authorization: <key>`): `postiz posts:list` piped to a JSON
+     parser gave non-JSON (2026-09-30).
    - `postiz upload` refuses files over **2 GiB**, so only the shorts go
      through Postiz; the long episode is uploaded by Oriol in YouTube
      Studio (full-quality master, no re-encode), with the generated
