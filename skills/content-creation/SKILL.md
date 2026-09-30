@@ -488,6 +488,12 @@ this section keeps the rules and the lessons.
    (name, side, role), where, the date, the raw file with its sha256, where
    the backup copy is, the language, and the **consent**: who agreed, when,
    and for which uses. `make probe` / `make sheet` for the facts.
+   **Footage and renders live on the NAS** (Oriol, 2026-09-30: "we will work
+   on the NAS"; BikeCRM: `/mnt/truenas/not-important/BikeCRM/`, a tree that
+   mirrors the repo): move them with a verified copy (sha256 read back from
+   the server, cache dropped) and delete the local file only then (no local
+   copies), and link `raw/`, `renders/` and each output MP4 back so the
+   scripts keep their paths (`make nas-move`); caches (`work/`) stay local.
 2. **Detect the language, don't ask.** Cut three 40 s samples (at ~10 %,
    45 % and 80 % of the running time) and run `whisper-cli -l auto` on each:
    Sprint Bike came back `es` on all three (p = 0.79–0.88). An interview can
