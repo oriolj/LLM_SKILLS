@@ -883,6 +883,14 @@ format**. Before step 3, check each one:
 - **Prompts must not carry an interview's names**: the content-plan prompt
   had "Sprint Bike, Sant Feliu" hard-coded, so every other plan flagged a
   false "wrong shop" blocker. Names come from the interview's README.
+- **Decisions arrive after the outputs** (Oriol reviews finished shorts): a re-cut moves every
+  raw-cut time, so keep the previous cut's kept list and map each time through the SOURCE to the
+  new cut (plan shorts, chapters, thumbnail frames), read the warnings for starts that now fall
+  in a cut, then re-render. Bleeps (a word list per short or episode: a tone plus `p***` in the
+  subtitles) are the answer to a swear word Oriol wants kept but not heard.
+- **Several interviews in the queue**: one short a week per slot, the interviews one after
+  another (not interleaved), each episode on the week the plan pairs it with; skip the holidays
+  (Christmas Eve, New Year's Eve, Holy Thursday) instead of posting into them.
 - A batch run by agents stops when the session ends: each step is
   restartable (scene masters cached, outputs checked on disk), so re-run the
   step rather than the batch.
