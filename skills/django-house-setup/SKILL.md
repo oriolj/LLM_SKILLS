@@ -263,6 +263,22 @@ wrong database the same way. Rules:
   BudgetBuddy's dev stack down; volumes survived, containers had to be
   recreated with `up -d --no-build`).
 
+## Every `@shared_task` must be discoverable by a real worker (owned here, learned 2026-10-01 on Cuentakos)
+
+`app.autodiscover_tasks([...])` imports only `<app>.tasks` of the apps it is given. A task
+defined in any other module (`lab_runner.py`, `emails.py`), or in an app missing from the
+list, is **unregistered** on the worker: Celery logs `Received unregistered task … discarded`
+and the work silently never happens. Tests run with `CELERY_TASK_ALWAYS_EAGER`, which calls
+the function directly, so the whole suite stays green. Rules:
+
+- Register each extra module explicitly:
+  `app.autodiscover_tasks(lambda: ["proj.workflows"], related_name="lab_runner")`.
+- Ship a test that runs in a **fresh interpreter**: `django.setup()`, import the Celery app,
+  `app.loader.import_default_modules()`, print `app.tasks`, and assert that every
+  function decorated with `shared_task` (found by an AST scan of the source) is in it.
+  Reference: `cuentakos/backend/cuentakos/core/tests.py::test_worker_registers_every_shared_task`.
+- After a deploy that adds a task, grep the worker log for `unregistered task`.
+
 ## New-project checklist (each row = go to its owner)
 
 1. Settings layout + `.envs/` + env inventory table BEFORE first deploy
