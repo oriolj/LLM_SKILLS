@@ -897,6 +897,10 @@ format**. Before step 3, check each one:
   short per slot, each episode on the slot of the short the plan pairs it with, holidays skipped
   — and **compressed into the current year** (Oriol, 2026-10-01: "compress it a little bit so it
   does not spread to next year"): BikeCRM 2026 runs Mondays + Tuesday–Friday, done by 12-07.
+- **Future content lives in the content repo's `PLANS.md`** (Oriol, 2026-10-01): interviews to
+  film (shop, person, town, handle, status), footage waiting, video sets to make, and the queue's
+  runway (when the scheduled posts run out, and what must be ready before). Add a request there
+  first; move it out when it becomes a folder or a publication.
 - **Every publication about a customer mentions them, and gets a story** (Oriol, 2026-10-01: our
   preference): the Instagram Reel invites the customer's account as **collaborator** (Postiz
   `collaborators: [{label: "<handle>"}]`; it shows on their profile once they accept) and its
