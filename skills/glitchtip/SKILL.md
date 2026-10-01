@@ -139,6 +139,25 @@ curl -s -o /dev/stderr -w '\nHTTP %{http_code}\n' -X POST https://infra-monitori
 ```
 Further calls need the `Mcp-Session-Id` response header from `initialize`.
 
+### Triage with the MCP (learned 2026-10-01, Panotxa)
+
+- `list_issues` with no `query` returns resolved issues too; pass
+  `query="is:unresolved"` for the open set. Issues have no project-level
+  backend/frontend split when one project receives both (Panotxa's
+  `panotxa` holds Django/Celery AND app events) — read `metadata.filename`
+  (`nutrilens/…` vs `app:///assets/…`).
+- **`get_latest_event` on a browser event can exceed the tool-output cap**
+  (breadcrumbs: ~50 KB). The client saves it to a file; extract with
+  `jq -r '.result|fromjson|.entries[]|select(.type=="exception" or .type=="message")'`
+  and `…|select(.type=="breadcrumbs")`. The breadcrumbs (route changes,
+  fetch status codes, custom `category` crumbs) usually show the user's path
+  to the error and the neighbouring failures (e.g. a 400 on the same screen).
+- **One JS bug splits into one issue per build**: Vite's content-hashed
+  chunk names (`vendor-CYqjwKOD.js`) are part of the frame filename and so
+  of the grouping, so the same error shows as PANOTXA-O/Q/R across three
+  builds with count 1–3 each. Compare titles, not issue ids, before deciding
+  something is rare; merge or resolve them together.
+
 ### How it is wired, and the two traps (learned 2026-09-07)
 
 - **The server side is three compose env lines** on the Coolify service

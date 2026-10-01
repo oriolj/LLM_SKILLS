@@ -108,6 +108,13 @@ later add for native "manage subscription".
 - Import `@revenuecat/purchases-capacitor` **dynamically**, behind a
   native-only guard. Its web shim throws, and the PWA must never load it;
   keep it out of the shared vendor chunk.
+- **Never return the `Purchases` plugin bare from that loader's `async`
+  function** — return `{ Purchases }` and destructure. The plugin is a
+  Capacitor proxy (see `capacitor-ios` → Known gotchas, "plugin proxies are
+  thenables"); resolved bare, every store call hangs on iOS with
+  `"Purchases.then()" is not implemented on ios` as an unhandled rejection
+  (Panotxa, builds ≤1097, fixed 2026-10-01). Mock the plugin in tests as a
+  `Proxy` that throws for unknown properties, or the test cannot see it.
 - Serialize `logIn`/`logOut` with purchases and restores in one queue, so an
   account switch cannot land mid-purchase.
 - After a purchase, poll the backend (5–60 s typical, 90 s cap) rather than

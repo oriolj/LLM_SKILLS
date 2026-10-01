@@ -210,6 +210,10 @@ Build it in this order:
 
 ## Known gotchas
 
+- **Plugin proxies are thenables** — never return a Capacitor plugin object
+  bare from an `async` function or `resolve()` it: the promise hangs forever
+  (`"<Plugin>.then()" is not implemented on <platform>`). Full entry:
+  `capacitor-ios` → Known gotchas.
 - **Installed builds bake the API origin forever — every backend server
   move must budget for them.** The origin constant compiled into the APK
   never sees a DNS cutover; installed apps keep writing to the old host

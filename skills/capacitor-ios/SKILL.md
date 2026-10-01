@@ -221,6 +221,18 @@ app actually collects.
 
 ## Known gotchas
 
+- **Plugin proxies are thenables — never resolve a promise with one**
+  (Panotxa, 2026-10-01). A `registerPlugin()` object is a `Proxy` that
+  answers *every* property with a native-method stub, `then` included. So
+  `async function load() { return (await import('plugin')).Plugin; }` (or
+  `Promise.resolve(Plugin)`, or `resolve(Plugin)`) makes the promise
+  machinery call `Plugin.then(...)`; the stub rejects with
+  `"<Plugin>.then()" is not implemented on ios` (an *unhandled* rejection in
+  the error tracker) and the outer promise **never settles** — every caller
+  hangs until whatever timeout it has. Return it wrapped (`{ Plugin }`) or
+  hold it in a module variable. The proxy is the same JS on Android; the
+  message names the platform. Typical trigger: the dynamic-import loader
+  used to keep a native-only plugin out of the web bundle.
 - Capabilities (HealthKit, push, sign-in) need both the entitlements file
   (maintained by the config script) and the App ID capability — the latter
   syncs automatically via `-allowProvisioningUpdates`.
