@@ -1,6 +1,6 @@
 ---
 name: stripe-billing
-description: Set up and operate Stripe Billing (subscriptions, Checkout, Customer Portal, Stripe Tax, webhooks) from the API with one secret key, without the traps that make every checkout fail. Use when creating products/prices, changing a price amount, configuring the Customer Portal or Stripe Tax, registering a webhook, wiring a Django backend to Stripe Checkout, testing a sandbox, or when the user mentions Stripe, sk_test/sk_live, whsec, price ids, lookup keys, VAT/IVA on subscriptions, or "checkout fails". Field-tested on Panotxa 2026-09-23.
+description: Set up and operate Stripe Billing (subscriptions, Checkout, Customer Portal, Stripe Tax, webhooks) from the API with one secret key, without the traps that make every checkout fail. Use when creating products/prices, changing a price amount, configuring the Customer Portal or Stripe Tax, registering a webhook, wiring a Django backend to Stripe Checkout, testing a sandbox, or when the user mentions Stripe, sk_test/sk_live, whsec, price ids, lookup keys, VAT/IVA on subscriptions, or "checkout fails", Checkout shows the wrong currency or language, branding the Checkout page, or emailing payment links. Field-tested on Panotxa 2026-09-23 (sandbox) and 2026-09-30/10-01 (live launch).
 ---
 
 # Stripe Billing — API-first setup and the traps
@@ -27,6 +27,17 @@ repo's `SUBSCRIPTION.md` "Stripe access"; this skill holds only the mechanics.
   Webhooks and Tax.
 - The account id is in `GET /v1/account` (`acct_…`); keys never expire, they
   are rolled in Dashboard → Developers → API keys. A 401 = rolled/revoked key.
+- **A Stripe sandbox has its own account id**, different from the live
+  account's (Panotxa: sandbox `acct_1UIo82…`, live `acct_1UIo7F…`). The key
+  prefix gives it away before any call: `pk_live_51` + the id's tail
+  (`pk_live_51UIo7FBO…` ↔ `acct_1UIo7FBO…`). Record both ids; do not "fix"
+  the live one to match the sandbox.
+- **A restricted live key is enough for the whole live setup** when created
+  with write scopes: `rk_live_…` created the tax registration, products,
+  prices, portal configuration and webhook (2026-09-30), and is the backend's
+  `STRIPE_SECRET_KEY`. Probe its reach read-only first (`GET` products,
+  prices, customers, subscriptions, checkout/sessions, webhook_endpoints,
+  billing_portal/configurations → 200).
 
 Credentials follow the estate rules (`secrets-in-git` skill): the key goes in
 the scope's secrets store, never in the project repo; local dev gets it in the
@@ -94,6 +105,70 @@ decides. Pin `Stripe-Version` to the backend SDK's version.
     `cancel_at_period_end`, `DELETE` — and replay the resulting events. That
     covers everything except `checkout.session.completed`, which needs one
     human click-through with `4242…`.
+
+## Going live (verified 2026-09-30)
+
+1. Store the live keys (`secrets-in-git`), then run the setup script with the
+   live key: dry run, then `--webhook https://…/webhooks/stripe/ --apply`.
+   Capture its output to a file and move the one-time `whsec_` straight into
+   the secrets store without printing it; delete the file.
+2. Put every `STRIPE_*` env var on EVERY process that touches Stripe (web,
+   worker, beat), runtime-only, then redeploy.
+3. Prove the webhook secret is loaded without a real event: an unsigned POST
+   must answer the handler's "invalid signature" 400 (Panotxa answers 503
+   when the secret is unset — make the two distinguishable).
+4. **Live smoke test without money**: create real Checkout Sessions with the
+   backend's exact kwargs (one per price, incl. a trial-kept one → `amount_total
+   0`), open one in a browser to see the page, then
+   `POST /v1/checkout/sessions/{id}/expire`. This is what found traps 13 and
+   14 below on launch night, before any user hit them.
+5. Still manual: one real purchase (card form cannot be automated, trap 12),
+   and the account **Branding** for receipts, invoices and the Portal (trap 16).
+
+## Checkout presentation traps (live, 2026-10-01)
+
+13. **Checkout has no Catalan**: `locale=ca` makes Checkout refuse the WHOLE
+    session ("Invalid locale"), so every Catalan user's checkout fails while
+    mocked tests stay green. Map app languages to Stripe's list (`ca → es`,
+    unknown → `auto`) in one helper.
+14. **Adaptive Pricing converts to the currency it guesses from the IP** — on
+    by default; Oriol saw USD from Spain (Private Relay / VPN exits abroad).
+    Pass `adaptive_pricing={"enabled": False}` on every session to charge in
+    the price's currency; it overrides the Dashboard setting.
+15. **Per-session branding works on API `2025-08-27.basil`**:
+    `branding_settings={display_name, icon: {type: url, url}, logo,
+    button_color, background_color, border_style, font_family}`. Put it in
+    code (same in sandbox and live, reviewable) — Stripe fetches the icon URL
+    at creation and it costs no measurable latency.
+16. **Account branding (receipts, invoices, Customer Portal) is Dashboard-only
+    on your own account** — `POST /v1/accounts/{id}` settings are for
+    connected accounts. Leave it as a human step.
+17. **The product `description` shows on Checkout untranslated** (an English
+    line on a Spanish page). Keep it empty (`description=""` clears it) unless
+    you sell in one language.
+18. **Pay-early trial**: `subscription_data.trial_end` must be ≥ 48 h ahead;
+    closer than that pass `trial_period_days` rounded UP so nobody loses days.
+
+## Payment links in emails (verified 2026-09-29 → 10-01)
+
+- **One link to an own plan page beats one link per plan**: more control and
+  per-mail data. Signed, expiring token (user + `choose` + the source mail
+  kind); **GET renders, never touches Stripe** (mail scanners prefetch every
+  link); each plan is a POST that creates the Checkout Session and redirects.
+- Record a funnel row per open (GET — includes scanners) and per choice
+  (POST — people only), tagged with the source mail; expose it on `/metrics`
+  next to "sent" and "paid".
+- **Analytics must never see the token** — it is a login-free credential.
+  With Umami: `data-auto-track="false"` and `umami.track(p => ({...p, url:
+  '/billing/pay/choose?from=<mail>', referrer: ''}))`, events the same way.
+- **The click feels slow** (~0.6–0.8 s per Stripe call, plus customer creation
+  on first click, plus Stripe's page load): show a busy state on the tapped
+  plan, disable the others (a second tap = a second session), reload on
+  bfcache `pageshow`, and `<link rel="preconnect" href="https://checkout.stripe.com">`.
+- Preview the whole mail journey with a command that uses the SAME composer
+  but writes no send-once ledger rows (or the real reminders are skipped) and
+  tags its links so they stay out of the funnel.
+- Django: `{# #}` is single-line only — a multi-line one prints as text.
 
 ## One-time purchases (a "lifetime" plan next to subscriptions)
 
