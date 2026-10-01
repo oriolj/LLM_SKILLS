@@ -818,6 +818,11 @@ this section keeps the rules and the lessons.
      Verify a batch through the public API (`GET /public/v1/posts`,
      header `Authorization: <key>`): `postiz posts:list` piped to a JSON
      parser gave non-JSON (2026-09-30).
+   - **A YouTube channel that is not phone-verified refuses videos over 15 minutes and every
+     custom thumbnail**, and Postiz reports only `state: ERROR` (BikeCRM, 2026-10-01: of five
+     episodes only the 13-minute one published, with an auto frame). Before sending a long video,
+     check the channel is verified (youtube.com/verify, an owner's step); check the outcome on the
+     channel's public feed (`/feeds/videos.xml?channel_id=…`), never by retrying.
    - `postiz upload` refuses files over **2 GiB**, so only the shorts go
      through Postiz; the long episode is uploaded by Oriol in YouTube
      Studio (full-quality master, no re-encode), with the generated
