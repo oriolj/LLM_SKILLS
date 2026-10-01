@@ -893,9 +893,18 @@ format**. Before step 3, check each one:
   new cut (plan shorts, chapters, thumbnail frames), read the warnings for starts that now fall
   in a cut, then re-render. Bleeps (a word list per short or episode: a tone plus `p***` in the
   subtitles) are the answer to a swear word Oriol wants kept but not heard.
-- **Several interviews in the queue**: one short a week per slot, the interviews one after
-  another (not interleaved), each episode on the week the plan pairs it with; skip the holidays
-  (Christmas Eve, New Year's Eve, Holy Thursday) instead of posting into them.
+- **Several interviews in the queue**: the interviews one after another (not interleaved), one
+  short per slot, each episode on the slot of the short the plan pairs it with, holidays skipped
+  — and **compressed into the current year** (Oriol, 2026-10-01: "compress it a little bit so it
+  does not spread to next year"): BikeCRM 2026 runs Mondays + Tuesday–Friday, done by 12-07.
+- **Every publication about a customer mentions them, and gets a story** (Oriol, 2026-10-01: our
+  preference): the Instagram Reel invites the customer's account as **collaborator** (Postiz
+  `collaborators: [{label: "<handle>"}]`; it shows on their profile once they accept) and its
+  caption names them with the @handle (YouTube: the name); a same-day Instagram **story** (Postiz
+  `post_type: "story"`) shows the handle burnt into the clip, because the API cannot place a
+  clickable mention sticker. Keep each customer's handle in a sidecar (BikeCRM:
+  `interviews/<i>/publish/shop.json`, with who confirmed it: shops often have two accounts, a
+  shop and a club, an old and a new one) and record the collaborator on each post.
 - A batch run by agents stops when the session ends: each step is
   restartable (scene masters cached, outputs checked on disk), so re-run the
   step rather than the batch.
