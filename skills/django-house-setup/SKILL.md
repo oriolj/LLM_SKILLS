@@ -241,6 +241,15 @@ commands bypass it so `docker exec … manage.py` one-offs still work.
 Dockerfile resources keep blue-green; keep migrations additive —
 during the rolling overlap the OLD code runs against the NEW schema.
 
+**The web boot refuses models without their migration** (learned 2026-10-01 on Cuentakos: a
+commit with explicit paths left the new migration file staged but uncommitted; `migrate`
+only *warned* "models have changes not yet reflected in a migration", the container passed
+its health check and every query on that table 500'd). Before `migrate`, the web role runs
+`python manage.py makemigrations --check --dry-run --noinput`, and `set -e` makes a mismatch
+fail the boot, so blue-green keeps the previous container. Pair it with a test that calls the
+same command. When committing explicit paths, list new files (migrations) too, or check
+`git status` for staged-but-uncommitted files after the commit.
+
 ## Local compose — pin the project name (owned here, learned 2026-09-06 on NutriLens)
 
 Every Django repo's local compose lives in a directory called `backend`, so
