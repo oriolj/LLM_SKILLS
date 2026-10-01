@@ -897,6 +897,11 @@ format**. Before step 3, check each one:
   short per slot, each episode on the slot of the short the plan pairs it with, holidays skipped
   — and **compressed into the current year** (Oriol, 2026-10-01: "compress it a little bit so it
   does not spread to next year"): BikeCRM 2026 runs Mondays + Tuesday–Friday, done by 12-07.
+- **Every interview episode is also a podcast episode** (Oriol, 2026-10-01): BikeCRM's go to
+  **BikeCRM Interviews** on pod.enacast.com (EnaCast AI; load the `enacast-insights` skill): a
+  1080p HEVC (`hvc1`) encode, our reviewed transcript and chapters re-timed onto the episode (the
+  intro and cards shift every time), imported through the publishing API; then compare their
+  AI sections and Whisper with ours (first run: 5–11 % WER, sections 3–4 s after our chapters).
 - **Future content lives in the content repo's `PLANS.md`** (Oriol, 2026-10-01): interviews to
   film (shop, person, town, handle, status), footage waiting, video sets to make, and the queue's
   runway (when the scheduled posts run out, and what must be ready before). Add a request there
