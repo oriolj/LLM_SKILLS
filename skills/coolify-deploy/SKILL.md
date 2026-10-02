@@ -28,6 +28,15 @@ from hq `docs/projects.md` / `docs/servers/` and use that scope's account:
 | smartupsoft | SmartupSoft Coolify Cloud team | [hq scope catalog](../../../../../Syncthing/Syncthing-mobile-docs/hq/CLAUDE.md#secrets-age-passphrase): `homelab/secrets/coolify-smartupsoft.env` (`COOLIFY_SMARTUPSOFT_API_TOKEN`, `COOLIFY_SMARTUPSOFT_API_URL`), verified 2026-09-16 | Consult the project deployment doc |
 
 - **Never `source` these `.env` files in a shell** (2026-09-19, EnaCast deploy): the Enantena token contains a `|`, so `source coolify.env` runs the tail of the token as a command and the variable stays empty — the deploy call answers `Unauthenticated` and a polling loop waits on nothing. Read the value with a parser: `python3 -c "print(next(l for l in open(f) if l.startswith('COOLIFY_API_TOKEN=')).split('=',1)[1].strip())"`, or `grep '^COOLIFY_API_TOKEN=' file | cut -d= -f2-`. The same applies to every file under `homelab/secrets/`.
+- **Enantena server key, by name, is a trap** (verified 2026-10-02 adding
+  coolify-ovh-vps-2): the key the baseline deploys as `coolify-enantena.pub`
+  (ed25519, comment `coolify-cloud`) is the Coolify private key named
+  **`new coolify pub key`** (`82uqadksyso5hfihg0n4v9zn`, id 34591), which every
+  Enantena server uses. The key NAMED `coolify-enantena` (`vo84gg0gcsgc0kws84sosws0`)
+  is an older RSA key that matches nothing deployed. Match on the public key
+  material (`GET /security/keys` → `public_key`), never on the name. Enantena
+  servers connect on their public address, port 1922, without a tunnel
+  (coolify-ovh-vps-1/-2; monitor-1-nc and mlrtx2 are the tunnel exceptions).
 - A personal server or a personal project **never** goes into the Enantena
   team, and vice-versa. The token at hand is not the token to use.
 - If the scope's credentials are not in `homelab/secrets/`, **stop and add
