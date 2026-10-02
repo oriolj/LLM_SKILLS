@@ -314,3 +314,21 @@ routes), not only ISR. Reference run and numbers:
   reports it; with 3600 s it gets reported. Choose it on purpose, and keep clock-driven
   routes short.
 
+## Costs and usage from the API (verified 2026-10-02, team enacast)
+
+- **Spend**: the CLI login token (`~/.local/share/com.vercel.cli/auth.json`) reads
+  `GET https://api.vercel.com/v1/billing/charges?teamId=…&from=…&to=…`: FOCUS-format JSONL,
+  one row per day × service × project (`BilledCost`, `ServiceName`, `Tags.ProjectName`).
+  The cycle dates are `GET /v2/teams/{id}` → `billing.period`. Marketplace integrations
+  (Upstash) are NOT in it. The first days of a cycle bill ~$0 while included allowances
+  (10M CDN requests, $20 credit, 1 TB transfer) are used up.
+- **Per-domain/route request and CPU metrics** (`vercel metrics vercel.request.count
+  --group-by requestHostname`, CLI ≥ 62) answer `payment_required` without **Observability
+  Plus** ($1.20 per 1M events). **Web Analytics page views per hostname are free**:
+  `vercel metrics vercel.analytics.page_view.count --group-by requestHostname --project <p> --prod`.
+- **Active CPU excludes I/O wait** (pricing doc): waiting on a backend shows on
+  Provisioned Memory, not CPU.
+- Vercel strips `Vercel-Cache-Tag` but forwards `CDN-Cache-Control` and unknown headers
+  (`Cache-Tag`, `Cloudflare-CDN-Cache-Control`) to browsers. `@vercel/functions`'
+  `dangerouslyDeleteByTag` silently resolves when not running on Vercel (no request
+  context): never treat it as proof of a purge off Vercel.

@@ -335,3 +335,12 @@ LAN and `:port` tailnet access stay open until you change the bind.
   --exit-node-allow-lan-access`), or make a home box that is native to
   the laptop's tailnet advertise the route (`tailscale up
   --advertise-routes=192.168.7.0/24` + approve in the admin console).
+
+## Node names from FQDN hostnames (coolify-ovh-vps-2, 2026-10-02)
+
+- A box whose static hostname is an FQDN (`coolify-ovh-vps-2.enacast.com`) joined with a
+  plain `tailscale up` gets the MagicDNS name **`coolify-ovh-vps-2-enacast-com`**. Join
+  with `tailscale up --hostname=<short>` (hq `bootstrap-root.yml` prints it).
+- `tailscale set --hostname=<short>` afterwards changes only the REPORTED hostname; the
+  machine (MagicDNS) name stays until renamed in the admin console (Machines → Edit
+  machine name, untick auto-generate). No Tailscale API key in hq for that.

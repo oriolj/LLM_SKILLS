@@ -2302,3 +2302,32 @@ serve, so both 500 until the swap. What worked (~4 min API outage, no rollback):
 
 Script + runbook: bikecrm-backend `scripts/services_revamp_window.sh`,
 `docs/services_revamp_deploy_runbook.md`.
+
+## A Node (Astro) Dockerfile app + Valkey, API-only (enacast-astro on coolify-ovh-vps-2, 2026-10-02)
+
+- **Valkey through Coolify's Redis database type**: `POST /databases/redis` accepts
+  `image: "valkey/valkey:8-alpine"` and a `redis_conf` that **must be base64**
+  (plain text = 422 "The redis_conf should be base64 encoded"). For a pure cache:
+  `maxmemory 512mb`, `maxmemory-policy allkeys-lru`, `save ""`, `appendonly no`.
+  Coolify's `status` reported `exited:unhealthy` for minutes while the container was
+  `Up (healthy)`: check `docker ps` on the box before believing it.
+  `internal_db_url` (the create response) is the app's `REDIS_URL`.
+- **`POST /applications/private-github-app` needs `environment_uuid` as well as
+  `environment_name`** (`GET /projects/{uuid}` → `environments`). Test domains as
+  `http://<host>` get Traefik routes without any ACME attempt (TLS ends at Cloudflare).
+- **Trigger deploys with `POST /deploy?uuid=`** (GET now answers 405 "changed to a POST").
+- **A first uncached Docker build of an Astro app took ~7.5 min** on an 8-vCPU VPS (the
+  next one 110 s). hq `coolify-deploy.sh` waited only 6 min and reported a healthy deploy
+  as timed out; it waits 15 min now (`COOLIFY_DEPLOY_WAIT`). A timeout of the WAIT is not a
+  failed deploy: check `--logs`.
+- **Coolify passes the full 40-char SHA as `SOURCE_COMMIT`** (not a short SHA).
+- **Node as PID 1 ignores SIGTERM** when the server registers no handler (`@astrojs/node`
+  standalone): every stop/blue-green swap waits out the timeout, then SIGKILLs requests in
+  flight. Put `tini` in the image (`ENTRYPOINT ["/usr/bin/tini","--"]`).
+- **Env from another host**: `vercel env pull --environment=production <file>` gives the
+  values; set them with hq `coolify-env-set.py --from-file <f> KEYS --runtime-only` for
+  secrets and `--build-time` only for what the build inlines (`PUBLIC_*`), then shred the
+  file. The Dockerfile's build stage must declare those as `ARG`.
+- Testing an image locally: a container on the default bridge cannot reach host-local
+  `127.0.0.1` services from a dev `.env` (Redis tunnel, local API); use `--network host`
+  and a free `PORT`.

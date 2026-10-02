@@ -177,6 +177,14 @@ Beszel's job (scope boundary above) — do not read "host metrics scraped"
 as a promise of `node_*` series. Still planned: `oj.metrics.port` app
 discovery. Fleet state 2026-09-14: every host above carries the trace lane
 (smartup-nbg1-1 joined last, 2026-09-14).
+**The role SKIPS a host whose `LOKI_AGENT_PASSWORD_<HOST>` is missing**, with a
+warning line that is easy to miss in a full `make apply`: afterwards check that
+`/opt/observability` exists and `curl http://<tailnet-ip>:12345/metrics | grep
+loki_write_` shows `status_code="204"` (coolify-ovh-vps-2, 2026-10-02: the first
+apply skipped it silently). When rebuilding `LOKI_WRITERS`, keep existing passwords
+verbatim even if they are not alphanumeric (one is not; only `,` `:` and spaces
+break the list).
+
 Per new host, in this order (§6b has the traps): generate a password
 (alnum only — no `:` or `,`), add `LOKI_AGENT_PASSWORD_<HOST>` to
 `homelab/secrets/loki-agents.env`, rebuild the hub app's `LOKI_WRITERS`
