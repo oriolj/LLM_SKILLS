@@ -10,6 +10,12 @@ with the EnaChat comercial Astro site → Cloudflare Pages.
 
 ## 0. House rules
 
+- **How a Pages/Workers project deploys: git when available** (Oriol, 2026-10-02). Connect
+  the project to its GitHub repo (Cloudflare bills no per-committer seat, unlike Vercel) when
+  it can be; `wrangler pages deploy` / `wrangler deploy` direct upload (section 1) otherwise
+  (no repo access from the Cloudflare account, a build Cloudflare cannot run, a gated
+  release). Vercel stays CLI-only and Coolify deploys on push: the per-host rule is in the
+  global CLAUDE.md.
 - **Static sites go to Cloudflare PAGES, never Workers** (Oriol, explicit).
   Astro sites are built as purely static output (`astro build` → `dist/`) —
   no adapter, no SSR, no `@astrojs/cloudflare`. If a site seems to need SSR,
@@ -172,7 +178,7 @@ Coolify side: `POST /s3-storages` (`endpoint` = the account endpoint,
 `message` means the DUMP succeeded and the UPLOAD failed; only an
 execution without that warning, plus the object in the bucket, counts.
 
-## 1. Pages deploy (direct upload — the default)
+## 1. Pages deploy by direct upload (when git deploys are not available)
 
 No git integration needed; deploy the built `dist/` from wherever the build
 ran (dev machine, CI):
