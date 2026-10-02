@@ -7,15 +7,18 @@ disable-model-invocation: true
 
 # /oj-codex-ask — a second opinion from Codex, in a pane that stays open
 
-Send Codex the context of the current work and the question in ONE Bash call,
-as a task with `run_in_background: true` (description "Codex second opinion"),
-the context on stdin:
+Send Codex the context of the current work and the question:
 
-```bash
-oj-codex ask --context-file - '$ARGUMENTS' <<'CONTEXT'
-<the context>
-CONTEXT
-```
+1. Write the context with the **Write tool** to a new file of your own (in
+   your scratchpad directory if this session has one, else under a fresh
+   `mktemp -d`). Not a heredoc: a line in the context that equals the
+   heredoc's end marker would end it and run the rest as shell commands.
+2. Then ONE Bash call, as a task with `run_in_background: true`
+   (description "Codex second opinion"):
+
+   ```bash
+   oj-codex ask --context-file <that file> -- '$ARGUMENTS'
+   ```
 
 Put the user's words in SINGLE quotes (each `'` written as `'\''`), never
 double quotes: a `$`, backtick or `"` in them would be run or split by bash.

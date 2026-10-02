@@ -10,13 +10,16 @@ disable-model-invocation: true
 The question is built into `oj-codex opinion` (is the approach right, what
 would it do differently, which risks we miss, which option it would pick);
 `$ARGUMENTS` only narrows the angle. ONE Bash call, as a task with
-`run_in_background: true` (description "Codex opinion"), the context on stdin:
+`run_in_background: true` (description "Codex opinion"), 1. Write the context with the **Write tool** to a new file of your own (in
+   your scratchpad directory if this session has one, else under a fresh
+   `mktemp -d`). Not a heredoc: a line in the context that equals the
+   heredoc's end marker would end it and run the rest as shell commands.
+2. Then ONE Bash call, as a task with `run_in_background: true`
+   (description "Codex opinion"):
 
-```bash
-oj-codex opinion --context-file - '$ARGUMENTS' <<'CONTEXT'
-<the context>
-CONTEXT
-```
+   ```bash
+   oj-codex opinion --context-file <that file> -- '$ARGUMENTS'
+   ```
 
 Put the user's words in SINGLE quotes (each `'` written as `'\''`), never
 double quotes: a `$`, backtick or `"` in them would be run or split by bash.

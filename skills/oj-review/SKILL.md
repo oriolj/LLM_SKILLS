@@ -18,7 +18,9 @@ oj-codex scope '$ARGUMENTS'
 Put the user's words in SINGLE quotes (each `'` written as `'\''`), never
 double quotes: a `$`, backtick or `"` in them would be run or split by bash. It prints `BASE=` (empty = the uncommitted changes), `COMMITS=`, `RANGE=` and
 `FOCUS=` (the words left after the scope). Tell the user the range and the
-commit count in one line. On a non-zero exit, relay its stderr and stop.
+commit count in one line, and the `LOG:` list it prints (the exact commits: a
+date or count scope over a merge includes the merged branch, and the next
+steps EDIT code in that range). On a non-zero exit, relay its stderr and stop.
 Every step below gets the scope ("the changes in BASE..HEAD plus the
 uncommitted ones", or "the uncommitted changes") and the FOCUS. When BASE is
 the empty tree `4b825dc…` (the scope reaches the root commit), it is not a
