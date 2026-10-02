@@ -604,6 +604,24 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   doc. Name the route (`name="health"`) so the request histogram does not
   file it under `unnamed`.
 - **Exempt `/healthz` from any auth** you add, or both the blue-green gate and Docker HEALTHCHECK break.
+- **An unhealthy container gets NO traffic from Traefik: every request is a 404**, not a slow
+  page (enacast-astro load test, 2026-10-02: 2,460 404s at 80 renders/s). So a health check
+  served by the same busy request workers turns overload into an outage: the probe times out
+  (5 s), Docker marks the container unhealthy, Traefik drops it. Answer health **outside the
+  request path**: the Node cluster primary on its own loopback port (enacast-astro
+  `server.mjs`, `HEALTH_PORT` 4322), a gunicorn/uvicorn app's check on a path that does no work,
+  never one that queues behind renders. Prove it with a load test past the ceiling: overload must
+  answer slow 200s, never 404s.
+- **JIT runtimes (Node, also PyPy/JVM): warm up before the first healthy answer** when the box
+  can be busy right after a deploy. A fresh Node cluster on a CPU-saturated VPS stayed collapsed
+  (p50 15–20 s at a load it handles at 0.2 s warm, 3 of 4 cold runs): V8 runs new code
+  unoptimized at several times the CPU, and with every core busy the optimizing compiler's
+  threads never catch up. The profile shows every function uniformly slower; it is not steal,
+  memory or one hot spot. Fix: the primary renders a few hundred real pages over localhost
+  (fresh connection each, so the cluster spreads them) and answers 503 "warming" until done,
+  capped (45 s) so a dead backend never blocks a deploy; Docker `start-period` above the cap.
+  Blue-green then only swaps to a warm container. Reference: enacast-astro `server.mjs` `warmUp()`
+  (`WARMUP_HOST`, `WARMUP_PATHS`, `WARMUP_REQUESTS`), docs/cloudflare.md "Capacity".
 - Celery: never `celery -A config inspect ping` as a healthcheck (boots all of Django, ~265 MB + 100% CPU, thousands of times/day). Use `grep -q celery /proc/1/cmdline` (requires `exec` so celery is PID 1). Under `init: true` (tini/docker-init is PID 1) — or whenever celery starts through its python shebang so argv[0] is `python` — the PID-1 form can NEVER match (EnaCast prod, 2026-09-03: it had silently been `celery inspect ping` failing exit 69). Scan argv[0..1] of every process instead: `for p in /proc/[0-9]*/cmdline; do head -z -n2 "$$p" 2>/dev/null | tr '\\0' ' ' | grep -qE '(^|/)celery ' && exit 0; done; exit 1` (the probe's own `sh`/`grep` argv[0..1] never match, so no false positive; verify on the live container). For threads-pool wedge detection the Django-free broker-only form: `celery -b $REDIS_URL inspect ping -d celery@$(hostname)`.
 - **Compose buildpack: a service with NO `healthcheck:` gets Coolify's
   injected loopback probe** — which lands on the ALLOWED_HOSTS trap above
@@ -629,6 +647,32 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   a tiny HTTP `/healthz` in the worker image on an exposed port; a
   sidecar; for distroless, a static-linked `healthcheck` binary Coolify
   can exec). Track it as an open item until the list is empty.
+
+### Load-testing an origin before it takes traffic (enacast-astro, 2026-10-02)
+
+- **Tool: `oha`** (Rust, single static binary from its GitHub releases). Open model with
+  `-q <rate>/s --latency-correction` so a stalled server shows up as latency instead of the
+  client slowing down; **`-c 400`**: the default 50 connections caps the test itself.
+  `--urls-from-file` with a few dozen real URLs (lists, details, heavy pages), `--no-tui
+  --output-format json`. **Never pass `--disable-keepalive=false`**: it breaks the JSON output.
+- **Bypass the CDN**: hit Traefik directly (tailnet IP + `Host:` header), or every request after
+  the first is a CDN hit and you measure the CDN. Warm the caches with a sequential pass first.
+- **Measure CPU per request from the container cgroup**:
+  `/sys/fs/cgroup/**/<container-id>/cpu.stat` `usage_usec` before/after a run, divided by the
+  responses. Not `ps %CPU`, which is a lifetime average, and not `top`/`vmstat` snapshots
+  started over ssh in the background (they missed the load entirely). `/proc/stat` deltas give
+  host-wide user/system/steal for the "is it the VPS?" question.
+- **Step the rate** (30/45/60/80/100/s, 40 s each, 20–30 s pause) and **repeat the run right
+  after a restart**: warm-only runs hide the cold-start collapse. Watch status codes: 404s mean
+  the container went unhealthy (health check in the request path, above).
+- A **Node CPU profile from a running container** without a restart: `docker exec <c> sh -c
+  'kill -USR1 <worker pid>'` opens the inspector on `127.0.0.1:9229` inside the container, then a
+  small node script inside the container drives the DevTools protocol (`Profiler.start`/`stop`
+  over the WebSocket from `/json/list`). Slim images have no `kill` binary; use the shell builtin.
+  The cluster primary is the `node … server.mjs` without `/usr/local/bin/`; workers are the
+  `/usr/local/bin/node …` ones; tini (PID 1) also matches `server.mjs`.
+- The test load lands on whatever the app calls, here the PRODUCTION backend API on every cache
+  miss: keep runs short, and say so when you do it.
 
 ## 5a0. In-stack Postgres → off-site backups without a data migration (LeadHunter, 2026-09-02)
 

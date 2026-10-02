@@ -66,8 +66,20 @@ curl -s "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=<URL-ENC
 # → .loadingExperience.metrics = CrUX p75 per metric; empty = origin below CrUX traffic threshold
 ```
 
-Keyless works for occasional calls. Small sites usually have **no field data** —
-then lab is all you have; say so explicitly.
+Keyless works for occasional calls, **but the keyless quota is shared by everyone calling
+without a key and can be exhausted for the day** (2026-10-02: `Quota exceeded for quota metric
+'Queries' … 'Queries per day'` on the first call). Then pass `&key=<API key>` (a Google Cloud key
+with the PageSpeed Insights API enabled) or fall back to local Lighthouse for lab numbers. Small
+sites usually have **no field data**; then lab is all you have, so say so explicitly.
+
+### A before/after baseline (hosting moves, CDN changes)
+
+Run Lighthouse **3 times per form factor and keep the median** (scores move ±3 between runs);
+rerun any run with `runtimeError` (`CHROME_INTERSTITIAL_ERROR` happens). Add single `curl -w`
+timings per URL, two in a row (the first may be a CDN miss), with the CDN's cache header
+(`x-vercel-cache`, `cf-cache-status`, `age`), so TTFB on a hit and on a miss are both on record.
+Write the exact commands next to the numbers so the "after" uses the same ones. Example:
+enacast-astro docs/cloudflare.md "Vercel speed baseline".
 
 ### Quick in-browser spot checks (Playwright/DevTools MCP)
 
