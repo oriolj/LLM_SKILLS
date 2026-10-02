@@ -8,6 +8,8 @@ one level below `skills/`, so these are linked FLAT: `~/.claude/skills/<name>`
 
 - `oj-codex-review` — adversarial QA by Codex in a pane next to yours.
 - `oj-codex-ask` — a second opinion from Codex; the pane stays open to chat.
+- `oj-codex-opinion` — `oj-codex-ask` with the question prefilled: Codex's
+  opinion on what we are discussing right now.
 
 Both drive `oj-codex` (hq `homelab/ansible/roles/development/files/oj-codex`,
 installed by the `herdr` tag). Design and traps: hq
