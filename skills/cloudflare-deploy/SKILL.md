@@ -432,6 +432,16 @@ full table and sources). The traps, each of which silently does the wrong thing:
   Internet Archive. **Smart Tiered Cache ON** (free). Never cache key
   "Resolved host" on a multitenant zone (it mixes tenants). No Cache Analytics
   on Free: log `cf-cache-status` yourself.
+- **Cache Rule by API** (verified 2026-10-02, enacasthq.com Free): phase
+  `http_request_cache_settings`; `GET /zones/{z}/rulesets/phases/http_request_cache_settings/entrypoint`
+  first (404 = none yet), because `PUT` on the entrypoint REPLACES all its rules. Rule:
+  `{"expression":"(http.host wildcard \"*-origin.enacasthq.com\")","action":"set_cache_settings",
+  "action_parameters":{"cache":true,"edge_ttl":{"mode":"bypass_by_default"},"browser_ttl":{"mode":"respect_origin"}}}`
+  (`bypass_by_default` = "use cache-control if present, bypass if not"; `wildcard` works on Free).
+  Effective in seconds. Then `MISS` → `HIT`; a different data center fills its own copy, so a
+  second `MISS` right after the first is normal.
+- **Tag purge by API**: `POST /zones/{z}/purge_cache {"tags":["radio-x"]}` with the EnaCast token
+  (has Cache Purge), ~0.5 s, next request `MISS`. A scoped tag clears only pages carrying it.
 - `Set-Cookie` on a response = not cached; `Vary` ignored except Accept-Encoding.
 - **Workers Cache** (GA 2026-07-06, for a Worker origin): its cache key
   **excludes the hostname by default** (multitenant apps need a gateway
