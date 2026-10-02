@@ -823,11 +823,10 @@ this section keeps the rules and the lessons.
      episodes only the 13-minute one published, with an auto frame). Before sending a long video,
      check the channel is verified (youtube.com/verify, an owner's step); check the outcome on the
      channel's public feed (`/feeds/videos.xml?channel_id=…`), never by retrying.
-   - `postiz upload` refuses files over **2 GiB**, so only the shorts go
-     through Postiz; the long episode is uploaded by Oriol in YouTube
-     Studio (full-quality master, no re-encode), with the generated
-     `youtube-description.md`. A delivery encode under 2 GiB is the
-     fallback if it ever must go through Postiz.
+   - `postiz upload` refuses files over **2 GiB**: the long episode goes
+     through Postiz as a 1080p HEVC (`hvc1`) encode (BikeCRM: the podcast
+     encode, 0.3–0.8 GB, Oriol's choice 2026-10-01) with the generated
+     description and thumbnail; the 4K master only by hand in Studio.
    - **A pacing monitor per product account** keeps the queue from
      silently running dry: a Cloudflare Worker with a daily cron reads
      Postiz's public API (`/public/v1/posts`, `Authorization: <key>`;
