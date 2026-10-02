@@ -113,6 +113,29 @@ Different from 0c (SSH for Coolify): here the tunnel carries visitors to an app.
   not `radiodesvern.origin.enacasthq.com`): Universal SSL covers `zone` and
   `*.zone` only; a deeper name gets no edge certificate without a paid
   Advanced Certificate.
+- **Cutting a client domain over to the tunnel** (Ràdio Desvern, 2026-10-02, zero failed probes):
+  1. Prepare while the records are still DNS-only (all inert): GET the zone's existing rulesets
+     first (a client zone can carry years-old Cache Rules: Ràdio Desvern's would have disabled
+     stale-while-revalidate; save their JSON, then PUT the house rule), Always Online off,
+     Browser Cache TTL respect origin, Smart Tiered Cache on, Always Use HTTPS on, min TLS 1.2,
+     the zone in the app's purge list, and a Redirect Rule (phase `http_request_dynamic_redirect`)
+     apex → `concat("https://www.<domain>", http.request.uri.path)`, 301, query kept.
+  2. Pre-flight: the zone's Universal SSL pack is `active` for apex + `*.` (GET
+     `ssl/certificate_packs`), the origin renders `Host: www.<domain>` through Traefik, and the old
+     host's certificate end date (the rollback's lifetime: Vercel cannot renew while DNS points
+     elsewhere). Save the record ids + old values.
+  3. PATCH `www` to `CNAME <tunnel-id>.cfargotunnel.com` proxied (the authoritative answer moved in
+     ~10 s, public resolvers within a minute with TTL auto); then the apex to a proxied
+     `A 192.0.2.1` (redirect only; MX untouched).
+  4. Verify through the edge (`curl --resolve www.<domain>:443:<cf ip>`): pages MISS → HIT, private
+     routes BYPASS, redirects, RSS/sitemap, embeds, **a browser-like form POST with an `Origin`
+     header** (see the coolify-deploy skill: the origin may refuse it), a purge, a real browser
+     run. Your own workstation may resolve the OLD host for minutes (local/gateway cache): check
+     `getent hosts` before trusting a browser test.
+- **Cloudflare's cache survives a deploy of the origin** (Vercel's does not: the deployment is in
+  its cache key). Cached HTML of the previous build then references hashed assets the new
+  container may not have. Purge the served hostnames after every origin deploy
+  (`POST purge_cache {"hosts":[…]}`, every plan); enacast-astro `make deploy-coolify` does it.
 - A load balancer in front of tunnels is a different beast: the usual
   recipe sets the endpoint's Host header to the tunnel hostname, which breaks
   host-based apps. Prove host preservation before relying on it.

@@ -648,6 +648,23 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   sidecar; for distroless, a static-linked `healthcheck` binary Coolify
   can exec). Track it as an open item until the list is empty.
 
+### An app behind a TLS-terminating proxy sees `http://` (Cloudflare tunnel → Traefik → Node, 2026-10-02)
+
+- TLS ends at Cloudflare; the tunnel and Traefik speak HTTP to the container, and Traefik
+  REWRITES `X-Forwarded-Proto` to `http` (Coolify's Traefik trusts no forwarded headers).
+  `@astrojs/node` 11.1.2 builds the request URL from the socket only, so Astro's CSRF
+  `checkOrigin` saw `Origin: https://…` ≠ `http://…` and refused **every browser form POST with
+  403** (`Cross-site POST form submissions are forbidden`); GETs and curl without `Origin` worked,
+  so nothing else noticed. Fix: restore the scheme from `CF-Visitor` (Cloudflare sets it, Traefik
+  passes it) before the framework builds the request (enacast-astro `server.mjs`
+  `markForwardedHttps`). Same trap for Django (`SECURE_PROXY_SSL_HEADER`/CSRF trusted origins) and
+  any framework that derives absolute URLs or origin checks from the socket.
+- **Test it with `curl -X POST -H 'Origin: https://<host>' …`** through the edge; a plain curl POST
+  without `Origin` takes a different path.
+- **A redirect on a POST loses it unless it is 307/308**: a form posting to a URL without the
+  trailing slash the router wants got a 301 from the Node adapter (Vercel answered 308), and
+  browsers follow 301 with a GET. Point forms at the canonical URL.
+
 ### Load-testing an origin before it takes traffic (enacast-astro, 2026-10-02)
 
 - **Tool: `oha`** (Rust, single static binary from its GitHub releases). Open model with
