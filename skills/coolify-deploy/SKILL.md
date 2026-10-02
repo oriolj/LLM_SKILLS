@@ -622,6 +622,15 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   capped (45 s) so a dead backend never blocks a deploy; Docker `start-period` above the cap.
   Blue-green then only swaps to a warm container. Reference: enacast-astro `server.mjs` `warmUp()`
   (`WARMUP_HOST`, `WARMUP_PATHS`, `WARMUP_REQUESTS`), docs/cloudflare.md "Capacity".
+  **"Ready" must mean "rendered a page"** (Codex review, 2026-10-02): count only workers that
+  emitted `listening` (not merely forked), require at least one warm-up response with status 200
+  (a dead API answers redirects, a broken build 500s) and keep retrying while there is none, so a
+  bad build never passes the blue-green gate; make the warm-up deadline a hard timer that destroys
+  open requests (an idle timeout misses a body that trickles forever).
+- **Admission control: free a render slot when the render ends, not when the socket closes.** A
+  visitor who disconnects does not stop the render (its upstream fetches go on); release on the
+  adapter's `res.end` and, after `close`, at most a bounded time later, or disconnects under
+  overload defeat the limit.
 - Celery: never `celery -A config inspect ping` as a healthcheck (boots all of Django, ~265 MB + 100% CPU, thousands of times/day). Use `grep -q celery /proc/1/cmdline` (requires `exec` so celery is PID 1). Under `init: true` (tini/docker-init is PID 1) — or whenever celery starts through its python shebang so argv[0] is `python` — the PID-1 form can NEVER match (EnaCast prod, 2026-09-03: it had silently been `celery inspect ping` failing exit 69). Scan argv[0..1] of every process instead: `for p in /proc/[0-9]*/cmdline; do head -z -n2 "$$p" 2>/dev/null | tr '\\0' ' ' | grep -qE '(^|/)celery ' && exit 0; done; exit 1` (the probe's own `sh`/`grep` argv[0..1] never match, so no false positive; verify on the live container). For threads-pool wedge detection the Django-free broker-only form: `celery -b $REDIS_URL inspect ping -d celery@$(hostname)`.
 - **Compose buildpack: a service with NO `healthcheck:` gets Coolify's
   injected loopback probe** — which lands on the ALLOWED_HOSTS trap above

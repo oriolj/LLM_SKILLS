@@ -158,6 +158,14 @@ Reference: `oriolj/llm-index-watcher` `backend/config/tracing.py` (2026-09-05).
 
 ## Cache resilience — the contract (owned here, learned 2026-09-04 on EnaCast)
 
+**Never keep durable work in the cache's Redis** (EnaCast, Codex review 2026-10-02): a
+queue of pending work (tags to purge, events to flush) put in the default cache's Redis
+is erased by the per-release `FLUSHDB`, by `allkeys-lru` eviction and by a restart of a
+store without persistence. Pending work goes to the persistent auxiliary Redis
+(`generic_tools/redis_clients.get_redis(settings.REDIS_AUXILIARY_DB)`, like EnaCast's
+content_events buffer and its Cloudflare purge queue) or a DB outbox; the cache keeps
+only what can be recomputed.
+
 A Django cache that raises turns every request into a 500: DRF's throttles,
 tenant lookups and the cache middleware all touch it before the view. A cache
 that silently never raises is wrong for two consumers. The house contract:
