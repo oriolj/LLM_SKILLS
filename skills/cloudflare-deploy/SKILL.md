@@ -85,13 +85,37 @@ curl -s "${H[@]}" $CF/accounts/$ACC/cfd_tunnel/$TID | jq '.result.status, (.resu
   the same name is what Coolify's server `ip` field gets afterwards. No A
   record for the machine — the public IP lives in hq docs only.
 - Observed: the DNS-record POST with a `comment` field came back with
-  `result: null`; the same body without `comment` succeeded. Keep record
-  creation minimal, add comments in a second PATCH if wanted.
+  `result: null`; the same body without `comment` succeeded. Hit AGAIN on
+  2026-10-02 (enacasthq.com) by a session that had not loaded this skill: a
+  ~110-char comment failed, a 66-char one worked, so the cause is the
+  **100-character comment limit on Free zones**. Keep comments short (or
+  none), and print `errors` on failure: `result` is null and hides why.
 - The daemon goes on the box via hq `shared/ansible` (`cloudflared` group,
   `make apply TAGS=cloudflared HOST=<host>`), never `docker run`.
 - Public-lookup helpers that work from the workstation: `rdap.org` needs
   `curl -L` (302 to the registry's RDAP; `.es` has no RDAP data) and NS
   lookups via Python `dns.resolver` (no `dig`/`resolvectl` on the box).
+
+## 0e. A tunnel as the ORIGIN of a website on a Coolify host (enacast-astro, 2026-10-02)
+
+Different from 0c (SSH for Coolify): here the tunnel carries visitors to an app.
+
+- **One tunnel per host, ONE catch-all ingress rule to Coolify's Traefik**:
+  `{"config":{"ingress":[{"service":"http://localhost:80"}]}}`, cloudflared
+  native on the host (`cloudflared` inventory group, same token flow as 0c).
+  Not to the app container: its name/IP changes on every blue-green deploy,
+  and Traefik is what moves traffic to the new container. cloudflared keeps
+  the visitor's `Host` (no `httpHostHeader`), so Traefik routes by hostname and
+  a multitenant app still resolves its tenant from the host. Every hostname must
+  then exist as a domain on the Coolify app (`http://<host>` = no ACME attempt;
+  TLS ends at Cloudflare). Tunnel `coolify-ovh-vps-2`, `bfe21648-…`.
+- **Test hostnames: ONE label under the zone** (`radiodesvern-origin.enacasthq.com`,
+  not `radiodesvern.origin.enacasthq.com`): Universal SSL covers `zone` and
+  `*.zone` only; a deeper name gets no edge certificate without a paid
+  Advanced Certificate.
+- A load balancer in front of tunnels is a different beast: the usual
+  recipe sets the endpoint's Host header to the tunnel hostname, which breaks
+  host-based apps. Prove host preservation before relying on it.
 
 ## 0d. R2 for Coolify backups — three traps, all hit on 2026-08-28
 
@@ -380,3 +404,36 @@ records and both must exist.
   boto3/httpx-signed).
 - R2 keys are separate credentials from the API token — the token cannot
   talk S3, the keys cannot talk the Cloudflare API.
+
+## 5. Caching SSR HTML from an origin behind Cloudflare (researched 2026-10-02)
+
+Verified against developers.cloudflare.com on 2026-10-02 for the enacast-astro
+move (enacast-astro `docs/cloudflare.md` "How we use Cloudflare's CDN" has the
+full table and sources). The traps, each of which silently does the wrong thing:
+
+- **HTML is not cached by default.** One Cache Rule: "Eligible for cache",
+  Edge TTL "Use cache-control header if present, bypass cache if not",
+  Browser TTL **"Respect origin"**. Page Rules / "Cache Everything" are deprecated.
+- **`s-maxage` disables stale serving** (Cloudflare treats it as
+  `proxy-revalidate`, always on for Free/Pro/Business): send the origin's edge
+  policy in **`Cloudflare-CDN-Cache-Control: max-age=…, stale-while-revalidate=…,
+  stale-if-error=…`** (Cloudflare-only, not passed on, wins over
+  `CDN-Cache-Control` > `Cache-Control`). Async stale-while-revalidate on every
+  plan since 2026-02-26.
+- **The zone's Browser Cache TTL (default 4 h) overwrites a shorter origin
+  `max-age`**: set "Respect existing headers" / Browser TTL "Respect origin", or
+  editors' changes stay invisible in returning browsers for hours.
+- **Tags: `Cache-Tag`** (comma-separated, no spaces, ≤16 KB); `Vercel-Cache-Tag`
+  is ignored. Purge by tag/host/prefix is on EVERY plan since 2025-04-01, but
+  **Free = 5 purge calls/minute** (burst 25, 100 tags per call), Pro 5/s:
+  batch and debounce. `invalidate_cache` (2026-09) only saves work with
+  ETag/Last-Modified. A 200 means accepted, not done.
+- **Always Online OFF**: it disables `stale-if-error` and shares URLs with the
+  Internet Archive. **Smart Tiered Cache ON** (free). Never cache key
+  "Resolved host" on a multitenant zone (it mixes tenants). No Cache Analytics
+  on Free: log `cf-cache-status` yourself.
+- `Set-Cookie` on a response = not cached; `Vary` ignored except Accept-Encoding.
+- **Workers Cache** (GA 2026-07-06, for a Worker origin): its cache key
+  **excludes the hostname by default** (multitenant apps need a gateway
+  entrypoint), it is purgeable only from inside the Worker at Free-tier rates,
+  and its hits are billed as requests.
