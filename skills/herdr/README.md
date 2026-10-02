@@ -11,6 +11,9 @@ one level below `skills/`, so these are linked FLAT: `~/.claude/skills/<name>`
 - `oj-codex-opinion` — `oj-codex-ask` with the question prefilled: Codex's
   opinion on what we are discussing right now.
 
-Both drive `oj-codex` (hq `homelab/ansible/roles/development/files/oj-codex`,
-installed by the `herdr` tag). Design and traps: hq
-`homelab/dotfiles/HERDR.md`, "Codex in a pane".
+All three drive `oj-codex` (hq `homelab/ansible/roles/development/files/oj-codex`,
+installed into `~/.local/bin` by the `herdr` tag), which owns every mechanic:
+scope words -> base commit (`oj-codex scope`), the pane, the question
+templates, the headless fallback outside herdr, and the error messages the
+skills relay. Design and traps: hq `homelab/dotfiles/HERDR.md`, "Codex in a
+pane". `/oj-review` (top-level `skills/oj-review`) uses it too.
