@@ -94,6 +94,14 @@ Endpoint keys (`<group>_<name>`) must be unique estate-wide
   **literal `100.x` address** from the container: MagicDNS does not
   resolve inside a container (verified 2026-09-13 on internal-1). That is
   one of the two sanctioned exceptions to the MagicDNS-names rule.
+- **An origin behind a CDN with `stale-if-error` needs its own probe past the CDN**: through
+  the CDN, a dead origin keeps answering 200 from cache for as long as `stale-if-error` allows
+  (a day for enacast-astro). Probe the origin by its tailnet `100.x` address straight to its
+  proxy, with the site's host as a header (`headers: {Host: radiodesvern-origin.enacasthq.com}`);
+  Gatus sends it as the request's Host (verified 2026-10-02: Traefik routed it and the body
+  matched; without it Traefik answers its own 404). For the public path through the CDN, pick a
+  URL the CDN never caches (`no-store`; check `cf-cache-status: DYNAMIC/BYPASS`), not a page.
+  Reference: `config/enantena/enacast-origin.yaml`.
 - Register the surface even if it is red today (evpricemap.com answered
   503 on day one) — a status page that only lists green things is
   decoration. Report the red one loudly instead.
