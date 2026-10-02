@@ -808,6 +808,11 @@ Everything below verified live on Coolify Cloud against v5.enacast.com.
   `validation_logs` keeps the stale text for a while (verified 2026-08-28,
   oriolj-nc-1, Debian 13). That is the Coolify-owns-Docker path — never
   install Docker yourself on a Coolify box.
+- **After `systemctl restart docker` on a Coolify host, `coolify-sentinel` stays
+  down**: it runs with restart policy `no` (verified 2026-10-02, coolify-ovh-vps-2 and
+  coolify-ovh-vps-1), so the restart's SIGTERM leaves it `Exited (0)`. `docker start
+  coolify-sentinel` brings it back with its own config; check its log shows
+  `pushing url=https://app.coolify.io/api/v1/sentinel/push`.
 - `GET /github-apps/{uuid}/repositories` is **not an API route** on Coolify
   Cloud (returns the dashboard HTML). Don't probe repo visibility that way:
   just `POST /applications/private-github-app`; it errors if the App
