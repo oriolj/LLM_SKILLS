@@ -648,6 +648,18 @@ Coolify creates a bind-mount host dir as `root:root`. A nonroot container (distr
   sidecar; for distroless, a static-linked `healthcheck` binary Coolify
   can exec). Track it as an open item until the list is empty.
 
+### Any hostname to one app: a Traefik catch-all router (multi-tenant origins, 2026-10-02)
+
+Coolify generates one router per domain in the app's list (`http-N-<uuid>`, `Host(…)`), so every
+tenant domain would be a manual Coolify edit. When only hosts you route there reach the proxy (a
+Cloudflare tunnel), append to the app's `custom_labels` (base64, keep the generated lines):
+`traefik.http.routers.astro-any-host.rule=HostRegexp(\`^.+$\`)` (Traefik v3 syntax), `.priority=1`,
+`.entryPoints=http`, `.middlewares=gzip`, `.service=astro-any-host` and its own
+`traefik.http.services.astro-any-host.loadbalancer.server.port=<port>` (do not reference the
+generated `http-N` service: its number shifts when domains change). Restart, then prove it with a
+`Host:` that is NOT in the domain list: the app's own answer, not Traefik's `404 page not found`.
+A domains PATCH can rewrite the label block: re-check after any domain edit (enacast-astro app).
+
 ### An app behind a TLS-terminating proxy sees `http://` (Cloudflare tunnel → Traefik → Node, 2026-10-02)
 
 - TLS ends at Cloudflare; the tunnel and Traefik speak HTTP to the container, and Traefik
