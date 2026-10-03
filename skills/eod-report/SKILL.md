@@ -33,11 +33,11 @@ gets it from this skill; a team mail is a different ask.
 
 ```bash
 S=<this skill's directory>   # the folder holding this SKILL.md; fallback ~/git/oriolj/LLM_SKILLS/skills/eod-report
-python3 "$S/scripts/collect.py" --date <day> --fetch --out <scratchpad>/eod.json
-python3 "$S/scripts/collect.py" --date <day> --format text      # the overview, for you and the user
+python3 "$S/scripts/collect.py" --date <day> --fetch [--project X] --out <scratchpad>/eod.json
+python3 "$S/scripts/collect.py" --from-json <scratchpad>/eod.json   # text overview of that same run
 ```
 
-(Use the same `--date` for both, and pass `--project` filters to both.) It
+It
 scans every repo under `~/git` to depth 4 (skipping `archived/`,
 `node_modules`, other mounts) plus hq, and for each repo with commits or
 uncommitted edits in the window it emits:
@@ -86,7 +86,7 @@ with a section per repo; rows under a plain bucket heading (`## SmartupSoft`,
   maintainer section that the repo has no row in projects.md (a finding the
   global rules want fixed), and add the row in hq in the same turn when the
   project is obvious from the repo.
-- **Nothing new** (every commit `already_reported`, no `dirty_today`): no mail.
+- **Nothing new** (every commit `already_reported`, no `dirty_today`): the collector drops the mail and lists it in `already_reported_mails`; say so in the report back.
 - **A rerun the same day** with some new commits: subject `EOD update <date>
   — <Project>`, covering only the commits not yet reported, opening with one
   line pointing at the earlier mail's subject.

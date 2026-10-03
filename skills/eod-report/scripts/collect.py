@@ -107,7 +107,8 @@ def find_repos(roots: list[Path], hq: Path) -> list[Path]:
         walk(root, 0)
     if (hq / ".git").exists():
         found.append(hq)
-    return found
+    # A stray .git (an empty dir, a dead worktree pointer) is not a repo.
+    return [d for d in found if git(d, "rev-parse", "--git-dir", timeout=10)[0] == 0]
 
 
 def window(date_arg: str) -> tuple[dt.datetime, dt.datetime]:
@@ -217,7 +218,9 @@ def collect_repo(repo: Path, start: dt.datetime, end: dt.datetime, do_fetch: boo
     info: dict = {"path": str(repo).replace(str(HOME), "~", 1), "errors": []}
     if do_fetch:
         rc, _, err = git(repo, "fetch", "--all", "--prune", "--quiet", timeout=45)
-        info["fetch"] = "ok" if rc == 0 else f"failed: {err.strip().splitlines()[-1] if err.strip() else rc}"
+        msgs = [l.strip() for l in err.splitlines() if l.strip()]
+        key = next((l for l in msgs if re.match(r"(fatal|error|ERROR)", l)), msgs[0] if msgs else str(rc))
+        info["fetch"] = "ok" if rc == 0 else f"failed: {key[:200]}"
 
     rc, remote, _ = git(repo, "remote", "get-url", "origin")
     info["remote"] = remote.strip() if rc == 0 else None
@@ -290,6 +293,10 @@ def collect_repo(repo: Path, start: dt.datetime, end: dt.datetime, do_fetch: boo
     info["dirty_total"] = len(porcelain.splitlines()) if rc == 0 else None
 
     if not commits and not dirty_today:
+        # Keep a failed fetch visible: that repo's only activity today may be a
+        # push from another machine we could not see.
+        if info.get("fetch", "ok") != "ok":
+            return {"idle": True, "path": info["path"], "fetch": info["fetch"]}
         return None
 
     new = [c for c in commits if not c["already_reported"]]
@@ -441,6 +448,8 @@ def text_overview(result: dict) -> str:
             for c in r["commits"]:
                 mark = "R" if c["already_reported"] else ("U" if c["pushed"] is False else " ")
                 lines.append(f"      {mark} {c['hash']} {c['date'][11:16]} {c['author']}: {c['subject']}")
+    if result.get("already_reported_mails"):
+        lines.append("\nalready reported, nothing new: " + ", ".join(result["already_reported_mails"]))
     if result["fetch_failures"]:
         lines.append("\nfetch failures: " + "; ".join(result["fetch_failures"]))
     return "\n".join(lines)
@@ -458,7 +467,13 @@ def main() -> int:
                     help="keep only mails whose name, project or repo contains this (case-insensitive)")
     ap.add_argument("--format", choices=("json", "text"), default="json")
     ap.add_argument("--out", type=Path, help="write the output here instead of stdout")
+    ap.add_argument("--from-json", type=Path,
+                    help="print the text overview of a saved JSON run (no second scan or fetch)")
     a = ap.parse_args()
+
+    if a.from_json:
+        print(text_overview(json.loads(a.from_json.read_text(encoding="utf-8"))))
+        return 0
 
     start, end = window(a.date)
     roots = a.root or DEFAULT_ROOTS
@@ -469,9 +484,12 @@ def main() -> int:
     with cf.ThreadPoolExecutor(max_workers=8) as ex:
         results = list(ex.map(lambda r: collect_repo(r, start, end, a.fetch, reported, by_remote, by_local, a.hq),
                               repos))
-    active = merge_worktrees([r for r in results if r])
+    active = merge_worktrees([r for r in results if r and not r.get("idle")])
     map_by_prefix(active)
     mails = group(active)
+    # A mail whose commits were all sent already, with no new uncommitted work, is not sent again.
+    done = [m["mail"] for m in mails if not any(r["new_commits"] or r["dirty_today"] for r in m["repos"])]
+    mails = [m for m in mails if m["mail"] not in done]
     if a.project:
         needles = [p.lower() for p in a.project]
         mails = [m for m in mails if any(
@@ -480,8 +498,7 @@ def main() -> int:
 
     fetch_failures = []
     if a.fetch:
-        for r, res in zip(repos, results):
-            # Re-read failures from active repos only; idle repos are not reported on.
+        for res in results:
             if res and res.get("fetch", "ok") != "ok":
                 fetch_failures.append(f"{res['path']}: {res['fetch']}")
 
@@ -493,6 +510,7 @@ def main() -> int:
         "fetched": a.fetch,
         "fetch_failures": fetch_failures,
         "unmapped_repos": [r["path"] for r in active if not r["in_projects_md"]],
+        "already_reported_mails": done,
         "mails": mails,
     }
     out = json.dumps(result, indent=1, ensure_ascii=False) if a.format == "json" else text_overview(result)
