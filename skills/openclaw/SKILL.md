@@ -1,6 +1,6 @@
 ---
 name: openclaw
-description: Operate the estate's OpenClaw agent VMs (petraclaw = personal, emmaclaw = Enantena, blakeclaw = SmartupSoft/BikeCRM — self-hosted personal-AI-agent gateways on the home LAN) — how they are installed (nvm Node, npm global, user systemd unit), the safe update procedure and the trap where `openclaw update` leaves the gateway DOWN on a pending state-DB migration, plugin version pins, the systemd unit reinstall, adding a Slack workspace (socket mode, manifest, tokens, allowlists), adding Telegram/other channels, reading the config without leaking secrets, and the verification that proves an update or a channel actually works. Use when the user mentions OpenClaw, petraclaw/emmaclaw/blakeclaw, "the claw", updating an agent VM, connecting an agent to Slack/Telegram/WhatsApp, `openclaw doctor`, a gateway that will not start, or plugin drift warnings. Also covers the Hermes Agent (Nous Research) on the same VMs (tag-pinned update and rollback, model/fallback switch, Discord setup). Use when the user mentions Hermes, `hermes-gateway`, updating Hermes, or a Discord bot on a claw.
+description: Operate the estate's OpenClaw agent VMs (petraclaw = personal, emmaclaw = Enantena, blakeclaw = SmartupSoft/BikeCRM — self-hosted personal-AI-agent gateways on the home LAN) — how they are installed (nvm Node, npm global, user systemd unit), the safe update procedure and the trap where `openclaw update` leaves the gateway DOWN on a pending state-DB migration, plugin version pins, the systemd unit reinstall, adding a Slack workspace (socket mode, manifest, tokens, allowlists), adding Telegram/other channels, reading the config without leaking secrets, and the verification that proves an update or a channel actually works. Use when the user mentions OpenClaw, petraclaw/emmaclaw/blakeclaw, "the claw", updating an agent VM, connecting an agent to Slack/Telegram/WhatsApp, `openclaw doctor`, a gateway that will not start, plugin drift warnings, or Hermes (the Nous Research Hermes Agent on the same VMs — `hermes-gateway`, tag-pinned update and rollback, model/fallback switch, a Discord bot on a claw).
 ---
 
 # OpenClaw — the three agent VMs
@@ -402,27 +402,25 @@ set -euo pipefail
 umask 077                     # the backup holds .env + auth.json
 TAG=<tag>
 H=~/.hermes/hermes-agent; cd "$H"
-# The post-checkout driver lives ONLY on the three VMs (USER_TODO: commit it
-# to skills/openclaw/scripts/). Without it, stop: skipping its steps leaves
-# the config unmigrated.
+# post-checkout driver: only on the VMs so far (USER_TODO in LLM_SKILLS)
 test -f ~/backups/hermes_post_checkout.py || { echo "hermes_post_checkout.py missing: stop" >&2; exit 1; }
-test -z "$(git status --porcelain | grep -v '^?? .install_method$' || true)"   # only .install_method may be untracked
-mkdir -p ~/backups
+test -z "$(git status --porcelain | grep -v '^?? .install_method$')"   # only .install_method may be untracked
 systemctl --user stop hermes-gateway.service      # BEFORE the backup: tar fails "file changed" while it runs
 tar czf ~/backups/hermes-pre-$TAG-$(date -u +%Y%m%dT%H%M%SZ).tgz -C ~ \
   --exclude=.hermes/hermes-agent/venv --exclude=.hermes/hermes-agent/node_modules .hermes
 cp -a ~/.hermes/config.yaml ~/backups/hermes-config.yaml.pre-$TAG
 git fetch --no-tags origin tag "$TAG" && git checkout "$TAG"
 VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[all]"
-# then the release's own post-update steps (lazy backends, npm workspaces with
-# system Node, web UI build, bundled-skill sync, config migration) — run via
-# the updater's functions; the driver used is ~/backups/hermes_post_checkout.py
-systemctl --user start hermes-gateway.service
 ```
 
-If it stops after `systemctl --user stop`, the gateway stays down (and
-pages): fix the cause and re-run, or `systemctl --user start
-hermes-gateway.service`.
+The script deliberately ends with the gateway stopped. Next, by hand, run
+the release's own post-update steps (lazy backends, npm workspaces with
+system Node, web UI build, bundled-skill sync, config migration) through
+`~/backups/hermes_post_checkout.py`, which calls the updater's functions
+(read its header for the invocation; it is not in git yet). Only then
+`systemctl --user start hermes-gateway.service`. Starting before the
+driver runs serves an unmigrated config. If the script stops early, the
+gateway is down too (and pages): fix the cause and re-run, or start it.
 
 Verify: `hermes --version`, a real turn, `~/.hermes/logs/agent.log` →
 `model=gpt-6-luna provider=openai-codex`, `assistant-healthcheck@hermes`

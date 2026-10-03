@@ -15,3 +15,13 @@ an item when it is done (`git log` is the history).
   *Blocked until then:* updating Hermes on a rebuilt or new VM. The snippet
   now stops when the driver is missing instead of skipping the config
   migration.
+- [ ] **Decide whether LeadHunter should answer "sendable rows of this
+  campaign" itself.** For example a `?sendable=1` filter on
+  `/api/campaign-accounts/` that re-runs `partition_accounts_for_outreach`
+  with the campaign's goal, or account `status` / `relationship_types` /
+  `do_not_contact_purposes` on that list's serializer. Until then the
+  [leadhunter skill](skills/leadhunter/SKILL.md) § Send list re-implements
+  the filter in jq, a copy of `campaigns/goals.py` that can drift.
+  *Why you:* it is a product/API change in humans2agents, which another
+  session owns. *Blocked until then:* nothing urgent; the jq recipe is the
+  interim.

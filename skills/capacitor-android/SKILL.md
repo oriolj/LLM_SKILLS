@@ -17,9 +17,11 @@ are what such lanes wrap.
      run after every `cap sync`) for manifest edits: permissions the plugins
      need (e.g. CAMERA), stripping unwanted ones (e.g. RECORD_AUDIO so
      "Microphone" stays off the store listing). Add future manifest edits
-     there. **No manifest orientation lock** on MainActivity: Play flags it and
-     Android 16 ignores it on large screens — lock phones at runtime instead
-     (Known gotchas → *Runtime orientation lock*).
+     there. **Lock phones at runtime** (Known gotchas → *Runtime orientation
+     lock*). A manifest `screenOrientation` on MainActivity is optional on
+     top of it: it removes the landscape flash at launch, but Play's
+     release dashboard flags it and Android 16 ignores it on large
+     screens.
    - The Makefile / env — exported `ANDROID_HOME`/`JAVA_HOME` pins, plus any
      copy steps for git-ignored secrets (e.g. `google-services.json` for FCM).
    - Icon/splash source image + a `capacitor-assets` step per sync.
@@ -272,12 +274,11 @@ Build it in this order:
   No phone-width check is needed: on targetSdk 36, Android 16 ignores this
   runtime request too on screens ≥600dp (tablets, a foldable's inner
   display), exactly like the manifest attribute, so the larger layouts must
-  work in landscape anyway. The same call is what locks iOS. Trade-off: the
+  work in landscape anyway. On iOS the durable lock is the Info.plist key
+  (`capacitor-ios` ground rule 1); this call adds the runtime side. The
   lock lands when the JS bundle runs, so a phone held sideways at launch
-  shows a brief landscape frame first; that is why Panotxa
-  (`frontend-capacitor/src/main.tsx`) ALSO still pins the manifest from
-  `scripts/android-permissions.sh` (2026-10-03). Removing that manifest pin
-  is the open follow-up Play flagged; until then its dashboard card stays.
+  shows a brief landscape frame first (the manifest pin, ground rule 1,
+  is what removes it). Reference: Panotxa `frontend-capacitor/src/main.tsx`.
   Verify: on a phone (or a phone AVD) rotate the device and the app stays
   portrait; on a ≥600dp AVD (a tablet device profile) it rotates and the
   layout holds.

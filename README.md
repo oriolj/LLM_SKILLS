@@ -64,7 +64,7 @@ commands/    # Slash commands — invoked explicitly with /<name>
 
 ## Installing
 
-These files live in this repo as the source of truth. **On Oriol's machines, homelab/ansible links them** (hq `homelab/ansible/roles/dotfiles/tasks/claude-skill-links.yml`, since 2026-10-03): every `skills/<name>/SKILL.md` and `skills/<group>/<name>/SKILL.md` folder (the task searches to depth 3; deeper `SKILL.md` files are not linked) and every `commands/*.md`, into `~/.claude` and every `~/.claude-<account>` profile. After adding a skill, push, `git pull` on each host and run `ansible-playbook playbooks/claude-global.yml -l <host>` (no sudo). Elsewhere, symlink them into `~/.claude/` by hand:
+These files live in this repo as the source of truth. **On Oriol's machines, homelab/ansible links them** (hq `homelab/ansible/roles/dotfiles/tasks/claude-skill-links.yml`, since 2026-10-03): every `skills/<name>/SKILL.md` and `skills/<group>/<name>/SKILL.md` folder (nothing deeper) and every `commands/*.md`, into `~/.claude` and every `~/.claude-<account>` profile. After adding a skill, push, `git pull` on each host and run `ansible-playbook playbooks/claude-global.yml -l <host>` (no sudo). Elsewhere, symlink them into `~/.claude/` by hand:
 
 ```fish
 # every skill, idempotent — re-run after adding a skill to this repo

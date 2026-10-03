@@ -72,7 +72,7 @@ error). Organizations list only member projects.
 | One account (+ campaign memberships, histories) | `GET /api/accounts/{id}/` |
 | Campaigns | `GET /api/campaigns/?project=…&status=…&archived=all` |
 | Campaign totals | `GET /api/campaigns/statistics/?project=<uuid>` (counts by status and `by_goal`) |
-| Campaign CSV (reading only, never a send list) | `GET /api/campaigns/{id}/export-accounts/?review_status=approved&fields=name,email,contact_email,status,score,score_label,language,relationship_types,…` (CSV; unknown field → 400). Never `review_status=all`: it brings back the rows you rejected. A send list comes from § Send list |
+| Campaign CSV (reading only, never a send list) | `GET /api/campaigns/{id}/export-accounts/?review_status=approved&fields=name,email,contact_email,status,score,score_label,language,relationship_types,…` (CSV; unknown field → 400). Never `review_status=all`: it brings back the rows you rejected. Send lists: § Send list |
 | Campaign inbox (latest message per account) | `GET /api/campaigns/{id}/inbox/` |
 | Messages | `GET /api/messages/?project=…` or `?lead=<account_id>` |
 | Funnel | `GET /api/dashboard/stats/?project=<slug>` or `?organization=<slug>`; per product/campaign `GET /api/dashboard/breakdown/?project=<slug>` |
@@ -128,36 +128,44 @@ re-applies nothing.
 
 ## Send list
 
-The guardrails ran when each row was added; an account marked `customer`,
-`in_trial` or DNC since then is still in the campaign. So the list that
-goes to a mailbox or WhatsApp is built from the API and re-checked row by
-row, never taken from the CSV (which has no DNC purposes and no
-`campaign_lead` id to log the send against):
+The guardrails ran when each row was added (§ above); an account marked
+`customer`, `in_trial` or DNC since then is still in the campaign. So the
+list that goes to a mailbox or WhatsApp is built from the API and
+re-checked, never taken from the CSV (it has no DNC purposes and no
+`campaign_lead` id to log the send against). The filter below copies the
+hard blocks plus customer / trial from `campaigns/goals.py`; it is interim
+until LeadHunter can answer "sendable rows of this campaign" itself
+(USER_TODO in LLM_SKILLS).
+
+Run it as ONE bash script together with the Access block (`bash -s` or a
+file): `set -e` is what stops it on a 401/429/502 instead of writing a
+list that silently lost rows.
 
 ```bash
+set -euo pipefail
 C=<campaign uuid>; OUT=<scratchpad>/send-$C; mkdir -p "$OUT"
-GOAL=$(lh "/api/campaigns/$C/" | jq -er .goal)
-url="/api/campaign-accounts/?campaign=$C&review_status=approved&page_size=100"
-: > "$OUT/rows.ndjson"
-while [ -n "$url" ]; do          # approved rows only; loop on next
-  page=$(lh "$url")
-  jq -c '.results[] | {campaign_lead: .id, account}' <<<"$page" >> "$OUT/rows.ndjson"
-  url=$(jq -r '.next // empty' <<<"$page" | sed "s|^$U||")
-done
-: > "$OUT/accounts.ndjson"
-while read -r a; do              # sequential: 200 req/min
-  lh "/api/accounts/$a/" | jq -c '{id, name, email, status, relationship_types, do_not_contact_purposes}' >> "$OUT/accounts.ndjson"
-done < <(jq -r .account "$OUT/rows.ndjson")
+camp=$(lh "/api/campaigns/$C/")
+GOAL=$(jq -er .goal <<<"$camp"); P=$(jq -er .project_slug <<<"$camp")
+pages() {        # $1 first URL, $2 jq per page; follows next (100 per page)
+  local url=$1 page
+  while [ -n "$url" ]; do
+    page=$(lh "$url"); jq -c "$2" <<<"$page"
+    url=$(jq -r '.next // empty' <<<"$page"); url=${url#"$U"}
+  done
+}
+pages "/api/campaign-accounts/?campaign=$C&review_status=approved&page_size=100" \
+  '.results[] | {campaign_lead: .id, account}' > "$OUT/rows.ndjson"
+pages "/api/accounts/?project=$P&in_any_campaign=true&archived=all&page_size=100" \
+  '.results[] | {id, name, email, status, relationship_types, do_not_contact_purposes}' > "$OUT/accounts.ndjson"
 jq -n --arg goal "$GOAL" --slurpfile accs "$OUT/accounts.ndjson" --slurpfile rows "$OUT/rows.ndjson" '
   ($accs | map({key: .id, value: .}) | from_entries) as $acc
-  | $rows | map(. + {acc: $acc[.account]})
+  | $rows | map(. + {acc: ($acc[.account] // error("no account for row \(.campaign_lead)"))})
   | map(select(
-      .acc != null
-      and (.acc.status | IN("customer", "in_trial", "do_not_contact") | not)
-      and ((.acc.do_not_contact_purposes // []) | index($goal) | not)
-      and ((.acc.relationship_types // []) | index("personal_network") | not)
-      and (($goal | IN("press", "event", "research"))
-           or ((.acc.relationship_types // []) | index("competitor") | not))))
+      ((.acc.relationship_types // []) as $rt
+       | (.acc.status | IN("customer", "in_trial", "do_not_contact") | not)
+         and ((.acc.do_not_contact_purposes // []) | index($goal) | not)
+         and ($rt | index("personal_network") | not)
+         and (($goal | IN("press", "event", "research")) or ($rt | index("competitor") | not)))))
 ' > "$OUT/send.json"
 wc -l < "$OUT/rows.ndjson"; jq length "$OUT/send.json"   # approved vs sendable
 ```
@@ -205,9 +213,11 @@ that goes out is approved by Oriol word for word (hq growth/outreach).
 ## Prod shell one-offs
 
 Only for bulk fixes the API can't express (or would take thousands of
-calls). A status change the API can express goes through
-`POST /api/accounts/bulk-change-status/` (one transaction, history,
-webhooks), not the shell. Read-only queries need no guard. **Any write
+calls). When the selection fits the API's filters, a status change goes
+through `POST /api/accounts/bulk-change-status/` (one transaction,
+history, webhooks), not the shell; the template's `change_status` loop is
+for selections only the ORM can make. Swap the loop body for any other
+write. Read-only queries need no guard. **Any write
 uses this template and nothing else**: run it with `DRY_RUN = True`,
 show Oriol the printed counts, and flip it only on his go for those
 counts.
@@ -226,12 +236,9 @@ agent = get_user_model().objects.get(email="agent@humans2agents.com")
 with transaction.atomic():
     qs = Account.objects.filter(project__slug="<slug>", ...)   # the exact selection
     print("matched", qs.count())
-    changed = 0
     for a in qs:
         change_status(lead=a, new_status="<status>", source="<source>",
                       user=agent, reason="[<date>] <why>")
-        changed += 1
-    print("changed", changed)
     if DRY_RUN:
         transaction.set_rollback(True)
         print("DRY RUN: rolled back, nothing written")
@@ -241,7 +248,8 @@ PY
 The rollback is complete for `change_status`: its webhook enqueue waits
 for commit (`transaction.on_commit`), so a dry run sends nothing. Before
 calling any other service in this block, check that its side effects
-(Celery tasks, webhooks, mail) also wait for commit. Never paste this
+(Celery tasks, webhooks, mail) also wait for commit (the
+`celery-deploy-safety` skill covers `transaction.on_commit` dispatch). Never paste this
 recipe into a heredoc of your own (a `<<'PY'` inside an outer `<<'PY'`
 ends the outer one early and runs the rest, `ssh` included, locally).
 
@@ -256,9 +264,8 @@ ends the outer one early and runs the rest, `ssh` included, locally).
   ([enantena](../../../../../Syncthing/Syncthing-mobile-docs/hq/growth/enantena/README.md#enacast-clients-marked-in-leadhunter--2026-10-03),
   [smartupsoft](../../../../../Syncthing/Syncthing-mobile-docs/hq/growth/smartupsoft/README.md#all-bikecrm-customers-in-leadhunter--2026-09-28)).
   Neither syncs automatically.
-- **Exports and campaign rows do not re-apply the guardrails.** A row
-  added before the account became `customer` / `in_trial` / DNC is still
-  there: reject it, and build every send through § Send list.
+- Build every send through § Send list (exports and old rows skip the
+  guardrails).
 - Campaign-less logs don't move the funnel (above).
 - `page_size` caps at 100.
 - **Rate limit: `?search=` loops hit 429** (2026-10-03, 4 parallel
