@@ -25,6 +25,7 @@ drift).
 | Tenancy isolation | `multitenancy-guardrails` skill |
 | LLM calls (PydanticAI + Langfuse) | `pydantic-ai-langfuse` skill |
 | Email: Resend via django-anymail, Mailpit locally, send from Celery | global `CLAUDE.md` |
+| Email subjects and text/plain bodies from templates: `{% autoescape off %}` + a static test | "Plain-text email templates" below |
 | Coolify resources, blue-green, env vars, server moves | `coolify-deploy` skill |
 | Release identifier (git SHA in app/Sentry/`app_info` metric) | global `CLAUDE.md` §Releases |
 | Deploy doc + status table per repo | hq `shared/docs/deploying-a-new-project.md` |
@@ -295,6 +296,26 @@ the function directly, so the whole suite stays green. Rules:
   function decorated with `shared_task` (found by an AST scan of the source) is in it.
   Reference: `cuentakos/backend/cuentakos/core/tests.py::test_worker_registers_every_shared_task`.
 - After a deploy that adds a task, grep the worker log for `unregistered task`.
+
+## Plain-text email templates turn autoescape off (owned here, learned 2026-10-03 on BikeCRM)
+
+Django autoescapes **every** template, `.txt` included. A subject rendered with
+`render_to_string("…_subject.txt", ctx)` turns a shop called «Bike shop girona's workshop» into
+`Bike shop girona&#x27;s workshop` (`&amp;` for «&», `&lt;` for «<»), and nothing downstream
+un-escapes a subject or a text/plain body. HTML bodies are right to escape; plain text is not.
+BikeCRM had it in its password reset and demo-ready subjects in production for months: every
+test fixture used plain ASCII names.
+
+- Wrap the WHOLE content of every plain-text template (subjects, text/plain bodies, SMS/WhatsApp
+  text if templated): `{% load i18n %}{% autoescape off %}…{% endautoescape %}`. Wrapping outside
+  `{% blocktranslate %}` keeps the msgids, so no `.po` work.
+- Ship a static test that fails for any `*.txt` under a `templates/` dir without it, plus rendered
+  subjects with `O'Brien & <Co> "Bikes"` per language. Reference:
+  `bikecrm-backend/tests/test_email_plain_text_escaping.py`.
+- Email test fixtures include a name with `'` and `&` — Catalan/Spanish/French names have
+  apostrophes («L'Estació»).
+- Subjects built in Python (f-string, `%`, `gettext`) are not escaped and need nothing; `mark_safe`
+  in the context is the wrong fix (it also disables escaping in the HTML body that shares it).
 
 ## New-project checklist (each row = go to its owner)
 
