@@ -16,8 +16,10 @@ are what such lanes wrap.
    - An idempotent **config script** (pattern: `scripts/android-permissions.sh`,
      run after every `cap sync`) for manifest edits: permissions the plugins
      need (e.g. CAMERA), stripping unwanted ones (e.g. RECORD_AUDIO so
-     "Microphone" stays off the store listing), orientation lock on
-     MainActivity. Add future manifest edits there.
+     "Microphone" stays off the store listing). Add future manifest edits
+     there. **No manifest orientation lock** on MainActivity: Play flags it and
+     Android 16 ignores it on large screens — lock phones at runtime instead
+     (item 17).
    - The Makefile / env — exported `ANDROID_HOME`/`JAVA_HOME` pins, plus any
      copy steps for git-ignored secrets (e.g. `google-services.json` for FCM).
    - Icon/splash source image + a `capacitor-assets` step per sync.
