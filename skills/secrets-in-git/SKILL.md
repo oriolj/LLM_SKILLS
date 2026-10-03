@@ -138,6 +138,11 @@ homelab/secrets/            # deny-all except *.enc in the ROOT .gitignore (see 
   `|` as a command and the shell prints it in `command not found: <secret>`
   (2026-09-28, BikeCRM session: a token fragment landed in the transcript and
   had to be rotated). Parse with Python or `grep | cut`, print keys, never values.
+  **Recurred 2026-10-03** (LeadHunter deploy verification): the agent reached
+  for `set -a; . coolify-oriolj.env` to call the Coolify API without loading
+  this skill first. Load it before touching ANY hq secrets file, even "just
+  to read a token for one curl". Durable fix pending (hq USER_TODO via the
+  LeadHunter one): store the value single-quoted, `KEY='<id>|<secret>'`.
 - Keep the decrypted plaintext `chmod 600`; the Makefile enforces it.
 
 ## The Makefile (passphrase mode)
