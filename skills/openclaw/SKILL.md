@@ -23,13 +23,14 @@ behaves differently.
 | emmaclaw | Enantena / EnaCast | `192.168.7.217` | Telegram + Enantena Slack (8 channels, one is an invoices-inbox → Holded purchase-draft flow) |
 | blakeclaw | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram + SmartupSoft Slack (app Blake; DMs Oriol + Enric, `#seaotter2026` no-mention, `#general` on mention) |
 
-All three on **2026.9.6** since 2026-09-27, default model
-**`openai/gpt-6-luna`** (fallback `openai/gpt-5.6-luna`) — petraclaw and
-blakeclaw verified 2026-09-27; emmaclaw see its hq server file (its Codex
-login was stranded and needed a fresh device-code sign-in). Each VM ALSO runs
-**Hermes Agent** (Nous Research, v0.19.0, `~/.hermes/`, user unit
-`hermes-gateway.service`, CLI only — no messaging platforms) on the same
-Codex login, already on `gpt-6-luna`; see § Hermes. emmaclaw is the only one that
+All three on **2026.9.8** since 2026-10-03, default model
+**`openai/gpt-6-luna`** (fallback `openai/gpt-5.6-luna`) — emmaclaw's
+OpenClaw login has been stranded since 2026-09-25 and waits on Oriol's
+sign-in (hq server file). Each VM ALSO runs **Hermes Agent** (Nous
+Research, **v0.21.5** = tag `v2026.9.24` since 2026-10-03, `~/.hermes/`, user
+unit `hermes-gateway.service`, CLI only — no messaging platforms yet) with
+its OWN Codex login, on `gpt-6-luna`; see § Hermes and hq
+`shared/docs/hermes.md`. emmaclaw is the only one that
 also loads secrets from a unit drop-in (`openclaw-gateway.service.d/
 override.conf` → `EnvironmentFile=~/.openclaw/secrets/openclaw.env`:
 Slack bot token, Trello, Ramen creds) — `gateway install --force` keeps
@@ -61,8 +62,10 @@ copy a token from one claw to another.
   model `openai/gpt-6-luna` via the **Codex** plugin (fallback
   `gpt-5.6-luna`).
 - User drop-in `openclaw-gateway.service.d/tmpdir.conf` (since
-  2026-09-23): `TMPDIR=%h/.cache/openclaw-tmp` + an `ExecStartPre` that
-  deletes the previous `openclaw-plugin-build-*` dirs. **Why**: 2026.9.5
+  2026-09-23): `TMPDIR=%h/.cache/openclaw-tmp` only. Its former
+  `ExecStartPre` cleanup was removed 2026-10-03: OpenClaw 9.8's unit lint
+  reports "Systemd Service.ExecStartPre contains an unrecognized setting",
+  and 9.6+ reclaims abandoned copies itself. **Why the TMPDIR**: 2026.9.5
   stages a ~341 MB `openclaw-plugin-build-*` copy under `$TMPDIR` on every
   gateway start AND every CLI call that loads plugins, and never deletes
   it; `/tmp` on these VMs is **tmpfs (RAM)**, so on petraclaw 24 leftovers
@@ -145,6 +148,23 @@ file (comment-stripped) as above, on the box, and never print it.
    each; `update repair` then reported "Skipped finalize:doctor and plugin
    convergence: supervised Gateway owner … is verified serving 2026.9.6"
    — fine, the plugins had already converged (check `plugins list`).
+   **9.6 → 9.8 (2026-10-03)**, same path. Lessons: (a) **never stop the
+   gateway until it has logged `[gateway] ready`** — a stop sent the same
+   second blakeclaw became ready hung 5½ min until systemd's shutdown
+   deadline (`abandoning unfinished cleanup`, SIGKILL); (b) `update repair`
+   can refuse with `Doctor could not enter maintenance … Service inspection
+   deadline expired` — do what it says: stop, `doctor --fix --yes`, start,
+   wait for ready, `update repair --yes` again; (c) `gateway install
+   --force` writes a unit `.bak` every run — delete it; (d) **2026.9.7
+   changed a default: Slack and Discord accept other bots' messages when
+   `allowBots` is unset** — set `channels.slack.allowBots false` (root
+   level; per-account/per-room overrides exist) on every Slack claw and
+   prove it with the redacted pre/post diff (exactly that one line);
+   9.8 also adds `channels.slack.joinIntro` (default true: one intro post
+   when the bot joins an allowed channel). 9.8 bundles Codex 0.158.0. The
+   `update status` line "Plugin codex data/settings upgrade is unfinished"
+   persists although doctor reports the deferred migration completed —
+   turns work; left as is.
 4. **THE TRAP (not deterministic)** — on blakeclaw and emmaclaw the
    updater's own doctor step failed (`Doctor could not enter maintenance…
    Gateway service ownership or shutdown could not be verified`), it
@@ -362,26 +382,79 @@ previous configuration"*) — restart the gateway.
 
 ## Hermes (Nous Research Hermes Agent, on the same VMs)
 
-`~/.hermes/hermes-agent/venv/bin/hermes` (not on PATH), config
-`~/.hermes/config.yaml`, user unit `hermes-gateway.service`, provider
-`openai-codex`. Model switch:
+State: hq `shared/docs/hermes.md`. `~/.hermes/hermes-agent` is a **shallow
+git checkout** (`.install_method` = git), venv `./venv`, `uv` at
+`~/.hermes/bin/uv`, CLI `~/.hermes/hermes-agent/venv/bin/hermes` (not on
+PATH), config `~/.hermes/config.yaml`, secrets `~/.hermes/.env` and
+`auth.json` (its own Codex login — never print), user unit
+`hermes-gateway.service`, provider `openai-codex`.
+
+**Updating — pin a release tag, never a bare `hermes update`** (it tracks
+`main`, which is canary; `hermes --version`'s "+N carried commits" / "N
+commits behind" is a shallow-clone artifact, not local work). Releases:
+`gh release list -R NousResearch/hermes-agent` (tag = `v<date>`, name =
+`vX.Y.Z`). Procedure that worked 2026-10-03 (v0.19.0 → v0.21.5, all three):
+
+```bash
+H=~/.hermes/hermes-agent; cd $H
+systemctl --user stop hermes-gateway.service      # BEFORE the backup: tar fails "file changed" while it runs
+tar czf ~/backups/hermes-pre-<tag>-$(date -u +%Y%m%dT%H%M%SZ).tgz -C ~ \
+  --exclude=.hermes/hermes-agent/venv --exclude=.hermes/hermes-agent/node_modules .hermes
+cp -a ~/.hermes/config.yaml ~/backups/hermes-config.yaml.pre-<tag>
+git status --short                                # only `.install_method` may be untracked
+git fetch --no-tags origin tag <tag> && git checkout <tag>
+VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[all]"
+# then the release's own post-update steps (lazy backends, npm workspaces with
+# system Node, web UI build, bundled-skill sync, config migration) — run via
+# the updater's functions; the driver used is ~/backups/hermes_post_checkout.py
+systemctl --user start hermes-gateway.service
+```
+
+Verify: `hermes --version`, a real turn, `~/.hermes/logs/agent.log` →
+`model=gpt-6-luna provider=openai-codex`, `assistant-healthcheck@hermes`
+exit 0. The update pings one failure to healthchecks.io per box. Rollback:
+`git checkout <old tag>`, the same `uv pip install`, restore the config copy.
+
+Model switch:
 
 ```bash
 H=~/.hermes/hermes-agent/venv/bin/hermes
 $H chat -Q --provider openai-codex -m gpt-6-luna -q "Reply with exactly: HERMES OK"   # test first
 $H config set model.default gpt-6-luna
 # fallback: top-level list; `hermes fallback add` is interactive only, and
-# `fallback_model:` (still in its docs) is NOT a recognised key in v0.19
-printf '%s
-' 'fallback_providers:' '- provider: openai-codex' '  model: gpt-5.6-luna' >> ~/.hermes/config.yaml
+# `fallback_model:` (still in its docs) is NOT a recognised key
+printf '%s\n' 'fallback_providers:' '- provider: openai-codex' '  model: gpt-5.6-luna' >> ~/.hermes/config.yaml
 $H fallback list; systemctl --user restart hermes-gateway.service
 ```
 
-Proof: `~/.hermes/logs/agent.log` lines `model=gpt-6-luna
-provider=openai-codex`. Hermes talks to the Codex backend itself, so it
-got GPT-6 Luna on release while OpenClaw's pinned Codex client could not. Both runtimes are watched by user timers
-`assistant-healthcheck@{openclaw,hermes}` → healthchecks.io — a gateway
-outage during an update will page.
+**Discord (v0.21.5; researched 2026-10-03, not yet enabled anywhere)** —
+outbound websocket only, so LAN-only is fine. One Discord application per
+VM in that scope's account (a token can run in only one gateway). Oriol,
+in the Developer Portal: Bot → **Public Bot off**, **Message Content intent
+on** (Server Members only for username/role allowlists), reset token,
+invite with `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot+applications.commands&permissions=274878286912`;
+he writes the token on the box himself:
+`ssh -t oriol@<vm> 'read -rsp "token: " T; printf "DISCORD_BOT_TOKEN=%s\n" "$T" >> ~/.hermes/.env; chmod 600 ~/.hermes/.env'`
+and hands over the app id + his numeric user id. Agent then:
+`cd ~/.hermes/hermes-agent && VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[messaging]"`
+(else the gateway lazy-installs `discord.py[voice]`), appends
+`DISCORD_ALLOWED_USERS=<id>` (numeric — no allowlist = everyone denied) to
+`.env` without printing it, sets top-level `unauthorized_dm_behavior: ignore`
+(default `pair` answers strangers with a pairing code), restarts. Defaults:
+`DISCORD_REQUIRE_MENTION=true` (DMs exempt), `DISCORD_AUTO_THREAD=true`,
+`DISCORD_ALLOW_BOTS=none`. Verify: journal `[discord] Connected as …`, no
+`PrivilegedIntentsRequired` / `token rejected` / `No Discord access policy`,
+a DM gets 👀 → ✅ + reply, a second account gets silence. Allowed users get
+full tool/terminal access — allowlist Oriol only. Source:
+`website/docs/user-guide/messaging/discord.md` in the tag.
+
+**Sign in with ChatGPT**: Hermes support is open PR #128926, not released;
+OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
+`shared/docs/openclaw.md` § Sign in with ChatGPT (not yet; device code stays).
+
+Both runtimes are watched by user timers `assistant-healthcheck@{openclaw,hermes}`
+→ healthchecks.io (service active + HTTP only — a dead model login stays
+green) — an outage during an update will page.
 
 ## Pre-flight: a stranded Codex login (emmaclaw, 2026-09-25 → 27)
 
