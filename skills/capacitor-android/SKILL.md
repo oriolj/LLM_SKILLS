@@ -19,7 +19,7 @@ are what such lanes wrap.
      "Microphone" stays off the store listing). Add future manifest edits
      there. **No manifest orientation lock** on MainActivity: Play flags it and
      Android 16 ignores it on large screens — lock phones at runtime instead
-     (item 17).
+     (Known gotchas → *Runtime orientation lock*).
    - The Makefile / env — exported `ANDROID_HOME`/`JAVA_HOME` pins, plus any
      copy steps for git-ignored secrets (e.g. `google-services.json` for FCM).
    - Icon/splash source image + a `capacitor-assets` step per sync.
@@ -250,13 +250,37 @@ Build it in this order:
    returned only one card there — scroll and screenshot to read them all.
    The same dashboard's other cards, for reference: "Remove resizability and
    orientation restrictions" names a manifest `screenOrientation` (Android 16
-   ignores it on ≥600dp; drop it, keep the runtime lock); "deprecated APIs for
+   ignores it on ≥600dp; drop it, keep the runtime lock — Known gotchas →
+   *Runtime orientation lock*); "deprecated APIs for
    edge-to-edge" lists `Window.setStatusBarColor` call sites that are mostly
    in Material (via `@capacitor/camera`'s bottom sheet) and
    `androidbrowserhelper` (via social-login's Google provider), so removing
    `@capacitor/status-bar` alone does not clear it.
 
 ## Known gotchas
+
+- **Runtime orientation lock** (replaces the manifest `screenOrientation`
+  that Play's release dashboard flags). Install `@capacitor/screen-orientation`,
+  `npx cap sync`, and lock once at app start, native only:
+  ```ts
+  import { Capacitor } from '@capacitor/core';
+  import { ScreenOrientation } from '@capacitor/screen-orientation';
+  if (Capacitor.isNativePlatform()) {
+    ScreenOrientation.lock({ orientation: 'portrait' }).catch(() => {});
+  }
+  ```
+  No phone-width check is needed: on targetSdk 36, Android 16 ignores this
+  runtime request too on screens ≥600dp (tablets, a foldable's inner
+  display), exactly like the manifest attribute, so the larger layouts must
+  work in landscape anyway. The same call is what locks iOS. Trade-off: the
+  lock lands when the JS bundle runs, so a phone held sideways at launch
+  shows a brief landscape frame first; that is why Panotxa
+  (`frontend-capacitor/src/main.tsx`) ALSO still pins the manifest from
+  `scripts/android-permissions.sh` (2026-10-03). Removing that manifest pin
+  is the open follow-up Play flagged; until then its dashboard card stays.
+  Verify: on a phone (or a phone AVD) rotate the device and the app stays
+  portrait; on a ≥600dp AVD (a tablet device profile) it rotates and the
+  layout holds.
 
 - **Plugin proxies are thenables** — never return a Capacitor plugin object
   bare from an `async` function or `resolve()` it: the promise hangs forever
