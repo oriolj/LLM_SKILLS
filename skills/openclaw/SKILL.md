@@ -1,6 +1,6 @@
 ---
 name: openclaw
-description: Operate the estate's OpenClaw agent VMs (petraclaw = personal, emmaclaw = Enantena, blakeclaw = SmartupSoft/BikeCRM — self-hosted personal-AI-agent gateways on the home LAN) — how they are installed (nvm Node, npm global, user systemd unit), the safe update procedure and the trap where `openclaw update` leaves the gateway DOWN on a pending state-DB migration, plugin version pins, the systemd unit reinstall, adding a Slack workspace (socket mode, manifest, tokens, allowlists), adding Telegram/other channels, reading the config without leaking secrets, and the verification that proves an update or a channel actually works. Use when the user mentions OpenClaw, petraclaw/emmaclaw/blakeclaw, "the claw", updating an agent VM, connecting an agent to Slack/Telegram/WhatsApp, `openclaw doctor`, a gateway that will not start, or plugin drift warnings.
+description: Operate the estate's OpenClaw agent VMs (petraclaw = personal, emmaclaw = Enantena, blakeclaw = SmartupSoft/BikeCRM — self-hosted personal-AI-agent gateways on the home LAN) — how they are installed (nvm Node, npm global, user systemd unit), the safe update procedure and the trap where `openclaw update` leaves the gateway DOWN on a pending state-DB migration, plugin version pins, the systemd unit reinstall, adding a Slack workspace (socket mode, manifest, tokens, allowlists), adding Telegram/other channels, reading the config without leaking secrets, and the verification that proves an update or a channel actually works. Use when the user mentions OpenClaw, petraclaw/emmaclaw/blakeclaw, "the claw", updating an agent VM, connecting an agent to Slack/Telegram/WhatsApp, `openclaw doctor`, a gateway that will not start, or plugin drift warnings. Also covers the Hermes Agent (Nous Research) on the same VMs (tag-pinned update and rollback, model/fallback switch, Discord setup). Use when the user mentions Hermes, `hermes-gateway`, updating Hermes, or a Discord bot on a claw.
 ---
 
 # OpenClaw — the three agent VMs
@@ -23,14 +23,13 @@ behaves differently.
 | emmaclaw | Enantena / EnaCast | `192.168.7.217` | Telegram + Enantena Slack (8 channels, one is an invoices-inbox → Holded purchase-draft flow) |
 | blakeclaw | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram + SmartupSoft Slack (app Blake; DMs Oriol + Enric, `#seaotter2026` no-mention, `#general` on mention) |
 
-All three on **2026.9.8** since 2026-10-03, default model
-**`openai/gpt-6-luna`** (fallback `openai/gpt-5.6-luna`) — emmaclaw's
-OpenClaw login has been stranded since 2026-09-25 and waits on Oriol's
-sign-in (hq server file). Each VM ALSO runs **Hermes Agent** (Nous
-Research, **v0.21.5** = tag `v2026.9.24` since 2026-10-03, `~/.hermes/`, user
-unit `hermes-gateway.service`, CLI only — no messaging platforms yet) with
-its OWN Codex login, on `gpt-6-luna`; see § Hermes and hq
-`shared/docs/hermes.md`. emmaclaw is the only one that
+Current versions, models and login state per box live in hq
+[shared/docs/openclaw.md](../../../../../Syncthing/Syncthing-mobile-docs/hq/shared/docs/openclaw.md#what-is-actually-on-our-boxes-verified-2026-09-17-updated-2026-10-03)
+and the server files (read them before acting; this skill is mechanics).
+Each VM ALSO runs **Hermes Agent** (Nous Research, `~/.hermes/`, user unit
+`hermes-gateway.service`) with its OWN Codex login; see § Hermes and hq
+[shared/docs/hermes.md](../../../../../Syncthing/Syncthing-mobile-docs/hq/shared/docs/hermes.md).
+emmaclaw is the only one that
 also loads secrets from a unit drop-in (`openclaw-gateway.service.d/
 override.conf` → `EnvironmentFile=~/.openclaw/secrets/openclaw.env`:
 Slack bot token, Trello, Ramen creds) — `gateway install --force` keeps
@@ -395,20 +394,35 @@ commits behind" is a shallow-clone artifact, not local work). Releases:
 `gh release list -R NousResearch/hermes-agent` (tag = `v<date>`, name =
 `vX.Y.Z`). Procedure that worked 2026-10-03 (v0.19.0 → v0.21.5, all three):
 
+Run it as a script (`bash -s` over ssh, or a file), not pasted line by
+line: `set -e` is what stops it at the first failed step.
+
 ```bash
-H=~/.hermes/hermes-agent; cd $H
+set -euo pipefail
+umask 077                     # the backup holds .env + auth.json
+TAG=<tag>
+H=~/.hermes/hermes-agent; cd "$H"
+# The post-checkout driver lives ONLY on the three VMs (USER_TODO: commit it
+# to skills/openclaw/scripts/). Without it, stop: skipping its steps leaves
+# the config unmigrated.
+test -f ~/backups/hermes_post_checkout.py || { echo "hermes_post_checkout.py missing: stop" >&2; exit 1; }
+test -z "$(git status --porcelain | grep -v '^?? .install_method$' || true)"   # only .install_method may be untracked
+mkdir -p ~/backups
 systemctl --user stop hermes-gateway.service      # BEFORE the backup: tar fails "file changed" while it runs
-tar czf ~/backups/hermes-pre-<tag>-$(date -u +%Y%m%dT%H%M%SZ).tgz -C ~ \
+tar czf ~/backups/hermes-pre-$TAG-$(date -u +%Y%m%dT%H%M%SZ).tgz -C ~ \
   --exclude=.hermes/hermes-agent/venv --exclude=.hermes/hermes-agent/node_modules .hermes
-cp -a ~/.hermes/config.yaml ~/backups/hermes-config.yaml.pre-<tag>
-git status --short                                # only `.install_method` may be untracked
-git fetch --no-tags origin tag <tag> && git checkout <tag>
+cp -a ~/.hermes/config.yaml ~/backups/hermes-config.yaml.pre-$TAG
+git fetch --no-tags origin tag "$TAG" && git checkout "$TAG"
 VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[all]"
 # then the release's own post-update steps (lazy backends, npm workspaces with
 # system Node, web UI build, bundled-skill sync, config migration) — run via
 # the updater's functions; the driver used is ~/backups/hermes_post_checkout.py
 systemctl --user start hermes-gateway.service
 ```
+
+If it stops after `systemctl --user stop`, the gateway stays down (and
+pages): fix the cause and re-run, or `systemctl --user start
+hermes-gateway.service`.
 
 Verify: `hermes --version`, a real turn, `~/.hermes/logs/agent.log` →
 `model=gpt-6-luna provider=openai-codex`, `assistant-healthcheck@hermes`
@@ -423,7 +437,8 @@ $H chat -Q --provider openai-codex -m gpt-6-luna -q "Reply with exactly: HERMES 
 $H config set model.default gpt-6-luna
 # fallback: top-level list; `hermes fallback add` is interactive only, and
 # `fallback_model:` (still in its docs) is NOT a recognised key
-printf '%s\n' 'fallback_providers:' '- provider: openai-codex' '  model: gpt-5.6-luna' >> ~/.hermes/config.yaml
+grep -q '^fallback_providers:' ~/.hermes/config.yaml ||   # appending twice = duplicate top-level key
+  printf '%s\n' 'fallback_providers:' '- provider: openai-codex' '  model: gpt-5.6-luna' >> ~/.hermes/config.yaml
 $H fallback list; systemctl --user restart hermes-gateway.service
 ```
 
@@ -456,7 +471,7 @@ Both runtimes are watched by user timers `assistant-healthcheck@{openclaw,hermes
 → healthchecks.io (service active + HTTP only — a dead model login stays
 green) — an outage during an update will page.
 
-## Pre-flight: a stranded Codex login (emmaclaw, 2026-09-25 → 27)
+## Pre-flight: a stranded Codex login (emmaclaw, since 2026-09-25)
 
 `health`, `channels status --probe` and the healthchecks.io probe all
 stay green while the agent cannot answer at all. Symptom: every turn →
