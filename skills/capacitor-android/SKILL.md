@@ -237,8 +237,9 @@ Build it in this order:
      (`BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map`), so
      Play deobfuscates without a separate upload; check for it in the
      post-build gate, and archive `mapping.txt` for Sentry/GlitchTip.
-     **Gate it with `grep -c`, never `unzip -l … | grep -q` under `set -o
-     pipefail`**: `grep -q` exits on the first match, `unzip` dies of SIGPIPE
+     **Gate it with `unzip -l "$aab" '<entry>' >/dev/null`** (non-zero when
+     the entry is absent), never `unzip -l … | grep -q` under `set -o
+     pipefail`: `grep -q` exits on the first match, `unzip` dies of SIGPIPE
      (141) and the pipeline "fails" on a bundle that HAS the entry. Prove a
      new gate both ways: a real bundle passes, an old pre-R8 bundle fails.
    **Where to read these findings:** Play Console → the track (Production) →
