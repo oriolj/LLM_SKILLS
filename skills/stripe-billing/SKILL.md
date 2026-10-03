@@ -149,6 +149,20 @@ decides. Pin `Stripe-Version` to the backend SDK's version.
 18. **Pay-early trial**: `subscription_data.trial_end` must be ≥ 48 h ahead;
     closer than that pass `trial_period_days` rounded UP so nobody loses days.
 
+19. **The Dashboard's Checkout Studio generates an agent prompt** ("Stripe
+    integration task", field intents `fixed_by_ui` / `sample_only`). On a
+    codebase that already creates sessions it says to set its values and
+    REMOVE every parameter it does not list — that drops `client_reference_id`,
+    `metadata`, `customer` (the webhook can no longer attribute payments),
+    trial, locale, `adaptive_pricing`, `branding_settings`, `tax_id_collection`,
+    and it ships `automatic_tax: false` by default (no VAT recorded while you
+    still owe it). Never apply it verbatim: diff its values against the code
+    and ask about each real change. Its colours/logo land in the ACCOUNT
+    branding (receipts, invoices, portal); per-session `branding_settings`
+    still win on Checkout. Read what was saved with `GET /v1/account` →
+    `settings.branding` (Panotxa 2026-10-03: logo saved, colours left at
+    Stripe's defaults `#525f7f`/`#0074d4`).
+
 ## Payment links in emails (verified 2026-09-29 → 10-01)
 
 - **One link to an own plan page beats one link per plan**: more control and
