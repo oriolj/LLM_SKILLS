@@ -94,8 +94,8 @@ Pagination: `count/next/previous/results`, default 20, **max 100**
   `POST /api/accounts/{id}/record-dnc/` `{"purpose":"sales","action":"opt_out","source":"inbound_request","reason":…}`.
 
 Guardrails when adding to a campaign (`bulk_add`, `bulk-add-from-filter`;
-`campaigns/services.py::partition_accounts_for_outreach`, goal matrix in
-`campaigns/goals.py`, checked 2026-10-03). **They run only on adds.**
+[`campaigns/services.py::partition_accounts_for_outreach`](../../../humans2agents/agents/leadhunter/backend/leadhunterbackend/campaigns/services.py),
+goal matrix in [`campaigns/goals.py`](../../../humans2agents/agents/leadhunter/backend/leadhunterbackend/campaigns/goals.py), checked 2026-10-03). **They run only on adds.**
 Logging an outbound message enforces only DNC (403); a CSV export
 re-applies nothing.
 
@@ -132,10 +132,12 @@ The guardrails ran when each row was added (§ above); an account marked
 `customer`, `in_trial` or DNC since then is still in the campaign. So the
 list that goes to a mailbox or WhatsApp is built from the API and
 re-checked, never taken from the CSV (it has no DNC purposes and no
-`campaign_lead` id to log the send against). The filter below copies the
-hard blocks plus customer / trial from `campaigns/goals.py`; it is interim
-until LeadHunter can answer "sendable rows of this campaign" itself
-(USER_TODO in LLM_SKILLS).
+`campaign_lead` id to log the send against). Only rows never contacted
+(`outreach_status=not_started`) come back: a follow-up to people already
+mailed is a different list. The filter copies the per-goal matrix of
+`goals.py` (hard and soft relationship blocks, DNC) and drops customers
+and trials on every goal. It is interim until LeadHunter's `?sendable=1`
+filter ships ([USER_TODO](../../USER_TODO.md)).
 
 Run it as ONE bash script together with the Access block (`bash -s` or a
 file): `set -e` is what stops it on a 401/429/502 instead of writing a
@@ -146,6 +148,8 @@ set -euo pipefail
 C=<campaign uuid>; OUT=<scratchpad>/send-$C; mkdir -p "$OUT"
 camp=$(lh "/api/campaigns/$C/")
 GOAL=$(jq -er .goal <<<"$camp"); P=$(jq -er .project_slug <<<"$camp")
+ROWS="/api/campaign-accounts/?campaign=$C&review_status=approved&outreach_status=not_started&ordering=created_at&page_size=100"
+TOTAL=$(lh "$ROWS" | jq -er .count)
 pages() {        # $1 first URL, $2 jq per page; follows next (100 per page)
   local url=$1 page
   while [ -n "$url" ]; do
@@ -153,26 +157,39 @@ pages() {        # $1 first URL, $2 jq per page; follows next (100 per page)
     url=$(jq -r '.next // empty' <<<"$page"); url=${url#"$U"}
   done
 }
-pages "/api/campaign-accounts/?campaign=$C&review_status=approved&page_size=100" \
-  '.results[] | {campaign_lead: .id, account}' > "$OUT/rows.ndjson"
+pages "$ROWS" '.results[] | {campaign_lead: .id, account}' > "$OUT/rows.ndjson"
+# offset pages can shift under concurrent writes: refuse duplicates or gaps
+jq -se --argjson total "$TOTAL" 'length == $total and (map(.campaign_lead) | unique | length) == $total' "$OUT/rows.ndjson" >/dev/null \
+  || { echo "rows changed while paging (duplicates or gaps): re-run" >&2; exit 1; }
 pages "/api/accounts/?project=$P&in_any_campaign=true&archived=all&page_size=100" \
   '.results[] | {id, name, email, status, relationship_types, do_not_contact_purposes}' > "$OUT/accounts.ndjson"
 jq -n --arg goal "$GOAL" --slurpfile accs "$OUT/accounts.ndjson" --slurpfile rows "$OUT/rows.ndjson" '
-  ($accs | map({key: .id, value: .}) | from_entries) as $acc
+  # goals.py 2026-10-03: soft relationship blocks per goal (all 5 = sales set)
+  ["supplier", "investor", "press", "analyst", "candidate"] as $all5
+  | {sales: $all5, partnership: [], press: ["supplier", "investor", "candidate"],
+     influencer: ["supplier", "investor", "candidate"],
+     investor: ["supplier", "press", "analyst", "candidate"],
+     recruiting: ["supplier", "investor", "press", "analyst"],
+     customer_expansion: $all5, win_back: $all5, event: [], research: [],
+     renewal: $all5}[$goal] as $soft
+  | if $soft == null then error("goal \($goal) not in the copied matrix: re-read goals.py") else . end
+  | (["personal_network"] + (if $goal | IN("press", "event", "research") then [] else ["competitor"] end)) as $hard
+  | ($accs | map({key: .id, value: .}) | from_entries) as $acc
   | $rows | map(. + {acc: ($acc[.account] // error("no account for row \(.campaign_lead)"))})
   | map(select(
       ((.acc.relationship_types // []) as $rt
        | (.acc.status | IN("customer", "in_trial", "do_not_contact") | not)
          and ((.acc.do_not_contact_purposes // []) | index($goal) | not)
-         and ($rt | index("personal_network") | not)
-         and (($goal | IN("press", "event", "research")) or ($rt | index("competitor") | not)))))
+         and ([$rt[] | IN(($hard + $soft)[])] | any | not))))
 ' > "$OUT/send.json"
 wc -l < "$OUT/rows.ndjson"; jq length "$OUT/send.json"   # approved vs sendable
 ```
 
-Report both counts and what was dropped. A campaign that targets
-customers on purpose (expansion, renewal) is not a cold send: ask Oriol
-before relaxing the `customer` / `in_trial` filter. Each row of
+Report both counts and what was dropped. Customers and trials are
+dropped on every goal, even the ones LeadHunter lets them into
+(partnership, customer_expansion, event, research, renewal): a campaign
+that targets them on purpose is not a cold send, so ask Oriol before
+relaxing that filter. Each row of
 `send.json` carries the `campaign_lead` to log the message against.
 
 ## Logging a send and a reply
@@ -249,7 +266,8 @@ The rollback is complete for `change_status`: its webhook enqueue waits
 for commit (`transaction.on_commit`), so a dry run sends nothing. Before
 calling any other service in this block, check that its side effects
 (Celery tasks, webhooks, mail) also wait for commit (the
-`celery-deploy-safety` skill covers `transaction.on_commit` dispatch). Never paste this
+[celery-deploy-safety](../celery-deploy-safety/SKILL.md) skill covers
+`transaction.on_commit` dispatch). Never paste this
 recipe into a heredoc of your own (a `<<'PY'` inside an outer `<<'PY'`
 ends the outer one early and runs the rest, `ssh` included, locally).
 

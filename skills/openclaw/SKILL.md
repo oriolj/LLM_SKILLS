@@ -407,7 +407,7 @@ step.
 
 ```bash
 # from the LLM_SKILLS checkout:
-scp skills/openclaw/scripts/hermes_post_checkout.py oriol@<vm>:backups/
+ssh oriol@<vm> 'mkdir -p ~/backups' && scp skills/openclaw/scripts/hermes_post_checkout.py oriol@<vm>:backups/
 ```
 
 ```bash
@@ -417,21 +417,27 @@ TAG=<tag>
 H=~/.hermes/hermes-agent; cd "$H"
 test -f ~/backups/hermes_post_checkout.py
 test -z "$(git status --porcelain | grep -v '^?? .install_method$')"   # only .install_method may be untracked
-PRE_SHA=$(git rev-parse HEAD); PRE_VERSION=$(git describe --tags)   # driver args; the version only feeds its report line
+PRE_SHA=$(git rev-parse HEAD)   # driver args; the version (from pyproject, as `hermes update` reads it) only feeds its report line
+PRE_VERSION=$(venv/bin/python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
 systemctl --user stop hermes-gateway.service      # BEFORE the backup: tar fails "file changed" while it runs
-tar czf ~/backups/hermes-pre-$TAG-$(date -u +%Y%m%dT%H%M%SZ).tgz -C ~ \
+BACKUP=~/backups/hermes-pre-$TAG-$(date -u +%Y%m%dT%H%M%SZ).tgz; echo "backup: $BACKUP"
+tar czf "$BACKUP" -C ~ \
   --exclude=.hermes/hermes-agent/venv --exclude=.hermes/hermes-agent/node_modules .hermes
 cp -a ~/.hermes/config.yaml ~/backups/hermes-config.yaml.pre-$TAG
 git fetch --no-tags origin tag "$TAG" && git checkout "$TAG"
 VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[all]"
 venv/bin/python ~/backups/hermes_post_checkout.py "$PRE_SHA" "$PRE_VERSION" | tee ~/backups/hermes-post-checkout-$TAG.log
-grep -q 'update_complete=True' ~/backups/hermes-post-checkout-$TAG.log   # the driver exits 0 even when maintenance fails
-systemctl --user start hermes-gateway.service
+systemctl --user start hermes-gateway.service   # reached only when the driver exits 0 (update_complete=True)
 ```
 
-If it stops early, the gateway stays down (and pages): read the log, fix
-the cause and re-run, or `systemctl --user start hermes-gateway.service`
-on the restored config.
+If it stops early, the gateway stays down (and pages). Before the
+`git checkout`, nothing changed: fix the cause, then re-run or start it.
+After it, the tree and maybe `~/.hermes` are half-updated; put both back
+(planned, not yet exercised):
+`cd ~/.hermes/hermes-agent && git checkout <PRE_SHA> && tar xzf <BACKUP> -C ~ && VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[all]" && systemctl --user start hermes-gateway.service`
+(the sha and tarball path are in the run's output; the tarball excludes
+`venv` and `node_modules`, which the install and the old tag's own
+`node_modules` cover).
 
 Verify: `hermes --version`, a real turn, `~/.hermes/logs/agent.log` →
 `model=gpt-6-luna provider=openai-codex`, `assistant-healthcheck@hermes`

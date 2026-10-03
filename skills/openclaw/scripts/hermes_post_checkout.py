@@ -36,3 +36,6 @@ ok = _run_post_update_maintenance(
     had_desktop_app_before_update=False, node_failures=node_failures,
     desktop_build_ok=True, pre_update_version=pre_version)
 print(f"POST-CHECKOUT update_complete={ok} node_failures={node_failures}")
+# ok is False on node failures too (_print_update_summary); exit non-zero so the
+# caller's set -o pipefail stops before restarting the gateway.
+sys.exit(0 if ok else 1)

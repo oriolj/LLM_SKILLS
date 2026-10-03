@@ -252,8 +252,8 @@ Build it in this order:
    returned only one card there — scroll and screenshot to read them all.
    The same dashboard's other cards, for reference: "Remove resizability and
    orientation restrictions" names a manifest `screenOrientation` (Android 16
-   ignores it on ≥600dp; drop it, keep the runtime lock — Known gotchas →
-   *Runtime orientation lock*); "deprecated APIs for
+   ignores it on ≥600dp; the card stays while you keep it — ground rule 1
+   and Known gotchas → *Runtime orientation lock*); "deprecated APIs for
    edge-to-edge" lists `Window.setStatusBarColor` call sites that are mostly
    in Material (via `@capacitor/camera`'s bottom sheet) and
    `androidbrowserhelper` (via social-login's Google provider), so removing
@@ -261,8 +261,8 @@ Build it in this order:
 
 ## Known gotchas
 
-- **Runtime orientation lock** (replaces the manifest `screenOrientation`
-  that Play's release dashboard flags). Install `@capacitor/screen-orientation`,
+- **Runtime orientation lock** (required; the manifest pin is optional on
+  top, ground rule 1). Install `@capacitor/screen-orientation`,
   `npx cap sync`, and lock once at app start, native only:
   ```ts
   import { Capacitor } from '@capacitor/core';
@@ -274,14 +274,17 @@ Build it in this order:
   No phone-width check is needed: on targetSdk 36, Android 16 ignores this
   runtime request too on screens ≥600dp (tablets, a foldable's inner
   display), exactly like the manifest attribute, so the larger layouts must
-  work in landscape anyway. On iOS the durable lock is the Info.plist key
-  (`capacitor-ios` ground rule 1); this call adds the runtime side. The
+  work in landscape anyway. On Android 15 and older the lock IS honoured
+  on tablets (portrait-only there, as the manifest pin always was). On iOS
+  the durable lock is the Info.plist key
+  ([capacitor-ios](../capacitor-ios/SKILL.md) ground rule 1); this call
+  adds the runtime side. The
   lock lands when the JS bundle runs, so a phone held sideways at launch
   shows a brief landscape frame first (the manifest pin, ground rule 1,
   is what removes it). Reference: Panotxa `frontend-capacitor/src/main.tsx`.
   Verify: on a phone (or a phone AVD) rotate the device and the app stays
-  portrait; on a ≥600dp AVD (a tablet device profile) it rotates and the
-  layout holds.
+  portrait; on a ≥600dp API 36 AVD (a tablet device profile) it rotates
+  and the layout holds (an older-API tablet AVD stays portrait).
 
 - **Plugin proxies are thenables** — never return a Capacitor plugin object
   bare from an `async` function or `resolve()` it: the promise hangs forever
