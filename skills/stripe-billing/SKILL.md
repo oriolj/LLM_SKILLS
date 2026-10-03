@@ -142,7 +142,9 @@ decides. Pin `Stripe-Version` to the backend SDK's version.
     at creation and it costs no measurable latency.
 16. **Account branding (receipts, invoices, Customer Portal) is Dashboard-only
     on your own account** — `POST /v1/accounts/{id}` settings are for
-    connected accounts. Leave it as a human step.
+    connected accounts. Leave it as a human step. Read what is saved with
+    `GET /v1/account` → `settings.branding`; on Checkout, per-session
+    `branding_settings` still win over it.
 17. **The product `description` shows on Checkout untranslated** (an English
     line on a Spanish page). Keep it empty (`description=""` clears it) unless
     you sell in one language.
@@ -157,10 +159,8 @@ decides. Pin `Stripe-Version` to the backend SDK's version.
     trial, locale, `adaptive_pricing`, `branding_settings`, `tax_id_collection`,
     and it ships `automatic_tax: false` by default (no VAT recorded while you
     still owe it). Never apply it verbatim: diff its values against the code
-    and ask about each real change. Its colours/logo land in the ACCOUNT
-    branding (receipts, invoices, portal); per-session `branding_settings`
-    still win on Checkout. Read what was saved with `GET /v1/account` →
-    `settings.branding` (Panotxa 2026-10-03: logo saved, colours left at
+    and ask about each real change. Its colours/logo are saved as the ACCOUNT
+    branding (item 16; Panotxa 2026-10-03: logo saved, colours left at
     Stripe's defaults `#525f7f`/`#0074d4`).
 
 ## Payment links in emails (verified 2026-09-29 → 10-01)
