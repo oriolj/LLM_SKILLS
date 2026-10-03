@@ -207,6 +207,41 @@ Build it in this order:
    *Analytics* purpose, because Play's definition of Analytics includes app
    health. Saving does not send the form for review; that happens in
    Publishing overview, so batch it with the store listing.
+17. **Turn R8 on before Play asks — and know what Play's release dashboard
+   will say** (Panotxa, release 1182, 2026-10-03). The Capacitor template
+   ships `minifyEnabled false`; Play then raises an *issue* (with a deadline)
+   "DEX code optimization is below our threshold — Obfuscation (3%)", since
+   anything under 25% "may impact your visibility and publishing
+   capabilities". Fix: a project-owned `.gradle` snippet appended by the sync
+   script sets `minifyEnabled true` + a project-owned rules file on the
+   release build type (the generated `android/app/proguard-rules.pro` dies on
+   regen). Traps:
+   - **Code only — no `shrinkResources`.** Capacitor resolves resources BY
+     NAME from `capacitor.config.json` (`LocalNotifications.smallIcon`, the
+     splash drawable); the resource shrinker cannot see those and strips them.
+   - **Never put it in a gradle file shared with a Wear OS app** (Panotxa's
+     `panotxa-signing.gradle` is) — that minifies the watch app untested.
+   - Library consumer rules already cover the risky parts: Capacitor core
+     keeps every `Plugin` subclass, `capacitor-social-login` keeps
+     `com.getcapacitor.**` (the `@JavascriptInterface` bridge), RevenueCat,
+     Firebase, WorkManager and Health Connect ship theirs. Add a blunt
+     `-keep class <your.app.package>.** { *; }` for your own native layer.
+     RevenueCat's bundled Amazon SDK prints dozens of harmless
+     "Expected stack map table" R8 warnings.
+   - **A debuggable build barely obfuscates** (45 of 14,648 classes renamed vs
+     12,570 of 14,605 for release): a "minified debug APK" test lane must set
+     `debuggable false`, or it misses name-based breakage.
+   - The AAB embeds the mapping
+     (`BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map`), so
+     Play deobfuscates without a separate upload; check for it in the
+     post-build gate, and archive `mapping.txt` for Sentry/GlitchTip.
+   The same dashboard's other cards, for reference: "Remove resizability and
+   orientation restrictions" names a manifest `screenOrientation` (Android 16
+   ignores it on ≥600dp; drop it, keep the runtime lock); "deprecated APIs for
+   edge-to-edge" lists `Window.setStatusBarColor` call sites that are mostly
+   in Material (via `@capacitor/camera`'s bottom sheet) and
+   `androidbrowserhelper` (via social-login's Google provider), so removing
+   `@capacitor/status-bar` alone does not clear it.
 
 ## Known gotchas
 
