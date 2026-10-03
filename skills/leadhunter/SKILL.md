@@ -95,11 +95,20 @@ and on logging an outbound message:
   keys on `status=customer`, NOT on `relationship_types` `client`**
   (`campaigns/services.py::partition_leads_by_status`, checked 2026-10-03).
   A `client` tag alone does not keep an account out of a sales campaign.
-  Set both: tag `client` and `change-status` to `customer`. Side effect:
-  every `→ customer` history entry counts as `closed` in the funnel on
-  that day, so a bulk backfill shows a fake spike of wins; say so in the
-  hq record (or backfill through the shell without a history entry, if
-  Oriol prefers clean stats).
+  Set both: tag `client` (PATCH `relationship_types`) and status
+  `customer`. **For clients that already existed, send
+  `"source": "pre_existing"`** on `POST /api/accounts/{id}/change-status/`
+  or `POST /api/accounts/bulk-change-status/`
+  (`{"account_ids": [...], "status": "customer", "source": "pre_existing", "reason": "…"}`):
+  the funnel's `closed (won)` metric excludes that source
+  (`dashboard/services.py::CLOSED_EXCLUDED_SOURCES`), so a backfill keeps
+  its audit trail without a fake spike of wins. The default `manual`
+  counts every `→ customer` as a win that day. No shell needed.
+- **Existing campaign rows are not removed** by marking a customer: the
+  guardrail only filters *adds*. Reject the account's sales-goal rows
+  (`campaign_memberships` on the account detail →
+  `POST /api/campaign-accounts/{campaign_lead_id}/reject/ {"reason": "existing client"}`).
+  EnaCast backfill 2026-10-03 did exactly this (hq growth/enantena).
 
 ## Logging a send and a reply
 
@@ -161,6 +170,16 @@ Dry-run first, print counts, then write.
 - Nothing is sent to a prospect without Oriol's go on the exact text.
 - Clients not marked = they get cold email. Check
   `status=customer` (the guardrail) and `relationship_types=client` counts
-  per project before any send (2026-10-03: enacast 0 / 0, bikecrm 84 / 84).
+  per project before any send (2026-10-03: enacast 251 / 251 after that
+  day's backfill, bikecrm 84 / 84). Neither syncs automatically.
 - Campaign-less logs don't move the funnel (above).
 - `page_size` caps at 100.
+- **Rate limit: `?search=` loops hit 429** (2026-10-03, 4 parallel
+  workers). Go sequential and honour `Retry-After`; ~700 searches take
+  ~25 min. A 502 / a hung request usually means a deploy is in flight
+  (Coolify `GET /deployments/applications/083x8zai4t2duat7dn2dq6gw`),
+  so wait it out, don't retry-storm.
+- Matching an external client list: exact email, then email/website
+  domain (skip gmail/hotmail/…), then exact normalised name + same town.
+  Name-only matches were right for EnaCast radios except foreign
+  namesakes (an Italian "Urban Radio"), so check city/country.
