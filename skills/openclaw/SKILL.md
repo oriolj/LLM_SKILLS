@@ -394,33 +394,44 @@ commits behind" is a shallow-clone artifact, not local work). Releases:
 `gh release list -R NousResearch/hermes-agent` (tag = `v<date>`, name =
 `vX.Y.Z`). Procedure that worked 2026-10-03 (v0.19.0 → v0.21.5, all three):
 
-Run it as a script (`bash -s` over ssh, or a file), not pasted line by
-line: `set -e` is what stops it at the first failed step.
+The release's own post-update steps (lazy backends, npm workspaces with
+system Node, web UI build, bundled-skill sync, config migration) run
+through [scripts/hermes_post_checkout.py](scripts/hermes_post_checkout.py),
+which calls `hermes update`'s private tail functions. It mirrors
+`hermes_cli.update_cmd._finish_pulled_update` **as of `v2026.9.24`**: for a
+newer tag, compare it with that function in the target tag first (a
+renamed helper fails the run with the gateway down). Copy it to the box,
+then run the update as a script (`ssh oriol@<vm> 'bash -s' < update.sh`),
+not pasted line by line: `set -e` is what stops it at the first failed
+step.
+
+```bash
+# from the LLM_SKILLS checkout:
+scp skills/openclaw/scripts/hermes_post_checkout.py oriol@<vm>:backups/
+```
 
 ```bash
 set -euo pipefail
 umask 077                     # the backup holds .env + auth.json
 TAG=<tag>
 H=~/.hermes/hermes-agent; cd "$H"
-# post-checkout driver: only on the VMs so far (USER_TODO in LLM_SKILLS)
-test -f ~/backups/hermes_post_checkout.py || { echo "hermes_post_checkout.py missing: stop" >&2; exit 1; }
+test -f ~/backups/hermes_post_checkout.py
 test -z "$(git status --porcelain | grep -v '^?? .install_method$')"   # only .install_method may be untracked
+PRE_SHA=$(git rev-parse HEAD); PRE_VERSION=$(git describe --tags)   # driver args; the version only feeds its report line
 systemctl --user stop hermes-gateway.service      # BEFORE the backup: tar fails "file changed" while it runs
 tar czf ~/backups/hermes-pre-$TAG-$(date -u +%Y%m%dT%H%M%SZ).tgz -C ~ \
   --exclude=.hermes/hermes-agent/venv --exclude=.hermes/hermes-agent/node_modules .hermes
 cp -a ~/.hermes/config.yaml ~/backups/hermes-config.yaml.pre-$TAG
 git fetch --no-tags origin tag "$TAG" && git checkout "$TAG"
 VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[all]"
+venv/bin/python ~/backups/hermes_post_checkout.py "$PRE_SHA" "$PRE_VERSION" | tee ~/backups/hermes-post-checkout-$TAG.log
+grep -q 'update_complete=True' ~/backups/hermes-post-checkout-$TAG.log   # the driver exits 0 even when maintenance fails
+systemctl --user start hermes-gateway.service
 ```
 
-The script deliberately ends with the gateway stopped. Next, by hand, run
-the release's own post-update steps (lazy backends, npm workspaces with
-system Node, web UI build, bundled-skill sync, config migration) through
-`~/backups/hermes_post_checkout.py`, which calls the updater's functions
-(read its header for the invocation; it is not in git yet). Only then
-`systemctl --user start hermes-gateway.service`. Starting before the
-driver runs serves an unmigrated config. If the script stops early, the
-gateway is down too (and pages): fix the cause and re-run, or start it.
+If it stops early, the gateway stays down (and pages): read the log, fix
+the cause and re-run, or `systemctl --user start hermes-gateway.service`
+on the restored config.
 
 Verify: `hermes --version`, a real turn, `~/.hermes/logs/agent.log` →
 `model=gpt-6-luna provider=openai-codex`, `assistant-healthcheck@hermes`
