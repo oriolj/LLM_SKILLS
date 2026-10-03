@@ -237,6 +237,16 @@ Build it in this order:
      (`BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map`), so
      Play deobfuscates without a separate upload; check for it in the
      post-build gate, and archive `mapping.txt` for Sentry/GlitchTip.
+     **Gate it with `grep -c`, never `unzip -l … | grep -q` under `set -o
+     pipefail`**: `grep -q` exits on the first match, `unzip` dies of SIGPIPE
+     (141) and the pipeline "fails" on a bundle that HAS the entry. Prove a
+     new gate both ways: a real bundle passes, an old pre-R8 bundle fails.
+   **Where to read these findings:** Play Console → the track (Production) →
+   *Release dashboard* tab, not the release's own details page. Left column
+   "N issues need attention" (with a *Fix by* date — these are the ones that
+   matter), right column "N actions recommended"; *Expand all* shows the
+   exact attribute or call sites. A browser agent's page-text extraction
+   returned only one card there — scroll and screenshot to read them all.
    The same dashboard's other cards, for reference: "Remove resizability and
    orientation restrictions" names a manifest `screenOrientation` (Android 16
    ignores it on ≥600dp; drop it, keep the runtime lock); "deprecated APIs for
