@@ -322,6 +322,13 @@ LAN and `:port` tailnet access stay open until you change the bind.
   main priority 5000` or `tailscale set --accept-routes=false` while on
   that LAN. A subnet router also SNATs, so LAN devices see the ROUTER's
   address, not the laptop's — allowlists by client IP break too.
+  **It recurs** (fw13pro again 2026-10-03, a Jellyfin server the LG TV
+  "timed out" on; `RouteAll: true` was back): a one-off `tailscale set`
+  is not a fix on a laptop that also wants the routes when away. Make it
+  durable with the `ip rule … lookup main priority 5000` installed by a
+  NetworkManager dispatcher on the home SSID, and run `ip route get
+  <lan-ip>` before blaming ufw — a half-loaded ufw on a kernel with
+  missing modules produced a convincing second suspect that day.
 - **`--accept-routes` on, LAN still unreachable → nobody is advertising
   it.** Don't debug the client; list the routes the tailnet actually
   offers: `tailscale status --json` → each peer's `PrimaryRoutes` /
