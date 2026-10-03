@@ -210,6 +210,18 @@ that silently never raises is wrong for two consumers. The house contract:
    backend's behaviour**: a test that mocks a *raised* exception passes
    while production returns `None`. Verified with the installed
    `django_redis` against a closed port: `add` → `None`, `incr` → `None`.
+   **It recurred and shipped to prod** (H2A LeadHunter, 2026-10-03): a new
+   public short-link click limiter compared `cache.incr()` with its limit
+   outside the `try`, and its "fails open" test mocked a raised exception —
+   every tracked link in outreach mail 500'd while Redis was down; the
+   Pulse ingest limiter had the same shape. Fix shape: ONE helper per
+   project for fixed-window counters, `add` + `incr` → `int | None`
+   (`None` for raised, swallowed `None`, and the `ValueError` of a key
+   evicted between the two calls), with the fail-open / fail-closed
+   decision at each caller — reference `humans2agents`
+   `agents/leadhunter/backend/leadhunterbackend/common/cache_counters.py`
+   + `common/tests/test_cache_counters.py` (mocks `return_value=None`).
+   Grep a project for `cache.incr(` before adding a new limiter.
 7. `?ordering=` goes through a `SafeOrderingFilter` (unknown or
    serializer-only terms ignored, `pk` accepted, full lookup path validated) —
    DRF's stock `OrderingFilter` without `ordering_fields` orders by any
