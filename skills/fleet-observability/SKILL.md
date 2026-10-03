@@ -1536,6 +1536,18 @@ where a beta environment exists. The targets are the reader side of the
 contract in §5e: `GRAFANA_AND_METRICS.md` says what Grafana shows,
 `make prod-status` shows the same numbers in the terminal.
 
+**A project with no app `/metrics` in Prometheus still gets the keyboard** (EnaCast backend,
+2026-10-04: its counters live in a legacy Telegraf → InfluxDB stack). `prod-status` then reads what
+the estate does have: the request numbers come from the reverse proxy's access log through **LogQL
+metric queries** (`logcli instant-query --quiet 'sum(count_over_time({…, service="caddy"} |= "handled
+request" [15m]))'`, the same `promq.py` formats `logcli`'s bare-list JSON), Prometheus holds Gatus and
+any exporters, `/health` the release. On **MariaDB check `SELECT @@performance_schema` first** — it was
+OFF in production, so `prod-top-queries` can only show the live processlist (enabling it needs a DB
+restart: an owner decision). The first run paid for itself: the deploy's Compose stop→start window had
+answered 1,401 × 503 in one minute. Reference: `EnaCast/enacast` `scripts/prod_status.sh`,
+`scripts/mariadb_activity.sh`. And a Makefile `help` regex `^[a-zA-Z_-]+:` hides every target with a
+digit (`logs-prod-5xx`): use `^[a-zA-Z0-9_-]+:`.
+
 ## 6. `make logs` — prod/beta logs from the dev machine
 
 Workstations are on the tailnet; `logcli` + the `reader` cred give real

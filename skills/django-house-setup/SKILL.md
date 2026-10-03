@@ -329,6 +329,19 @@ test fixture used plain ASCII names.
 - Subjects built in Python (f-string, `%`, `gettext`) are not escaped and need nothing; `mark_safe`
   in the context is the wrong fix (it also disables escaping in the HTML body that shares it).
 
+## Aware datetimes and DST: compare instants, not wall clocks (learned 2026-10-03 on EnaCast)
+
+- **Two aware datetimes with the SAME `tzinfo` compare by wall clock and ignore `fold`** (Python's
+  intra-zone rule). On a fall-back night `02:30+02:00` and `02:30+01:00` (`fold=1`, an hour later) compare
+  EQUAL, so an hour-long airing in the repeated hour looked empty and was dropped from a schedule grid.
+  Compare `.timestamp()` (or convert both to UTC) whenever a value can sit in the repeated hour.
+- **`aware + timedelta` is wall-clock arithmetic** and resets `fold` to 0: `02:30 (fold=1) + 60 s` is the
+  FIRST `02:31`, an hour earlier in real time. When a duration is real time (a recorder's "start + N
+  seconds"), add it in UTC: `(dt.astimezone(UTC) + delta).astimezone(tz)`.
+- **freezegun's `FakeDatetime` drops `fold` in `astimezone`**: a DST test under `freeze_time` can pass
+  while the bug it targets is live. Run DST cases without freezing the clock (pass the date in), and
+  prove the test fails against the old code.
+
 ## New-project checklist (each row = go to its owner)
 
 1. Settings layout + `.envs/` + env inventory table BEFORE first deploy
