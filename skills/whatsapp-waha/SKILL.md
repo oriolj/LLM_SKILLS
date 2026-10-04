@@ -215,6 +215,14 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
   dashboard's server entry lacks `WAHA_API_KEY` (the server itself is fine —
   check `curl -H "X-Api-Key: …" …/api/sessions` = 200).
 - `FAILED` with `auth timeout` / "Session has been logged out" in `docker logs waha` right after setup = the pairing QR was never scanned and whatsapp-web.js gave up (seen 2026-09-26, ~40 min after start). `POST /api/sessions/<name>/restart` (or delete it and create a new one from the dashboard, which is what Oriol did) → back to `SCAN_QR_CODE`; restart just before Oriol is ready to scan.
+- `WORKING` but every call answers HTTP 500 `window.require is not a function`
+  (seen on `bikecrm` 2026-10-04 ~20:20 UTC) = the page in the headless browser
+  is no longer WhatsApp Web. `GET /api/screenshot?session=<s>` showed Chromium's
+  **"HTTP ERROR 429"** page, so web.whatsapp.com was rate-limiting the box. A
+  `restart` then loops `auth timeout` every ~30 s, and each retry hits the limit
+  again. **Don't keep restarting.** `POST /api/sessions/<s>/stop` (the login survives:
+  `me` still set), wait, then `start`. Take the screenshot first: it tells a
+  429 apart from a logout or a WhatsApp Web change.
 - `SCAN_QR_CODE` after it had worked = Oriol's phone unlinked the device, or
   the phone was offline ~14 days. Re-pair; the session dir keeps the rest.
 - Container restarts keep the login (`restart: unless-stopped`, sessions on a
