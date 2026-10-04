@@ -1,8 +1,8 @@
 ---
 name: oj-review
-description: Full review pass on the changes in scope — simplify, code-review with fixes applied, then an adversarial Codex review in a herdr pane running alongside a security review. Accepts a scope in words ("today's commits", "last 7 days"). Run only when the user types /oj-review.
+description: Full review pass on the changes in scope — simplify, code-review with fixes applied, then an adversarial Codex review in a herdr pane running alongside a security review. Accepts a scope in words ("today's commits", "last 7 days"). Use when the user types /oj-review, or asks for "the full review", "run the review ladder", "review today's commits", "simplify + code-review + codex + security on this", or a thorough review of a finished batch of work before shipping it.
 argument-hint: "[scope: today | last 7 days | since master | last 3 commits] [focus]"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # /oj-review — the whole review ladder in one command
@@ -38,13 +38,15 @@ only.
    `run_in_background: true` (description "Codex adversarial review"):
 
    ```bash
-   oj-codex review [--base BASE] ['FOCUS']
+   oj-codex review --close [--base BASE] ['FOCUS']
    ```
 
    Do not wait for it: you are woken with the review when it finishes; then
    present it and say which findings you agree with. Inside herdr it runs in
-   a pane next to this one; outside, headless. On a non-zero exit relay its
-   stderr (it says what to do).
+   a pane next to this one; outside, headless. `--close` closes that pane
+   once Codex has delivered its review (Oriol, 2026-10-04: a finished review
+   pane is clutter; `/oj-codex-review` keeps its pane for follow-ups). On a
+   non-zero exit relay its stderr (it says what to do).
 4. **Security review** — invoke the `security-review` skill on the scope while
    Codex works. Report its findings; fix only what the user asks for.
 
