@@ -450,3 +450,24 @@ keep the alarm so unresolved cases stay visible.
   pick labels from that catalog). Reading the `.ProseMirror a` attributes
   after "Inserir enllaç" gives before/after evidence without saving, so
   nothing lands on production through the :3203 proxy.
+
+### QA batch fixed by parallel agents on a machine without the stack (2026-10-04, BikeCRM)
+
+- **Check free disk before bootstrapping a stack** (`df -h` on the data volume): image build +
+  `node_modules` + test-runner caches filled a Mac to 100 % and Docker Desktop crashed mid-run,
+  taking every agent's local backend with it. Pause the agents (no docker/test builds) before
+  freeing space; ask before deleting anything that is not a regenerable cache you created.
+- **Read-only production-data fallback:** the local frontend with a browser-level route that
+  forwards GETs to the production API and aborts every other method. It lets a frontend fix be
+  walked on real data while the local backend is down; label it as such, never as production.
+- **"Search from page 2 shows an error"** = the search did not reset the page and the API
+  refuses the out-of-range page (DRF: 404 «Invalid page», localised body — key on the status).
+  Fix in the shared list base: reset page on every query change and recover a stale page to 1;
+  never leave the previous query's total next to the retry state.
+- **"Search does nothing"** on a DRF list = no `SearchFilter`, or `SearchFilter` without
+  `search_fields` (both silent). Scan every viewset the frontend sends `search` to.
+- **A pager reading 0 under visible rows** = a `@ViewChild` under a structural `*ngIf`, bound once
+  in `ngAfterViewInit`; use a setter. Then check whether the page client-pages only API page 1.
+- One agent per finding with disjoint file ownership in the shared checkout (no worktrees when
+  branches are forbidden), the lead owning catalogs, docs and every commit, worked; scope
+  creep from an agent (a history-behaviour change on every list) was reverted and recorded.
