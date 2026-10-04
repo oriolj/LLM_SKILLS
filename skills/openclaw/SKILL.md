@@ -508,6 +508,14 @@ sleep 30; sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' ~/backups/openai-login.log | grep
 
 He opens `https://auth.openai.com/codex/device`, enters the code (15 min
 validity) and signs in as oriolj@gmail.com; the log ends `Script done`.
+**What worked (2026-10-04): Oriol runs the login himself** from a prompt
+(`! ssh -t oriol@<claw> 'export PATH=$HOME/.nvm/versions/node/v24.18.0/bin:$PATH
+TMPDIR=$HOME/.cache/openclaw-tmp; openclaw models auth login --provider openai
+--device-code --profile-id openai:default'`): the code shows in his terminal
+and the command waits for approval. Three background codes relayed in chat
+(2026-09-27 ×2, 2026-10-03) all expired unseen, so offer this command first.
+Afterwards restart the gateway before the first turn, then verify (turn, web
+search, probes, 0 `no usable profiles`).
 Pre-flight this on every visit: `openclaw models status | grep status=`
 must say `usable`, and `openclaw cron list | grep Heartbeat` must not say
 `error`.
