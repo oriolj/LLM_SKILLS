@@ -20,6 +20,10 @@ rather than rewriting them.
 
 Plan for all three from the start.
 
+**The next candidate is the EnaCast backend** (`~/git/EnaCast/enacast`, MariaDB with `latin1` columns, a separate
+recorder and a Timescale router). The roadmap item, with its audit list and open decisions, is in that repo's `TODO.md`
+under "Database consolidation roadmap".
+
 ## The staged plan (each step deployable and reversible alone)
 
 | Step | What | Gate |
