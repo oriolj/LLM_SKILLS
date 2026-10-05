@@ -17,6 +17,7 @@ drift).
 | uuid4 PKs (users included), uv for deps, pytest, latest LTS Django | global `CLAUDE.md` |
 | Celery prod sizing (concurrency 2, max-requests, no Flower, cheap healthchecks) | global `CLAUDE.md` §right-sizing |
 | Celery deploy safety (acks_late, AOF, orphan sweeps, dedupe) | `celery-deploy-safety` skill |
+| Moving the database to another engine (MariaDB/MySQL → PostgreSQL/TimescaleDB) with proof of before = after | `django-db-migration` skill |
 | DRF pagination/list-page footguns | global `CLAUDE.md` §DRF + Next.js |
 | `/metrics`, prom.py collectors, multiproc, scrape lanes, dashboards/orgs | `fleet-observability` skill §5, §5c |
 | Traces (OTel → host Alloy → Tempo): the pipeline, sampling policy, resource-attribute contract | `fleet-observability` skill §5f — the Django wiring is the "Tracing" section below |
