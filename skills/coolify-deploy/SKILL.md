@@ -830,6 +830,56 @@ Everything below verified live on Coolify Cloud against v5.enacast.com.
   deploy (v5 got `/usr/local/sbin/docker-user-tailnet-only.sh` + a oneshot
   unit with `PartOf=docker.service`, idempotent via `-m comment`, IPv4 + IPv6).
 
+## 5a2. A big compose stack → Dockerfile apps + TimescaleDB, data moved by copy (EnaStats, 2026-10-04/05)
+
+145 M rows on MariaDB in a compose resource moved to a TimescaleDB database resource and four Dockerfile apps, with a
+~13 min collector pause and no API downtime. The plan, tools and records are in EnaStats `docs/timescaledb-migration.md`
+and `operations_history/`. Facts verified on the way:
+
+- **Put a database resource's data on another disk.** Create the resource with `instant_deploy: false`, then on the
+  host, before the first start:
+  ```sh
+  docker volume create --driver local --opt type=none --opt o=bind --opt device=/fast/path postgres-data-<uuid>
+  ```
+  with `chown 70:70` for the alpine timescale image. Compose adopts the existing volume with a warning only; the
+  cluster files land in the bind path. This is how storage-1's TimescaleDB sits on the NVMe while Docker's root is
+  the HDD RAID5.
+- **A stable network name for a Dockerfile app: `custom_internal_name`** (create field).
+  - Without it, an app's only alias on `coolify` is its container name: `<uuid>-<timestamp>` for rolling apps, the
+    app name for stop→start apps. Neither is safe to hard-code.
+  - `custom_internal_name: enastats-telegraf` gave the alias `enastats-telegraf`; the workers POST to it.
+  - It disables rolling for that app, which is fine for a sidecar.
+- **Old compose resources may already sit on `coolify` with their service names as aliases** (EnaStats, created
+  2025). New Dockerfile apps then reach the old stack's `mariadb` by name: a free "legacy" connection for a
+  migration, with no compose redeploy. Check `docker inspect … Networks/Aliases` first.
+- **`inject_build_args_to_dockerfile: false` + `include_source_commit_in_build: true`:** the Dockerfile's own
+  `ARG SOURCE_COMMIT` still receives the full sha (baked into `/app/.source_commit`, verified). Coolify stops
+  prepending ARG lines, so the apt layer stays cached between commits.
+- **The UI health check ON injects curl/wget even when the Dockerfile has a HEALTHCHECK** (python:slim, 2026-10-04).
+  The first deploy rolled back with `curl: not found`. Install `curl` in the image. This contradicts the
+  `custom_healthcheck_found` note in §5d; it is what happened here.
+- **`POST /applications/{uuid}/start` on a stopped Dockerfile app queues a deployment** (it returns a
+  `deployment_uuid`; ~1 min from cache). To have workers ready for a cutover: deploy them early, then `POST …/stop`;
+  the cutover's start is then quick.
+- **`PATCH /databases/{uuid}` `redis_password` + restart did NOT reach the running Redis** (its command line kept
+  the old `--requirepass`). To change a Redis resource's password, recreate the resource (or check the container's
+  `Config.Cmd` after the restart).
+- **Never print a Redis/DB container's `Config.Cmd`.** Coolify puts `--requirepass <password>` there. Compare by
+  substring in a script instead.
+- **Keep migration evidence out of `/tmp` of an app that can redeploy.** The first webhook deploy after the cutover
+  replaced the web container, and the live-month fingerprints written there were lost. Copy them to the host
+  (`docker cp`) right after each step.
+- **The rolling deploy lost 1 of 792 requests** (connection error at the old container's stop) with no drain
+  configured. §7f is the fix.
+- **TimescaleDB facts:**
+  - `by_range(..., INTERVAL '1 month')` makes **30-day** chunks, not calendar months, and 2.30 has no calendar
+    alignment.
+  - `CALL run_job(<compression job>)` over years of chunks needs `SET statement_timeout = 0`; a 300 s session
+    timeout cancelled it.
+  - 145 M wide rows: 133 GB uncompressed → 13 GB with columnstore (`segmentby radio_id`).
+  - Reading every column of every row (a fingerprint) is ~3× slower than on InnoDB. The API's aggregate queries
+    were faster.
+
 ## 5a. postgres:18 in compose — the volume-layout trap (TimeTracker forensics, 2026-08-30)
 
 - The postgres **18** docker image moved PGDATA to `/var/lib/postgresql/18/docker`,
