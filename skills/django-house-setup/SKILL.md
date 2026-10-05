@@ -146,7 +146,13 @@ Reference: `oriolj/llm-index-watcher` `backend/config/tracing.py` (2026-09-05).
   wrapped so a CLIENT span with no valid parent is dropped (`/metrics`
   collector queries, heartbeat Redis calls, beat polls, migrations would
   each be a one-span trace otherwise — `_NoOrphanClientSpans` in the
-  reference). `traces_sample_rate` in `sentry_sdk.init` stays 0.
+  reference). `traces_sample_rate` in `sentry_sdk.init` stays `None` — `0`
+  still starts Sentry's tracing (unsampled spans, `sentry-trace` headers).
+  Build the wrapped sampler as `ParentBased(ALWAYS_ON,
+  remote_parent_not_sampled=ALWAYS_ON)`: the Django instrumentation trusts any
+  client's `traceparent`, and `...-00` would keep that client's requests out of
+  Tempo. Exclude URLs that carry secrets in the path (Django's
+  `/reset/<uidb64>/<token>/`) next to the health paths (EnaCast, 2026-10-05).
 - **Langfuse coexistence**: one global provider per process. When tracing
   owns it, Langfuse's OTLP exporter is added to THAT provider behind a
   span-processor wrapper that forwards only `pydantic-ai`/`langfuse` scopes
@@ -388,6 +394,11 @@ The traps, each one found in production code that day:
   response cache and let any anonymous client force uncached queries. Freshness belongs to the
   invalidation (a per-tenant generation bumped on save/purge); strip buster params from the key and do
   not honour them in production (`CACHE_BUSTER_PARAMS`, EnaCast `drf_extension_custom_utils.py`).
+  Removing such a bypass exposes every dimension the key never had: with DRF's browsable API enabled,
+  one anonymous `Accept: text/html` request stored HTML that the JSON consumer then read. Cache only
+  JSON (`request.accepted_renderer.format == 'json'`, already negotiated when `list()` runs) or put
+  the format in the key; and derive the tenant generation for EVERY lookup form the view accepts
+  (aliases like `<tenant>_latest`, `<tenant>_<slug>`), lower-cased if the DB matches case-insensitively.
 - **A side-effecting GET**: serializing an episode whose file is missing hides it (`save()` inside a
   read). Profiling scripts and tests then see 404s on the second request — give fixtures valid state.
 
