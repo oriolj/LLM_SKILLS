@@ -216,7 +216,17 @@ so CI on `windows-latest` builds the MSI.
   `WAYLAND_DISPLAY=wayland-1` (or the socket name in that dir), `DISPLAY=:0`
   and `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<uid>/bus`.
 
-## 6. Updater
+## 6. Publishing installers from a git repo
+
+- **A global gitignore with `*.exe` silently drops the Windows installer**
+  from `git add <dir>`. Add `!public/software/**/*.exe` (or similar) to the
+  repo's `.gitignore`. Before deploying, check with
+  `git archive HEAD | tar -tv` that every download is committed: deploy tools
+  that `git archive` HEAD ship only committed files.
+- Use versioned file names and a `SHA256SUMS.txt`; amend an unpushed commit
+  rather than stacking rebuilt binaries into history.
+
+## 7. Updater
 
 - `tauri signer generate`. Commit only the public key in `plugins.updater.pubkey`.
   Keep the private key outside the repo, backed up: if it's lost, no
