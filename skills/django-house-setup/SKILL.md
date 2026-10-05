@@ -391,6 +391,20 @@ The traps, each one found in production code that day:
 - **A side-effecting GET**: serializing an episode whose file is missing hides it (`save()` inside a
   read). Profiling scripts and tests then see 404s on the second request — give fixtures valid state.
 
+## Sentry: drop `manage.py shell` events, keep switched-off pages out of 5xx (owned here, BikeCRM 2026-10-05)
+
+- `before_send` that drops every event raised from an interactive command process
+  (`sys.argv[1] in {"shell", "shell_plus", "dbshell"}` with `argv[0]` ending in `manage.py`):
+  a typo in a one-off script an agent pipes into `manage.py shell -c` on the server otherwise
+  reaches Sentry as a production error and pages someone (3 of 4 BikeCRM issues in one weekend).
+  Web, worker and migrate errors stay. Reference: `bikecrm-backend/config/sentry_filters.py` + test.
+- A feature that is deliberately OFF answers its branded page with **404**, never 503: Django logs
+  every 5xx as a `django.request` ERROR and the 5xx-rate panels/alerts count it — a monitor probing
+  the switched-off page every 15 min looked like an incident.
+- gunicorn ≥ 25 opens a control socket under `$HOME`; for a `--no-create-home` user pass
+  `--control-socket /tmp/gunicorn.ctl` (or `--no-control-socket`) or it logs `Control server error:
+  Permission denied` forever.
+
 ## New-project checklist (each row = go to its owner)
 
 1. Settings layout + `.envs/` + env inventory table BEFORE first deploy
