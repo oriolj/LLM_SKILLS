@@ -143,6 +143,20 @@ undo, and no record history.
   Never assume the host you want is still free: `getDnsRecords`
   immediately before the write.
 
+## Field notes 2026-10-05 (Cloudflare for SaaS moves of radioibi.com, laplanaradio.cat)
+
+- Both radio zones are in the **enantena** account (same key as enacast.com). `www` CNAME edits
+  (`/dnsrecords/edit`, `current: {host: "www", type: "CNAME"}`) answered within seconds on ns2 and
+  within ~2 min on all five nameservers (ns1–3.cdmon.net, ns4.cdmondns-01.org, ns5.cdmondns-01.com);
+  check all five with `dig @<ns>` before trusting one.
+- **Lower the TTL ahead of a cutover** (an edit of the TTL alone, 900 → 300, at least 15 min
+  before): the switch then reaches public resolvers in 5 minutes. Ibi's switch kept the old 900 s
+  answer at 1.1.1.1 for ~15 min (harmless: the old host kept serving).
+- A record's absence is cached too: `laplanaradio.cat`'s SOA minimum is 3600 s, so a TXT record
+  looked up before it existed can stay invisible to a CA for up to an hour.
+- Several TXT values on one host (`_acme-challenge.www`) are created one by one with `create`; they
+  coexist. Space writes ~30 s apart (rate limit), and prove each change with a set diff.
+
 ## Auth + base URL
 
 - Base: `https://api-domains.cdmon.services/api-domains/<endpoint>`

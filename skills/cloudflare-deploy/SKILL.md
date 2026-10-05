@@ -146,6 +146,49 @@ Different from 0c (SSH for Coolify): here the tunnel carries visitors to an app.
   recipe sets the endpoint's Host header to the tunnel hostname, which breaks
   host-based apps. Prove host preservation before relying on it.
 
+## 0f. Cloudflare for SaaS custom hostnames — a client's domain without moving its zone (enacast-astro, 2026-10-05)
+
+The client keeps its DNS where it is and points `www` with a CNAME at our target; Cloudflare
+serves it as a **custom hostname** of our SaaS zone. EnaCast layout: SaaS zone `enacasthq.com`,
+fallback origin `customers.enacasthq.com` (proxied CNAME to the tunnel of §0e), published target
+`frontend2.enacast.com` (CDmon, `CNAME customers.enacasthq.com`), hostnames registered by the
+backend (`enacast/enacast_backend/radios/cloudflare_hostnames.py`). Live for Ràdio Ibi and La Plana
+Ràdio; record: `enacast/operations_history/2026-10-05-radioibi-laplana-cloudflare-saas.md`.
+
+- **Enabling is a dashboard click** (SSL/TLS → Custom Hostnames). Before it, the API answers
+  `1404 No quota has been allocated` and the fallback-origin endpoint `1456`. Free plan: 100
+  hostnames included, $0.10/month each after. The purge-only token cannot touch custom hostnames
+  (`10000`): give the backend its own zone-scoped token, "SSL and Certificates: Edit".
+- API: `PUT /zones/{z}/custom_hostnames/fallback_origin {"origin":"customers.<zone>"}`;
+  `POST /zones/{z}/custom_hostnames {"hostname","ssl":{"method":"http"|"txt","type":"dv","settings":{"min_tls_version":"1.2"}}}`;
+  `GET/PATCH/DELETE …/custom_hostnames/{id}`. Ready = `status` AND `ssl.status` both `active`.
+- **Zone rules apply to custom-hostname traffic.** Scope them by host: a Cache Rule
+  `(not http.host wildcard "*<zone>")` and an http→https Redirect Rule
+  `(not ssl and not http.host wildcard "*<zone>")` → `concat("https://", http.host, http.request.uri.path)`
+  cover every client domain without switching on zone-wide Always Use HTTPS.
+- **Purge works on custom hostnames**: tag purge and host purge in the SaaS zone both clear them
+  (verified with an age test, below).
+- **The CA is Cloudflare's pick**: `certificate_authority` is Enterprise-only (`1459`), and the pick
+  is stable per hostname (SSL.com six times in a row for a `.cat` name, Google for a `.com`).
+- **CAA follows the CNAME chain.** While a live `www` still CNAMEs into another provider's DNS
+  (Vercel: `issue` for Google, Let's Encrypt, GlobalSign, Sectigo only), a certificate from any other
+  CA is refused: `CAA records block issuance`. Fix without downtime: point `www` at a name with an
+  **A record to the old host's IP and no CAA** (`frontend-vercel-ip.enacast.com` → `76.76.21.21`
+  serves Vercel-attached domains with Vercel's certificate), let the CA issue, then cut over.
+- **Live domain = TXT pre-validation; new domain = HTTP.** TXT (`_cf-custom-hostname.<host>` for
+  ownership, `_acme-challenge.<host>` for the certificate) lets the certificate exist before traffic
+  moves; `does not CNAME to this zone` is only the ownership check and clears with that TXT. But
+  **TXT certificates need new tokens at every renewal**: after the cutover PATCH `ssl.method=http`
+  — tested: the active certificate keeps serving (same serial), nothing re-issues. **A PATCH
+  "recheck" rotates the ACME token** (a new TXT to add): nudge once, not in a loop.
+- `MPIC failure` (the CA validates from several places) right after adding a TXT record cleared by
+  itself in ~20 min: resolvers that had cached the record's absence (SOA negative TTL).
+- **No apex**: a bare domain cannot be a proxied custom hostname below Enterprise; only a DNS
+  provider that flattens a CNAME at the apex (ALIAS/ANAME, Cloudflare DNS) can point it at the target.
+- **Testing cache from one machine**: consecutive requests reach different data centres (CDG, MRS,
+  LIS, MAD within a minute), each with its own cache, so a MISS proves nothing. Prove a purge by
+  `age`: once it has propagated, every HIT is younger than the purge.
+
 ## 0d. R2 for Coolify backups — three traps, all hit on 2026-08-28
 
 1. **`10042 Please enable R2 through the Cloudflare Dashboard`** on
