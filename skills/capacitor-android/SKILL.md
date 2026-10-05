@@ -220,6 +220,21 @@ Build it in this order:
    script sets `minifyEnabled true` + a project-owned rules file on the
    release build type (the generated `android/app/proguard-rules.pro` dies on
    regen). Traps:
+   - **REPLACE the rule list, never append to it.** The template lists
+     `getDefaultProguardFile('proguard-android.txt')`, which carries
+     `-dontoptimize`; `proguardFiles <yours>` adds to that list, so R8
+     shrinks and renames but optimizes **0%** (Panotxa 1188, caught by a Codex
+     review, not by us). Use `setProguardFiles([getDefaultProguardFile(
+     'proguard-android-optimize.txt'), file('proguard-rules.pro'), <yours>])`.
+     Play grades shrinking, obfuscation and optimization **separately** (each
+     ≥ 25%) once the bundle has more than 10 MB of DEX — 1188 had 9.86 MB, one
+     dependency bump from failing. Optimizing took Panotxa's DEX from 9.86 to
+     7.06 MB (all three grades ~67%). Renamed-class counts prove nothing about
+     optimization: gate on the bundle's own
+     `BUNDLE-METADATA/com.android.tools/r8.json` (`options.isOptimizationsEnabled`,
+     `stats.no{Shrinking,Obfuscation,Optimization}Percentage`; grade = 100 − that).
+     Optimization rewrites code beyond renaming, so a device run of the
+     minified build is mandatory before promoting it.
    - **Code only — no `shrinkResources`.** Capacitor resolves resources BY
      NAME from `capacitor.config.json` (`LocalNotifications.smallIcon`, the
      splash drawable); the resource shrinker cannot see those and strips them.
@@ -238,7 +253,10 @@ Build it in this order:
    - The AAB embeds the mapping
      (`BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map`), so
      Play deobfuscates without a separate upload; check for it in the
-     post-build gate, and archive `mapping.txt` for Sentry/GlitchTip.
+     post-build gate, and archive the mapping for Sentry/GlitchTip by
+     **extracting it from that same bundle** (`unzip -p <aab> <entry>`), never
+     by copying the build tree's `mapping.txt`, which belongs to whichever
+     release build ran last.
      **Gate it with `unzip -l "$aab" '<entry>' >/dev/null`** (non-zero when
      the entry is absent), never `unzip -l … | grep -q` under `set -o
      pipefail`: `grep -q` exits on the first match, `unzip` dies of SIGPIPE
