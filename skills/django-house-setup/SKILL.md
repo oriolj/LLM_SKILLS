@@ -19,6 +19,7 @@ drift).
 | Celery deploy safety (acks_late, AOF, orphan sweeps, dedupe) | `celery-deploy-safety` skill |
 | Moving the database to another engine (MariaDB/MySQL → PostgreSQL/TimescaleDB) with proof of before = after | `django-db-migration` skill |
 | DRF pagination/list-page footguns | global `CLAUDE.md` §DRF + Next.js |
+| Slow endpoints: measuring per route, deep pagination, join-only filters, deferred-field N+1, stale `_<fk>_cache` checks, cache-busters | "Query performance" below |
 | `/metrics`, prom.py collectors, multiproc, scrape lanes, dashboards/orgs | `fleet-observability` skill §5, §5c |
 | Traces (OTel → host Alloy → Tempo): the pipeline, sampling policy, resource-attribute contract | `fleet-observability` skill §5f — the Django wiring is the "Tracing" section below |
 | Idempotent write endpoints (client tokens) | `api-idempotency` skill |
@@ -342,6 +343,53 @@ test fixture used plain ASCII names.
 - **freezegun's `FakeDatetime` drops `fold` in `astimezone`**: a DST test under `freeze_time` can pass
   while the bug it targets is live. Run DST cases without freezing the clock (pass the date in), and
   prove the test fails against the old code.
+
+## Query performance — measure first, then these traps (owned here, learned 2026-10-05 on EnaCast)
+
+Context: a request to "rewrite the hottest endpoints in Rust" turned into a day of Django fixes once
+measured — the slow requests spent 85–99 % of their time in SQL, so a faster runtime would have changed
+nothing. Write-up and numbers: `EnaCast/enacast` `docs/performance.md`. The workflow:
+
+1. **Where the time goes, per route, before anything else.** With traces: `fleet-observability` §5g.
+   Without: the reverse proxy's access log (route × count × duration → share of worker time) —
+   `make routes-caddy` / `scripts/caddy_route_profile.py` in the EnaCast backend.
+2. **Group the hot route by query-string SHAPE** (which params, page depth): one endpoint is usually
+   three different problems (deep pages, one filter, one join).
+3. **Reproduce on a production-scale copy** (`prod-db-sync`) through the real view with
+   `connection.execute_wrapper` timing every statement — total vs SQL vs Python per request, the
+   slowest statements, and the query COUNT (an N+1 shows as N identical shapes). `EXPLAIN` the slow ones.
+4. **Before claiming a cache win, replay the logged hour against the proposed cache key** (distinct keys,
+   hit rate at the TTL). Behind a CDN the backend sees misses: mostly one-off URLs a cache cannot absorb.
+
+The traps, each one found in production code that day:
+
+- **Deep `?page=N` on a wide table**: OFFSET reads every skipped full row. Paginate over pks through a
+  covering index, then load the page's rows by pk (`DeferredJoinPagination`, EnaCast
+  `api_ng/PaginationConfig.py`; 8.2 s → 0.5 s on page 1438). Not for `.distinct()` querysets.
+- **A join that exists only to filter** (`programa__hidden_program=False`, `programa__tags__slug=x`) lets
+  MariaDB lead with the small table and sort every match in a temporary table — and an unrelated index
+  can flip the plan into that (70 ms → 2.5 s). Resolve the ids first (`list(Model.objects.filter(…)
+  .values_list('id', flat=True))`) and filter/exclude `fk_id__in=` on the big table. Re-profile EVERY slow
+  shape after adding any index.
+- **A filter on a column no index leads with** (a year range on `utcdatetime` while the indexes lead with
+  `datetime_to_publish`): a covering index `(tenant, flags…, filtered column, order column, fk)` makes
+  the COUNT and the pk page index-only (5 s → 0.3 s).
+- **A property that reads a deferred field** (`transcription`, deferred by the manager because it is
+  megabytes) is one query PER ROW in a list (200 on a 200-row page). Annotate the derived value on the
+  list queryset (`Case(When(...))`) and let the property prefer the annotation.
+- **`hasattr(self, '_<fk>_cache')` is Django 1.x.** Since 2.0 a loaded relation lives in
+  `self._state.fields_cache['<fk>']`; the old check is silently always False, so a "use the prefetched
+  object" fast path never fires (EnaCast: 1,000 cache round-trips, 2.4 s, per 200-row page). Grep for
+  `_cache')` in model methods.
+- **`.first()` / `.last()` to get a date bound** loads whole rows (`.last()` without the manager's
+  `defer` loaded the transcript): `aggregate(Min(...))` / `Max` on an index-leading column answers from
+  the index (3.4 s → ms). Do not memoise such values on an instance that gets pickled into the cache.
+- **Client cache-busters** (`rnd=`, a per-second `ts=`, `since_ts=<now>`) in the URL defeat a URL-keyed
+  response cache and let any anonymous client force uncached queries. Freshness belongs to the
+  invalidation (a per-tenant generation bumped on save/purge); strip buster params from the key and do
+  not honour them in production (`CACHE_BUSTER_PARAMS`, EnaCast `drf_extension_custom_utils.py`).
+- **A side-effecting GET**: serializing an episode whose file is missing hides it (`save()` inside a
+  read). Profiling scripts and tests then see 404s on the second request — give fixtures valid state.
 
 ## New-project checklist (each row = go to its owner)
 

@@ -1430,6 +1430,35 @@ service (`web`, `worker-stats`, `worker-radios`), so the three containers of
 one stack are separable in Tempo. Its traces dashboard is adapted for the
 shape: a row on the two loops' per-cycle root spans and their phase
 children, and `mysql` instead of `sqlite` in the SQL panels.
+**EnaCast backend lessons** (`EnaCast/enacast`, 2026-10-05, prepared dormant —
+`enacast_backend/observability/tracing.py`): 🔴 **a Coolify compose resource loads
+its `.env` into EVERY service** (`env_file: .env` on each service of the generated
+compose, `GET /applications/<uuid>` → `docker_compose`), so setting
+`OTEL_EXPORTER_OTLP_ENDPOINT` in the UI switches tracing on in every container of
+the stack (legacy RQ workers, helper loops) — gate on a per-service `ROLE` from
+compose as well as the endpoint. The API's `connect_to_docker_network` can read
+`null` while the generated compose already lists the `coolify` network on every
+service: read the compose, not the field. Langfuse v3 isolation done at ONE choke
+point: a `TracerProvider` subclass whose `add_span_processor()` wraps every
+processor but its own Tempo one in an `LLMScopesOnly(SpanProcessor)` (scopes
+`langfuse-sdk`, `pydantic-ai`; filter `on_start` too — Langfuse's processor stamps
+propagated attributes on every span it is shown), so `Langfuse(...)`, `@observe`
+and a hand-built Langfuse exporter are all covered without a block list; the
+reverse direction slims LLM spans' long string attributes (1 KB) in a
+`SpanExporter` wrapper before Tempo. `init_langfuse()`-style helpers that write
+`OTEL_EXPORTER_OTLP_ENDPOINT/HEADERS` into `os.environ` exist here too (grep rule
+above). Pass `excluded_urls=` to `DjangoInstrumentor().instrument()` instead of
+relying on the env var (parsed once at import). SDK 1.39's batch processor logs
+export failures from `opentelemetry.sdk._shared_internal`, not
+`opentelemetry.sdk.trace.export` — rate-limit that logger. Prefork Celery with the
+provider built in the parent's `ready()` works on 1.39 (verified with a local sink:
+the child exported the CONSUMER span, parented to the enqueuing process's PRODUCER
+span). The MySQL dashboards and `make slow-queries` need `--db mysql`. 🔴 **On a compose
+resource the endpoint row must be build-time (+ runtime), not runtime-only**: the compose's
+`- OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}` is interpolated from Coolify's
+build-time env, so a runtime-only row interpolates EMPTY and that explicit entry overrides the
+`.env` value — tracing stays off with no error (`coolify-deploy` §3). Set that way on
+`osowsc8g00400ss8gokwcsgc` 2026-10-05, matching 92 of its 93 other rows; first traced deploy pending.
 **Test hygiene, every project**: the tracing test fixture must
 UNINSTRUMENT (`DjangoInstrumentor().uninstrument()` etc.) in teardown, or
 a request test that runs after it still sees the OTel middleware/patched
@@ -1440,6 +1469,17 @@ exporter to the same endpoint, resource attributes as above. **Next.js**
 self-hosted node servers (Vercel-hosted apps have no host agent).
 
 ## 5g. Investigating slow requests and queries — the agent workflow (Oriol, 2026-09-05)
+
+**No traces yet? Start from the reverse proxy's access log** (EnaCast backend, 2026-10-05,
+before its tracing shipped): Caddy's JSON access log in Loki carries `duration` per request, so
+one hour pulled with `logcli` and grouped by route shape gives the share of worker time per
+route, p50/p95/p99, and how the time splits by query-string shape (page depth, filters) —
+`make routes-caddy SINCE=1h` (`scripts/caddy_route_profile.py` in `EnaCast/enacast`). It found
+that five endpoints took 75 % of the worker time. Then reproduce the worst URLs on a prod-scale
+copy with per-statement timing (`django-house-setup` "Query performance"). And **replay the logged
+hour against any proposed cache key before promising a cache win**: behind a CDN the backend sees
+the CDN's misses, mostly one-off crawler URLs (24.7k distinct of 30k), and a cache that looked
+like two thirds of the load replayed to ~2 %.
 
 The point of the trace lane is that **an agent can check and investigate
 slowness itself**, from a workstation, without Grafana clicks. The read
@@ -1536,7 +1576,7 @@ where a beta environment exists. The targets are the reader side of the
 contract in §5e: `GRAFANA_AND_METRICS.md` says what Grafana shows,
 `make prod-status` shows the same numbers in the terminal.
 
-**A project with no app `/metrics` in Prometheus still gets the keyboard** (EnaCast backend,
+**A project with no app `/metrics` in Prometheus still gets the keyboard** — add `make routes-caddy` (per-route time share from the access log, §5g) until traces exist (EnaCast backend,
 2026-10-04: its counters live in a legacy Telegraf → InfluxDB stack). `prod-status` then reads what
 the estate does have: the request numbers come from the reverse proxy's access log through **LogQL
 metric queries** (`logcli instant-query --quiet 'sum(count_over_time({…, service="caddy"} |= "handled

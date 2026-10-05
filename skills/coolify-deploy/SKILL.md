@@ -398,6 +398,13 @@ referenced variable — and the seeded VALUES are traps:
   port binds, image tags, secret sources — must be **buildtime**; a
   runtime-only var is invisible to interpolation and fails the deploy with
   "required variable X is missing a value".
+  With a DEFAULT the failure is silent instead: a service line
+  `- X=${X:-}` interpolates EMPTY for a runtime-only row, and that explicit
+  `environment:` entry overrides the `.env` value the service also loads —
+  the variable reaches the container as `""`. EnaCast backend's
+  `OTEL_EXPORTER_OTLP_ENDPOINT` (2026-10-05) would have left tracing off with
+  no error; it was set build-time + runtime, like 92 of the resource's other
+  93 rows. Same mechanism as the `SOURCE_COMMIT=${SOURCE_COMMIT:-}` trap in §3.
 
 ### Django split settings: base.py must be production-safe (2026-08-29)
 
