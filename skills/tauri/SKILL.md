@@ -140,31 +140,61 @@ so CI on `windows-latest` builds the MSI.
 - An unsigned alpha shows "Windows protected your PC". Users click **More info**
   → **Run anyway**; write that into the install docs.
 
-## 4. macOS
+## 4. macOS (verified on a Mac mini over ssh, macOS 27 arm64)
 
 - Tauri apps need macOS to build the `.app`/`.dmg`; there's no Linux
-  cross-build. Build on a Mac over ssh: rsync the tree (excluding `target/`,
-  `node_modules`, `dist`, secrets), run `npm ci` there (the CLI's native
-  binary differs per platform), then `tauri build --target aarch64-apple-darwin`.
-  Keep the target dir somewhere excluded from backups and watch disk space.
-- Native dylibs (e.g. Homebrew LAME) must not leave an absolute
-  `/opt/homebrew/...` path in the binary:
-  - re-id a copy as `@rpath/lib….dylib` and link against it;
-  - add the rpath `@executable_path/../Frameworks`;
-  - embed the dylib with `bundle.macOS.frameworks`.
+  cross-build. Build on a Mac over ssh:
+  - rsync the tree, excluding `target/`, `node_modules`, `dist` and secrets;
+  - run `npm ci` there, because the CLI's native binary differs per platform;
+  - keep rustup, cargo and the target dir under a folder excluded from
+    backups;
+  - run `tauri build --target aarch64-apple-darwin`.
+- **Watch the Mac's disk.** One release build took about 2 GB of target
+  dir, and free space fell to about 1 GB mid-build on a 94%-full Mac.
+- **Over ssh, set `CI=true`.** Otherwise the dmg step tries to drive Finder
+  via AppleScript and fails with -1712 (it also leaves "allow sshd to control
+  Finder" prompts on the Mac's screen).
+- **Homebrew dylibs are not distributable.** Homebrew's LAME 4.0 dylib had a
+  macOS 26 minimum and linked Homebrew's `libmpg123` by absolute path. Build
+  the native library from source with `MACOSX_DEPLOYMENT_TARGET` set to your
+  minimum and `-install_name @rpath/lib….dylib`, then:
+  - link against it, with the rpath `@executable_path/../Frameworks`;
+  - embed it with `bundle.macOS.frameworks`;
+  - verify with `otool -L` (no `/opt/homebrew`) and `otool -l` (`minos`).
+- **Ad-hoc signing + hardened runtime + an embedded dylib crashes at launch.**
+  dyld refuses it because the binaries have "different Team IDs". Add the
+  entitlement `com.apple.security.cs.disable-library-validation`.
+  Notarization accepts it, and it keeps an LGPL library user-replaceable.
+- **Info.plist / entitlements:**
+  - `NSMicrophoneUsageDescription` and the entitlement
+    `com.apple.security.device.audio-input`.
+  - Without microphone permission, Core Audio still opens the input but
+    delivers **digital silence**. Check `AVCaptureDevice` authorization
+    first, ask once, and surface a coded "permission pending/denied" state
+    instead of a silent stream.
+  - `NSAppSleepDisabled` and `LSAppNapIsDisabled`.
+- **Sleep and App Nap while working:** one `NSProcessInfo`
+  `beginActivity(UserInitiated | IdleSystemSleepDisabled)` covers both.
+  macOS drops it if the process dies, so nothing can be orphaned the way a
+  `caffeinate` child can. Check with `pmset -g assertions`.
+- **Menus.** Tauri's default menu lacks an Edit menu (⌘C/⌘V do nothing in
+  inputs) and quits on ⌘Q without asking. Build your own menu if quitting
+  mid-task matters.
+- **Gatekeeper on an ad-hoc, unnotarized app.** `spctl` says "rejected / no
+  usable signature". Since macOS 15 Control-click → Open is gone, so users
+  must:
+  1. open the app and click Done;
+  2. go to System Settings → Privacy & Security → **Open Anyway**;
+  3. enter the password and confirm.
 
-  Verify with `otool -L` on the binary inside the `.app`.
-- Info.plist essentials:
-  - `NSMicrophoneUsageDescription` for any capture, plus the hardened-runtime
-    entitlement `com.apple.security.device.audio-input`;
-  - `NSAppSleepDisabled` so App Nap never throttles background threads
-    (audio).
-- Sleep inhibition while working: `caffeinate -i -w <pid>` or an
-  IOPMAssertion.
-- An ad-hoc signed, unnotarized app triggers Gatekeeper. Write the exact
-  steps for opening it into the user docs; on recent macOS it's System
-  Settings → Privacy & Security → Open Anyway. Developer ID + notarization
-  needs an Apple Developer account.
+  Or run `xattr -dr com.apple.quarantine <app>`. Developer ID +
+  notarization (Apple Developer account) removes this.
+- **Testing over ssh is limited.** `screencapture` fails ("could not create
+  image from display") and Accessibility scripting is blocked. Test the CLI
+  end to end, drive the app through its own control channel, and leave the
+  visual check to a person.
+- **Loopback socket buffers.** macOS buffers about 200 KB on loopback, so
+  "stalled peer" tests need longer timeouts there than on Linux.
 
 ## 5. Headless smoke tests on Linux
 
