@@ -42,7 +42,13 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
    original_language, generation_mode:"log_sent", status:"sent", sent_at}`.
    Log replies as `direction:"inbound"`. Since LeadHunter release f751449
    (2026-09-28), pass `external_id` = the WAHA message id, so a retry returns
-   the stored row instead of a duplicate. Append account notes with
+   the stored row instead of a duplicate. Since 2026-10-05 an outbound log
+   on an account with per-purpose opt-outs (`do_not_contact_purposes`) must
+   also send `purpose` (the campaign goal the message serves, e.g.
+   `customer_expansion` for a trial customer, `sales` for a prospect):
+   400 without it, 403 if the account opted out of that purpose — then the
+   send itself was wrong, tell Oriol (details in the `leadhunter` skill,
+   "Logging a send and a reply"). Append account notes with
    `POST /api/accounts/{id}/add-note/ {text}`, and fix contacts with
    `/api/contacts/` (the surname may be blank).
    On project `bikecrm`, also update the stopgap custom fields after each

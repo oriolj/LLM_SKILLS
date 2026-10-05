@@ -217,7 +217,22 @@ POST /api/messages/
 - Reply: same call with `"direction": "inbound"`,
   `"generation_mode": "inbound_paste"`. Inbound is never DNC-blocked.
 - Outbound to a DNC account → 403. `direction` and `campaign_lead` are
-  immutable after create.
+  immutable after create; a sent message can't go back to draft.
+- **`purpose`** (LeadHunter `3727c9a`, deployed 2026-10-05): every message
+  carries the outreach purpose it serves, a campaign-goal value (`sales`,
+  `partnership`, `press`, `influencer`, `investor`, `recruiting`,
+  `customer_expansion`, `win_back`, `event`, `research`, `renewal`). A
+  campaign message gets its campaign's goal (omit `purpose`). An
+  **account-only outbound** message on an account with per-purpose opt-outs
+  (`do_not_contact_purposes` non-empty) MUST send `purpose`: without it →
+  400 `{"purpose": ["This account opted out of sales outreach. Say which
+  purpose this message serves."]}`, an opted-out purpose → 403. Pick the
+  purpose the message really serves (a reply to a customer's question is
+  not `sales`); never pick one just to get past a 403 — that is an opt-out,
+  ask Oriol. Accounts without opt-outs and inbound messages: unchanged.
+- Reading a thread: `GET /api/messages/?lead=<account>&ordering=-sent_at,-created_at,-id`
+  (newest first), plus `channel=whatsapp,email` and `campaign=<uuid>|none`.
+  Humans read the same stream at `/dashboard/accounts/<id>/conversations`.
 
 ## AI drafts
 
