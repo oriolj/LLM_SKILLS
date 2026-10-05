@@ -471,3 +471,27 @@ keep the alarm so unresolved cases stay visible.
 - One agent per finding with disjoint file ownership in the shared checkout (no worktrees when
   branches are forbidden), the lead owning catalogs, docs and every commit, worked; scope
   creep from an agent (a history-behaviour change on every list) was reverted and recorded.
+
+### "The totals are right but lines are missing" — silent template gaps (2026-10-05, BikeCRM invoice book)
+
+- **Template engines swallow missing attributes** (Django renders `{{ obj.nope }}` and
+  `{% for x in obj.nope.all %}` as empty, Jinja's default `Undefined` too). A document whose
+  totals come from stored/denormalised fields keeps adding up while whole line kinds are
+  missing — nobody notices until a client compares two documents. When one document is
+  "right" and another "wrong", diff the TEMPLATES line kind by line kind (here: the shared
+  invoice partial looped tasks but never products; its rental loop read accessors that did
+  not exist; a header tested a field that did not exist).
+- **Enumerate the line kinds from the models first** (every relation the totals sum over),
+  then check every renderer, export and legal serialiser against that list — the same scan
+  found the e-invoice XML skipping one kind's surcharge through `hasattr(obj, "get_items")`
+  duck-typing. A line kind in the totals but not in the output is the bug pattern.
+- **A shared include must not read view-only context**: one caller passed a flag, the other
+  (the PDF book) never did, so a column silently never appeared there. Derive it inside the
+  include from the object it is given.
+- **Tests assert rendered line names AND per-line amounts**, through the real user path
+  (the API call that triggers the PDF, capturing the HTML handed to the PDF engine), not a
+  200. Pair it with a query-count test when the fix starts rendering more relations in a
+  bulk document (a quarter of invoices ⇒ N+1 per invoice AND per line otherwise).
+- **"I never received the emailed report"** — read where the code sends it before touching
+  configuration: the tester changed the shop's address, the report goes to the requesting
+  user's login email; the production log line `… sent to <address>` settled it.
