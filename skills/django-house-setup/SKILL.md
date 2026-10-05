@@ -380,10 +380,10 @@ The traps, each one found in production code that day:
 - **`hasattr(self, '_<fk>_cache')` is Django 1.x.** Since 2.0 a loaded relation lives in
   `self._state.fields_cache['<fk>']`; the old check is silently always False, so a "use the prefetched
   object" fast path never fires (EnaCast: 1,000 cache round-trips, 2.4 s, per 200-row page). Grep for
-  `_cache')` in model methods.
+  `_cache')` in model methods; EnaCast's one helper is `cached_relation()` (`generic_tools/utils/cache_utils.py`).
 - **`.first()` / `.last()` to get a date bound** loads whole rows (`.last()` without the manager's
   `defer` loaded the transcript): `aggregate(Min(...))` / `Max` on an index-leading column answers from
-  the index (3.4 s → ms). Do not memoise such values on an instance that gets pickled into the cache.
+  the index (3.4 s → ms). One `aggregate(first=Min(...), last=Max(...))` for both; memoise on the instance only if `__getstate__` drops the memo when the instance is pickled into the cache.
 - **Client cache-busters** (`rnd=`, a per-second `ts=`, `since_ts=<now>`) in the URL defeat a URL-keyed
   response cache and let any anonymous client force uncached queries. Freshness belongs to the
   invalidation (a per-tenant generation bumped on save/purge); strip buster params from the key and do
