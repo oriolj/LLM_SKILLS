@@ -146,6 +146,15 @@ script, because `reload_config_entry` has been seen to hang for minutes).
 
 ## 7. Small traps
 
+- **Departure automations: wait for the phones, don't condition on them.** At the moment the
+  front door locks, the phones are still in `zone.home`; companion-app GPS moves `person.*` to
+  `not_home` 6–7 min later (measured 2026-10-05). Trigger on the physical event (lock + door
+  closed < 90 s before), then `wait_template` for the persons with a timeout, then re-check
+  everything before acting. Guard against arrivals with a signal that changes on entry (alarm
+  panel `last_changed` around the lock) and `mode: restart`. "Off for N min" on something that
+  may already be off is a `wait_template` on `last_changed`, not a state trigger with `for:`.
+- `GET /api/history/period/<start>` without `end_time` returns **24 h only**. Pass `end_time`
+  for longer windows.
 - Nuki coordinator times out a few times a day → lock `unavailable` ~30 s (bridge busy on BLE,
   not fixable from HA). Mirrors must hold state (§4).
 - Nuki lock paired over **Matter** (instead of the bridge): `lock.lock` / `lock.unlock` /
