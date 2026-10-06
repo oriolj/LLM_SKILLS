@@ -103,6 +103,17 @@ company identity in the personal team, so never do it unprompted.
 Until then, personal frontends ship only by the token lane above; a push
 alone deploys nothing, whatever the deploy doc says.
 
+**The fix the house rule wants is to disconnect, not to repair the seat**
+(Vercel is CLI-only, global CLAUDE.md): `DELETE /v9/projects/<name>/link?teamId=$TEAM`
+(200, `link` reads `null` after) + a `vercel.json` `{"git":{"deploymentEnabled":false}}`
+in the project's Root Directory. Done 2026-10-06 for humans2agents' four
+projects (h2a-accountant-frontend, h2a-leadhunter-frontend,
+docs.leadhunter.com, humans2agents): the next push created no build, and
+`make deploy-prod` still deploys READY. Still git-linked that day (each push
+= a BLOCKED build + a mail): oriolj-com, nutrilens-capacitor, budget-buddy(+landing),
+time-tracker-(frontend|landing), goal-tracker-(frontend|landing),
+spine-guard-(frontend|landing), shoematch.
+
 **A token CLI deploy from a git checkout is blocked too** (verified
 2026-09-14, SpineGuard): `vercel deploy --prod` run inside a checkout sends
 `githubCommitAuthor*` meta and Vercel applies the same seat check
