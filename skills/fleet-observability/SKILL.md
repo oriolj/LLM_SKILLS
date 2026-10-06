@@ -727,7 +727,16 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   before any `/metrics` exists, plus the `enacast_astro_*` contract for a
   `node:cluster` origin (prom-client `AggregatorRegistry`, a `worker` slot
   label so lag/heap are never summed) in enacast-astro-coolify
-  `docs/origin-performance.md` §1.5. Two field facts from it: behind a
+  `docs/origin-performance.md` §1.5, implemented 2026-10-06
+  (`server-metrics.mjs`). For `node:cluster`, have workers PUSH
+  `getMetricsAsJSON()` snapshots to the primary every few seconds and merge
+  them with the static `AggregatorRegistry.aggregate()`: prom-client's
+  `clusterMetrics()` pull waits for every worker and rejects the whole scrape
+  after 5 s, so it goes empty exactly when an event loop is starved; export a
+  per-worker snapshot-age gauge instead. Count at the top of the raw
+  `request` handler, before any admission queue, or 503 sheds never reach the
+  counter; wrap `globalThis.fetch` in the worker before importing the app to
+  count every upstream call in one place. Two field facts from it: behind a
   Cloudflare Tunnel, the cloudflared journal line `Failed to proxy HTTP …
   context canceled` is one per request the edge gave up on (the nearest
   origin-side signal to 524/499; count that line only, the companion ERR
