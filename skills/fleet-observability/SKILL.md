@@ -722,6 +722,18 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   shipped by the host agent) plus uptime/Web-Vitals tooling, not
   Prometheus. SSR with the node adapter = a normal node server: wrap the
   adapter's middleware with `prom-client` exactly like Next.js.
+  Reference (EnaCast public-site origin, 2026-10-06): dashboard
+  `enacast/enacast/enacast-astro.json` in hq-monitoring, live from Loki
+  before any `/metrics` exists, plus the `enacast_astro_*` contract for a
+  `node:cluster` origin (prom-client `AggregatorRegistry`, a `worker` slot
+  label so lag/heap are never summed) in enacast-astro-coolify
+  `docs/origin-performance.md` §1.5. Two field facts from it: behind a
+  Cloudflare Tunnel, the cloudflared journal line `Failed to proxy HTTP …
+  context canceled` is one per request the edge gave up on (the nearest
+  origin-side signal to 524/499; count that line only, the companion ERR
+  line doubles it); and a LogQL `regexp` group named like a stream label
+  (`host`) is renamed `host_extracted`, so `sum by (host)` silently groups
+  by the stream label: name the group something else (`site`).
 - **Icecast / third-party**: the corresponding exporter container beside
   it, same labeling.
 - Metric naming: Prometheus conventions (`<app>_<thing>_<unit>_total`);
