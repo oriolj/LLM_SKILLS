@@ -223,7 +223,7 @@ binds tried 14:54:06–08, address 14:54:14 (no netmap cache: it waits for the c
 does not help: tailscaled reports ready seconds before it has the address. The fix, in the role (tag
 `tailnet_bind`, every `observability` host): **`net.ipv4.ip_nonlocal_bind=1` + `net.ipv6.ip_nonlocal_bind=1`**
 (`/etc/sysctl.d/60-hq-tailnet-bind.conf`) — the bind succeeds before the address exists and answers once it does.
-Rejected: a `docker.service` drop-in waiting for the IP (`tailscale wait`, present since 1.86): it delays every
+Rejected: a `docker.service` drop-in waiting for the IP (`tailscale wait`, on every host at 1.102.x): it delays every
 production container on every boot and fails the same way when tailscale is later than its bound; nor does it cover
 a container restarted while tailscaled restarts on an upgrade. Side effect to remember: on such a host a typo'd bind
 IP no longer errors. Quick proof on any host: `docker run --rm -d -p 100.99.99.99:19999:80 nginx:alpine` fails with
