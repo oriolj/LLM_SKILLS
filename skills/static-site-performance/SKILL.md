@@ -8,13 +8,14 @@ description: Build and keep static marketing sites fast (Astro / SSG on Cloudfla
 Performance on a static marketing site is mostly **decided at build time**:
 what the HTML asks for, in what order, how big it is, and how long the CDN and
 browser may keep it. This skill is the house rulebook for that. It sits
-between three siblings:
+between four siblings:
 
 | Need | Skill |
 |---|---|
 | Measure, read Lighthouse/CrUX, fix one metric in a loop | **core-web-vitals** |
 | Titles, canonicals, hreflang, structured data, AI search | **seo** (performance is one of its inputs) |
 | The whole commercial-site checklist, review and shipping | **commercial-websites** |
+| An SSR origin (Node server behind a CDN) running hot; making SSR pages cache like static ones | **ssr-origin-performance** |
 
 Sourced research behind these rules (dates, Google quotes, what changed in
 2025–2026, what is unverified): [references/research-2026-09.md](references/research-2026-09.md).
