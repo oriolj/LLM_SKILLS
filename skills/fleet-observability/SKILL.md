@@ -98,6 +98,17 @@ per host:  alloy ──(pull /metrics)── central Prometheus   (tailnet)
   3. **Dockerless host** (streaming boxes, appliances) — native Alloy
      package: journald + unix exporter only, no docker pipeline. Do NOT
      install Docker just to run a monitoring agent.
+     ⚠️ **Not in hq's role yet** (verified 2026-10-06): `observability_agent`
+     ships only `docker-compose.yml.j2` + `config.alloy.j2` and fails without
+     Docker. The only native implementation is the EnacastStreamer repo's
+     `ansible/playbooks/setup-monitoring.yml` (fleet writer). For a server
+     that will run containers anyway, put it in `docker_hosts` (nori, AWS
+     EC2, 2026-10-06 — Oriol chose Docker so Caddy runs as compose too).
+  - 🔴 **`observability_bind_ip` defaults to `ansible_host`**, and compose
+    port binds need a literal IP: a host whose `ansible_host` is a MagicDNS
+    name fails `docker compose up` with `invalid IP address: <name>` (nori,
+    2026-10-06). Set `observability_bind_ip: <native tailnet IPv4>` as a
+    host var (the bind-address exception to the MagicDNS rule).
 
 ## 2. The label contract — `oj.*` docker labels
 
@@ -172,7 +183,7 @@ enrolled 2026-09-12/13 as a non-Coolify docker host, §6d; Coolify apps on the s
 server deliberately NOT in `servers`, enrolled 2026-09-06 with the
 backupmaker deployment: 79k lines shipped within a minute of the play) and **v5** (THE EnaCast production backend, onboarded
 2026-09-04 the day after an outage investigation had to read its logs
-with `docker logs` over ssh); **smartup-nbg1-1** (the SmartupSoft Coolify box — FichaChat prod, BikeCRM beta, Umami — enrolled 2026-09-14 with `--tags observability,swap,beszel` once its tailnet path was back; the play's first apply died on an `apt-get update` that had hung for ~150 days holding the apt lists lock — check `pgrep -a apt-get` + `ps -o etime` before blaming the role, kill the stale `apt.systemd.daily` tree, expect unattended-upgrades to then catch up in one big batch); **jluv-apps-1** (the personal Coolify box) is in the inventory since
+with `docker logs` over ssh); **smartup-nbg1-1** (the SmartupSoft Coolify box — FichaChat prod, BikeCRM beta, Umami — enrolled 2026-09-14 with `--tags observability,swap,beszel` once its tailnet path was back; the play's first apply died on an `apt-get update` that had hung for ~150 days holding the apt lists lock — check `pgrep -a apt-get` + `ps -o etime` before blaming the role, kill the stale `apt.systemd.daily` tree, expect unattended-upgrades to then catch up in one big batch); **nori** (AWS EC2 t4g.micro in Frankfurt, the EnaCast apex redirect/jump host, enrolled 2026-10-06 as a non-Coolify `docker_hosts` box: writer `agent-nori`, hub jobs `alloy` + `host-health`); **jluv-apps-1** (the personal Coolify box) is in the inventory since
 2026-09-25 but not applied: it sits on the personal tailnet, and the play
 waits on two node shares (§7 step 1, "a host on another tailnet").
 The role ships **logs + traces** (2026-09-05: journald + docker with the
