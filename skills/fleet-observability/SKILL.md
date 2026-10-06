@@ -733,7 +733,17 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   origin-side signal to 524/499; count that line only, the companion ERR
   line doubles it); and a LogQL `regexp` group named like a stream label
   (`host`) is renamed `host_extracted`, so `sum by (host)` silently groups
-  by the stream label: name the group something else (`site`).
+  by the stream label: name the group something else (`site`). The
+  per-origin traffic split comes from cloudflared's own `/metrics`, not
+  Loki: hq's `cloudflared` role binds `0.0.0.0:20241` on every host, so the
+  hub scrapes each connector over the tailnet (job `cloudflared`, a
+  `tunnel=<name>` target label) with no restart; share =
+  `sum by (host)(rate(cloudflared_tunnel_total_requests{tunnel=…, host=~"$host"}[5m]))`
+  over the UNFILTERED tunnel total, and errors need both
+  `cloudflared_tunnel_request_errors` (could not proxy) and
+  `cloudflared_tunnel_response_by_code{status_code=~"5.."}` (origin 5xx).
+  Group connector alerts `by (host)`, and keep a deliberately stopped
+  connector's target commented: listed-but-stopped pages `hq-target-down`.
 - **Icecast / third-party**: the corresponding exporter container beside
   it, same labeling.
 - Metric naming: Prometheus conventions (`<app>_<thing>_<unit>_total`);
