@@ -521,3 +521,23 @@ keep the alarm so unresolved cases stay visible.
   per-page helper only where the page alone knows its main content (a list). Rule and design:
   the seo skill, "Edge / middleware pitfalls" 6.
 
+
+### "Nothing gets transcribed for this client" can be a sync that judged the source deleted (2026-10-06, EnaCast Montmeló)
+
+- Report: one radio's episodes all "stuck" in ramen, no transcript for three months. Follow the episode
+  through BOTH databases before reading code: the backend row was pending, the AI service had transcribed
+  and analysed it, and its sync error said the source answered 404 and the episode was "deleted at source".
+  The break was in the hand-back, not in the processing the report blamed.
+- **An anonymous read is not an existence check.** The sync's GET carried no token; a scheduled (not yet
+  published) episode answers 404 to the public, the same answer as a deletion, and a terminal flag made it
+  permanent. Prove it with the same URL anonymous vs authenticated (404 vs 200). Only live-recording radios
+  were spared, because their episodes are public the moment they exist: when one client class is hit and
+  another is not, ask what is different about *when* their objects become public.
+- Fix in the shared mechanism: one header helper used by every outbound call (the retry helper included),
+  and a "deleted" verdict only from an authenticated 404. Measure that authenticating the polling calls does
+  not change what they return before shipping it (same counts both ways here).
+- **Repair after the fix, scoped by the source of truth:** for every flagged row an authenticated read first;
+  re-sync only where it is 200 AND the target has no result yet (never overwrite), dry run → evidence file →
+  apply. Look for older victims under a different signature: before an earlier "fail loudly" change the same
+  404 returned silently with an EMPTY error, so filtering on the error text missed half of them.
+- Rows on channels disabled today are a client decision (a radio may have opted out), not a re-sync default.
