@@ -2479,6 +2479,15 @@ Script + runbook: bikecrm-backend `scripts/services_revamp_window.sh`,
   values; set them with hq `coolify-env-set.py --from-file <f> KEYS --runtime-only` for
   secrets and `--build-time` only for what the build inlines (`PUBLIC_*`), then shred the
   file. The Dockerfile's build stage must declare those as `ARG`.
+  **Two traps (enacast-astro, 2026-10-06):** (1) `vercel env pull` writes **`[SENSITIVE]`** (11
+  characters) for variables marked Sensitive in Vercel, not their value — check every copied value's
+  length before setting it (the tool prints `len`; `len 11` on a URL or token = the placeholder), and
+  get the real value from where it originates (the service that checks it: its own Coolify env, hq
+  secrets). (2) A partial copy leaves features dead with no deploy error: the Coolify origin ran four
+  days without `RAG_BACKEND_URL` / `RAG_SERVER_TOKEN` ("RAG_SERVER_TOKEN is not configured on the
+  Astro server" on every chat). After creating the app and after each Vercel env change, diff the
+  NAMES: Vercel keys vs Coolify `GET /applications/{uuid}/envs`, and every `import.meta.env.X` /
+  `process.env.X` in the code vs Coolify; a second app (another server) needs the same set.
 - Testing an image locally: a container on the default bridge cannot reach host-local
   `127.0.0.1` services from a dev `.env` (Redis tunnel, local API); use `--network host`
   and a free `PORT`.
