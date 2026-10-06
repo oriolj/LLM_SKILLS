@@ -208,6 +208,30 @@ Per new host, in this order (§6b has the traps): generate a password
 (one comma-joined line) + force-redeploy the hub, prove the writer with the
 empty-push probe, put the host in `observability`, run
 `--tags observability`, add the `alloy` scrape target, verify.
+**The `alloy` scrape target is not optional — it is what the agent alert sees.** `hq-alloy-down`
+(`up{job="alloy"} < 1` for 5 m, important, since 2026-10-06) only covers hosts listed in that job; storage-1 and
+infra-monitoring shipped logs for a month with no target, invisible to `up{}` until the rule was written. While an
+agent is down, `hq-target-down` drops it AND the `host-health` series of the same `instance` (`unless on
+(instance)`), so one dead agent is one page.
+
+**Tailnet binds and the reboot race (2026-10-06, the hub went dark for 1.5 h, its agent for 3 h 50 min).** Every
+agent (and the hub, and several apps) publishes on the host's tailnet IP. After a reboot dockerd can start its
+containers before tailscaled has put the 100.x on `tailscale0` — measured on monitor-1-nc: tailscaled up 14:54:03,
+binds tried 14:54:06–08, address 14:54:14 (no netmap cache: it waits for the control plane). Every publish fails with
+`failed to bind host port 100.x:port/tcp: cannot assign requested address`, the container stays **Exited (255)**, and
+**Docker never retries it** (a networking-setup failure is not a restart-policy exit). `After=tailscaled.service`
+does not help: tailscaled reports ready seconds before it has the address. The fix, in the role (tag
+`tailnet_bind`, every `observability` host): **`net.ipv4.ip_nonlocal_bind=1` + `net.ipv6.ip_nonlocal_bind=1`**
+(`/etc/sysctl.d/60-hq-tailnet-bind.conf`) — the bind succeeds before the address exists and answers once it does.
+Rejected: a `docker.service` drop-in waiting for the IP (`tailscale wait`, present since 1.86): it delays every
+production container on every boot and fails the same way when tailscale is later than its bound; nor does it cover
+a container restarted while tailscaled restarts on an upgrade. Side effect to remember: on such a host a typo'd bind
+IP no longer errors. Quick proof on any host: `docker run --rm -d -p 100.99.99.99:19999:80 nginx:alpine` fails with
+the incident error at `0` and starts at `1`. Reboot proof (coolify-ovh-vps-2, tailscaled delayed 25 s with a
+temporary `ExecStartPre=/bin/sleep 25` drop-in): Alloy bound 24 s before the address existed, zero failures. Recovery
+on a host without the fix: `docker ps -a` for Exited (255), read `docker inspect -f '{{.State.Error}}'`, `docker
+start` each one — and check the agent too: the hub recovery on 2026-10-06 restarted Grafana/Prometheus/the gateway
+and missed `observability-alloy-1`.
 
 The agent is a **pair**: `alloy` + `socket-proxy`, because the Docker socket
 is host-root and `:ro` does not restrict the API. The proxy is plain nginx
@@ -1923,6 +1947,9 @@ Postgres/Valkey** with exporters as compose services on the tailnet bind). Repo 
 
 ## 8. What NOT to do
 
+- **Never publish on a tailnet IP on a host without the `tailnet_bind` sysctl** (§3): the first reboot that starts
+  Docker before tailscaled leaves the container Exited (255), unretried. Run `make apply TAGS=tailnet_bind
+  HOST=<host>` before the first tailnet publish on a new host (the `observability` play does it anyway).
 - **One agent per HOST — never an Alloy/promtail/vector sidecar per compose
   stack.** Sidecars duplicate memory, connections and config, and every
   stack update becomes a monitoring update. The host agent's

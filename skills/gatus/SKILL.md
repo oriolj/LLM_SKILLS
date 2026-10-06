@@ -147,7 +147,10 @@ Prometheus, `gatus-endpoint-red-30m` (email) when a surface has failed
 every probe for 30 min — a second notice, NOT a cover for Pushover/Resend
 breaking (Grafana sends through the same ones). The provider-ignored case
 is caught by `make deploy`'s prove step.
-And Gatus watches the hub back (`config/shared/hq-monitoring.yaml`).
+And Gatus watches the hub back (`config/shared/hq-monitoring.yaml`: Grafana `/api/health`, Prometheus
+`/-/healthy`, the Loki gateway `/ready` since 2026-10-06) — the only page when monitor-1-nc itself is down
+(2026-10-06: red 14:24–15:53 UTC after a reboot). Mutual watch and blind spots (same Pushover app + Resend account,
+both boxes down together): hq `shared/docs/monitoring.md` "Who watches the hub".
 
 ## 4. The deploy loop
 
@@ -210,6 +213,13 @@ through hq `homelab/tools/coolify-lib.sh`, `coolify-deploy.sh` and
 
 ## 6. Traps met on day one
 
+- **A Gatus alert cannot be proven after the fact** (2026-10-06: did Gatus page for the hub outage at ~14:27 UTC?
+  unanswerable). Its send lines (`Sending pushover alert … TRIGGERED`) live only in the container log, and every
+  deploy replaces the container (blue-green) — the old log is gone; the Coolify logs API returns at most the last
+  10,000 lines (~2.5 h at 158 endpoints); the Resend key is send-only (no `GET /emails`); Pushover keeps no history;
+  internal-1 does not ship logs to Loki. Until internal-1 is enrolled in `observability` (hq `USER_TODO.md`), check
+  right away: `docker logs --since … <container> | grep -v 'Monitored group'` over ssh (`root@internal-1.coolify.enacast.com
+  -p 1922`), before the next deploy.
 - **Upstream image is `FROM scratch`** (no shell, no wget): Coolify's UI
   health check has nothing to exec and would roll every deploy back. The
   estate image copies the upstream binary onto `alpine`, nonroot uid
