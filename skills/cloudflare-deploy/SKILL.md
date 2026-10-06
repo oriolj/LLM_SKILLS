@@ -114,7 +114,11 @@ Different from 0c (SSH for Coolify): here the tunnel carries visitors to an app.
   the visitor's `Host` (no `httpHostHeader`), so Traefik routes by hostname and
   a multitenant app still resolves its tenant from the host. Every hostname must
   then exist as a domain on the Coolify app (`http://<host>` = no ACME attempt;
-  TLS ends at Cloudflare). Tunnel `coolify-ovh-vps-2`, `bfe21648-…`.
+  TLS ends at Cloudflare). Tunnel `enacast-astro-frontend` (`bfe21648-…`; named `coolify-ovh-vps-2` until
+  2026-10-06). **One tunnel can have connectors on several hosts** (replicas: the same token on each box,
+  remote catch-all ingress) — the 2026-10-06 second origin on coolify-ovh-vps-1 joined it that way and took
+  ~half the requests at once. Name a multi-host tunnel after the service, not a host; a rename is
+  `PATCH /accounts/{acc}/cfd_tunnel/{id} {"name": …}` and keeps id, token and live connections.
 - **Test hostnames: ONE label under the zone** (`radiodesvern-origin.enacasthq.com`,
   not `radiodesvern.origin.enacasthq.com`): Universal SSL covers `zone` and
   `*.zone` only; a deeper name gets no edge certificate without a paid
