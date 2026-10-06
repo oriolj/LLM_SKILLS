@@ -143,6 +143,16 @@ undo, and no record history.
   Never assume the host you want is still free: `getDnsRecords`
   immediately before the write.
 
+## Field note 2026-10-06 — an edit can take the OLD TTL to reach every CDmon nameserver
+
+Apex A edits of `radioibi.com` and `laplanaradio.cat` (TTL 900 → 300, wwwizer → nori): for
+~16 minutes some CDmon nameservers (ns5 for one zone, ns2+ns3 for the other) served the OLD A
+record **with the NEW SOA serial**, while the others served the new one — so public resolvers
+flapped between both. All five agreed at +16 min, i.e. the old record's 900 s TTL: something in
+front of CDmon's nameservers caches answers. So: the "~2 min" below is the best case; plan on
+the OLD TTL before all five agree, lower the TTL ahead of time when the switch must be fast, and
+check every nameserver's answer (not only the SOA serial) before calling it done.
+
 ## Field notes 2026-10-05 (Cloudflare for SaaS moves of radioibi.com, laplanaradio.cat)
 
 - Both radio zones are in the **enantena** account (same key as enacast.com). `www` CNAME edits
