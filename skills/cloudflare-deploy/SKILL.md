@@ -154,7 +154,12 @@ Different from 0c (SSH for Coolify): here the tunnel carries visitors to an app.
   requests about evenly (148/129 in the first minute; read `cloudflared_tunnel_total_requests` on
   `:20241` of each host, since responses do not say which origin served them).
   `GET cfd_tunnel/{id}` lists `connections[].origin_ip` per host. To take a host out, stop its
-  cloudflared. 🔴 **A purge URL routed through the same tunnel reaches ONE connector**: per-origin
+  cloudflared. **The split is by connection, not by load, and need not be even:** when vps-2 rejoined
+  (2026-10-06 20:17 UTC, 4 + 4 connections) it took about two thirds of the requests for the first minutes (2.6 vs
+  1.3 req/s). Size each origin to carry most of the traffic alone, and read the split from
+  `cloudflared_tunnel_total_requests` rather than assuming 50/50. Rejoin order that paged nothing: purge fan-out
+  live → flush the returning origin's cache → deploy it at the other origin's commit → start its cloudflared →
+  push its monitoring targets (a listed-but-stopped connector target pages). 🔴 **A purge URL routed through the same tunnel reaches ONE connector**: per-origin
   caches (Redis/Valkey) then go out of sync, and after the edge purge, the other origin can cache
   stale data again at the edge. Purge each origin directly (tailnet), or share the cache. EnaCast does
   the former (backend `CACHE_PURGE_COOLIFY_ORIGINS`, 2026-10-06): `http://<magicdns-host>/api/invalidate/`
