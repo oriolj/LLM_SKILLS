@@ -51,6 +51,12 @@ inventory. The one place an IP is still required is a **compose port bind**
 > Checkmate was retired 2026-08-29, Uptime Kuma is being folded into
 > Beszel.
 
+> **One narrow exception: the host-health canary on `vps` hosts**
+> (2026-10-06, §3a). Its purpose is to detect CPU or memory steal by noisy
+> neighbours on shared hypervisors, which Beszel cannot show (no steal, no
+> PSI, no alerting on either). It ships only cpu/pressure/loadavg/meminfo/
+> textfile. It is not a general node_exporter rollout.
+
 ## Loki 429s that are NOT rate limits — the active-stream ceiling
 
 `429` with body `maximum active stream limit exceeded when trying to create
@@ -274,6 +280,55 @@ loki.write "hub" {
 `loki.write`'s WAL keeps logs through hub restarts and network blips; an
 outage longer than its retention truncates oldest-first — acceptable, alert
 on the outage itself, don't size the WAL for days.
+
+## 3a. Host-health canary — steal/PSI + nightly microbench on VPS (2026-10-06)
+
+**Purpose: detect CPU or memory steal by noisy neighbours on a shared
+hypervisor**, which nothing inside the guest shows at idle. coolify-ovh-vps-2
+ran with memcpy ~50× below its twin for a day unnoticed. The design,
+thresholds and first numbers are in hq `shared/docs/monitoring.md` "Host-health
+canary". These are the mechanics:
+
+- **Layer 1, in the same agent:** `observability_host_health` (default
+  `'vps' in group_names`) adds `prometheus.exporter.unix "host"` with
+  `set_collectors = ["cpu","pressure","loadavg","meminfo","textfile"]`,
+  `procfs_path=/host/proc`, `sysfs_path=/host/sys`, plus a `textfile {}`
+  block. The compose mounts `/proc`, `/sys` and the textfile dir `:ro`.
+  `pid: host` is not needed, because these collectors read global
+  `/proc` files. The result is 105–185 series per host.
+- **Transport without a metrics lane:** Alloy serves every exporter
+  component's output at
+  `:12345/api/v0/component/prometheus.exporter.unix.<label>/metrics`, so the
+  hub pulls that path with `metrics_path` in a static job (`host-health`),
+  with no `prometheus.scrape`, no remote_write and `up{}` intact. This only
+  works for exporter components. Metrics that Alloy *scrapes* (app
+  `oj.metrics.port` discovery) cannot be re-served that way, so they need a
+  scrape → remote_write lane.
+- **Verified metric names** (Alloy v1.18.1): `node_cpu_seconds_total{mode="steal"}`;
+  PSI `node_pressure_{cpu,memory,io}_waiting_seconds_total` (= *some*) and
+  `node_pressure_{memory,io}_stalled_seconds_total` (= *full*);
+  `node_textfile_mtime_seconds{file="/host/textfile/…"}`.
+- **Layer 2, role `host_canary`** (play `vps:&observability`, tag `canary`):
+  a Python stdlib bench (`/usr/local/sbin/oj-host-canary`) driven by a
+  systemd timer. It writes `host_canary_*` to
+  `/var/lib/node_exporter/textfile_collector/host_canary.prom`, using a
+  temp file + `os.replace` so the collector never reads a half file.
+  ⚠️ **Copy through a `memoryview`.** `bytearray` slice assignment
+  (`dst[:] = src`) takes a slow generic path: 1.9 against 18 GiB/s on the
+  same box. Prefault both buffers with non-zero bytes, because
+  `bytearray(n)` is calloc'd. The canary's numbers are not comparable with
+  Node `Float64Array.set` microbenches (9.4 on that box).
+- **"Two runs in a row" without range arithmetic:** the script reads its
+  previous file and emits `host_canary_memcpy_prev_gbps`, so the rule is an
+  instant `cur/baseline and prev/baseline < 0.3`. A `max_over_time` over
+  ~26 h straddles three runs at some moments and only one at others.
+- **Baselines per provider model** are in the inventory
+  (`host_canary_model` → `host_canary_model_baselines`), exported as a gauge
+  so the rule stays generic. An unknown model exports NaN, which never
+  matches.
+- **Enrolling a host:** the agent first, then `--tags observability,canary`,
+  then a `host-health` target in hq-monitoring. A target listed before its
+  play ran answers 404 and pages `hq-target-down`.
 
 ## 4. The loki-gateway (how push gets authenticated)
 

@@ -24,6 +24,12 @@ memcpy (`Float64Array.set` of 256 MiB × 8), an SSR-shaped allocate + JSON + str
 - Not separated by the microbench alone: a sick host vs your own workers saturating memory. Re-run it
   at the traffic trough, or pause the app for 10 s (a production action — ask).
 - Every probe on a saturated production box costs it CPU. Ask the question, then stop.
+- **The estate now runs this check every night on every enrolled VPS** (host-health canary,
+  2026-10-06): read the *Host health (VPS)* Grafana dashboard (org 1, uid `host-health-vps`) for
+  steal, PSI and the last memcpy/ALU/alloc run per host before benchmarking by hand. The mechanics
+  are in fleet-observability §3a, and the design and thresholds in hq `shared/docs/monitoring.md`
+  "Host-health canary". Its Python memcpy numbers differ from the Node scripts here (≈2× higher),
+  so compare like with like.
 
 ## 1. CPU per request in production
 
