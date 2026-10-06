@@ -495,3 +495,29 @@ keep the alarm so unresolved cases stay visible.
 - **"I never received the emailed report"** — read where the code sends it before touching
   configuration: the tester changed the shop's address, the report goes to the requesting
   user's login email; the production log line `… sent to <address>` settled it.
+
+### Outage status codes: reproduce with a fake failing backend (2026-10-06, EnaCast astro)
+
+- Symptom: during an origin/backend overload, uncached SSR pages answered **404** (Googlebot
+  included); the class is "should work but fails, and the failure is disguised as not-found".
+  Seen live with `curl -A <UA> https://host/?probe=$RANDOM` (a random query bypasses the CDN):
+  the same 404 for a browser UA ruled out the bot rules.
+- **Reproduce with a fake upstream, not by breaking production:** a ~40-line Python
+  `ThreadingHTTPServer` on localhost that proxies GETs to the production API (read-only,
+  POST/PUT/DELETE refused) and answers 503 for the API path prefixes listed in a `fail.txt`
+  (`ALL` = everything). Point the dev server's `API_BASE_URL` at it with Redis unset, then a
+  probe script prints status / `Location` / `Retry-After` / CDN header for a fixed URL set in
+  three modes: healthy, content endpoints failing (tenant lookup still OK), everything failing.
+  Editing `fail.txt` switches modes without restarts. The before table is the bug report.
+- Probe more than pages: feeds (count `<item>`), sitemaps (count `<loc>`), `llms.txt`, legacy
+  redirect routes, embeds, a custom-domain Host and an unknown Host, and the healthy run after
+  every change (an unknown host must still get its old answer).
+- Astro 7 `astro dev` refuses a second server per checkout (lockfile) and auto-backgrounds for
+  agents: use a `git worktree add --detach` with `node_modules` symlinked from the main
+  checkout, `astro dev stop` there when done. Vite's `server.allowedHosts` in the project config
+  answers 403 to other Host headers (`--allowed-hosts` does not override it): pick a host on the
+  list for "unknown domain" probes.
+- The fix belongs in the shared mechanism (the middleware + the request failure record), with a
+  per-page helper only where the page alone knows its main content (a list). Rule and design:
+  the seo skill, "Edge / middleware pitfalls" 6.
+

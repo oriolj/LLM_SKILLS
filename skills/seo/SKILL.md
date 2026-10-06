@@ -458,6 +458,29 @@ Pattern: a `noindex` prop on your layout that emits
 5. **Accidental production `noindex`.** `<meta name="robots" noindex>`
    copied from staging is the most common SEO outage. Grep for it
    before shipping.
+6. **An outage must answer 503 + `Retry-After`, never "not found".**
+   SSR pages catch a failed backend fetch and then decide "no data ⇒
+   missing": a 404, a redirect to `/404` (or, when the tenant lookup
+   fails, to the platform's home), an empty 200 list, an RSS feed with 0
+   items or a 404 feed. Google drops URLs that keep answering 404 or a
+   redirect, podcast apps unsubscribe from a feed that 404s, and a CDN
+   serves its stale copy (`stale-if-error`) only on a 5xx. Fix it in the
+   shared mechanism, not per page: record every upstream failure of the
+   request (5xx, 429, network, broken body) in request-scoped storage
+   (Node `AsyncLocalStorage`), run the WHOLE request (tenant lookup
+   included) inside it, and in the middleware replace a 404, any
+   redirect, a thrown render or a 5xx≠503 with a self-contained `noindex`
+   503 (`Retry-After`, `no-store`) when a failure was recorded; non-HTML
+   2xx (feeds, sitemaps, `llms.txt`) built on a failure too; list pages
+   answer 503 when their main list is empty because of a failure. Decide
+   404 only from the backend's own 404. Every backend fetch goes through
+   the tracked fetch helper (a raw `fetch` is invisible). Verify with a
+   fake backend that proxies real GETs and 503s chosen paths (bug-fixing
+   skill, 2026-10-06), both healthy and failing, before/after. Reference:
+   enacast-astro `src/utils/outage.ts` + `src/middleware.ts`, `docs/caching.md`
+   "Outages answer 503". Found 2026-10-06: a saturated origin answered 404
+   to Googlebot on tenant home pages, and a failed custom-domain lookup
+   302-redirected every radio to the platform's site.
 
 ## State-of-SEO doc
 
