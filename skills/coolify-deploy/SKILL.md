@@ -2456,6 +2456,16 @@ Script + runbook: bikecrm-backend `scripts/services_revamp_window.sh`,
   `environment_name`** (`GET /projects/{uuid}` → `environments`). Test domains as
   `http://<host>` get Traefik routes without any ACME attempt (TLS ends at Cloudflare).
 - **Trigger deploys with `POST /deploy?uuid=`** (GET now answers 405 "changed to a POST").
+- **A second instance of the same app on another server** (enacast-astro on coolify-ovh-vps-1,
+  2026-10-06): `POST /applications/private-github-app` with domains another app already holds
+  answers `Domain conflicts detected. Use force_domain_override=true` and creates nothing. Pass
+  `"force_domain_override": true`: the other app's `fqdn` stays as it was (re-read it to
+  check), and each server's Traefik routes only its own containers. Copy the envs one
+  `POST …/envs` at a time (`is_buildtime` explicit, body from a file), then compare the values by
+  script. Remember that `custom_labels` (catch-all router, `oj.*`) are per app. The create body
+  accepts `health_check_enabled`, `limits_memory` and `limits_cpus` directly. A cached base layer
+  made the first build 2.5 min instead of 7.5. Two origins with separate caches need a purge
+  fan-out (cloudflare-deploy §0e).
 - **A first uncached Docker build of an Astro app took ~7.5 min** on an 8-vCPU VPS (the
   next one 110 s). hq `coolify-deploy.sh` waited only 6 min and reported a healthy deploy
   as timed out; it waits 15 min now (`COOLIFY_DEPLOY_WAIT`). A timeout of the WAIT is not a

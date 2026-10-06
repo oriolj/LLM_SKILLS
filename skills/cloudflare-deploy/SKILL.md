@@ -146,6 +146,17 @@ Different from 0c (SSH for Coolify): here the tunnel carries visitors to an app.
   its cache key). Cached HTML of the previous build then references hashed assets the new
   container may not have. Purge the served hostnames after every origin deploy
   (`POST purge_cache {"hosts":[…]}`, every plan); enacast-astro `make deploy-coolify` does it.
+- **Second origin = a replica connector, no load balancer** (enacast-astro, 2026-10-06): run
+  cloudflared on a second host with the SAME tunnel token (hq ansible: host var
+  `cloudflared_token_key: CLOUDFLARED_TOKEN_<FIRST_HOST>`, no new secret). The remote catch-all
+  ingress `http://localhost:80` then means *that* host's Traefik, so the app must already be
+  serving there before the connector starts, or about half the misses get a 404. Cloudflare spread
+  requests about evenly (148/129 in the first minute; read `cloudflared_tunnel_total_requests` on
+  `:20241` of each host, since responses do not say which origin served them).
+  `GET cfd_tunnel/{id}` lists `connections[].origin_ip` per host. To take a host out, stop its
+  cloudflared. 🔴 **A purge URL routed through the same tunnel reaches ONE connector**: per-origin
+  caches (Redis/Valkey) then go out of sync, and after the edge purge, the other origin can cache
+  stale data again at the edge. Purge each origin directly (tailnet), or share the cache.
 - A load balancer in front of tunnels is a different beast: the usual
   recipe sets the endpoint's Host header to the tunnel hostname, which breaks
   host-based apps. Prove host preservation before relying on it.
