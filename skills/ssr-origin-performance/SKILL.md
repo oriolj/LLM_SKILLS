@@ -104,5 +104,8 @@ Reference: `enacast-astro` `scripts/bench/` (README there). The parts that matte
 - An origin HTML cache must be **shared** (Valkey/Redis keyed by host + path + normalised query,
   with the page's tags), never per-process: per-worker caches multiply memory, divide hit rate, and
   purges reach one worker only.
+- **An overloaded origin must not answer 404 for upstream failures** (search engines drop the page): answer 503 +
+  `Retry-After`, no-store, and let the CDN serve stale (`stale-if-error`). Mechanics: the `seo` skill, "Edge / middleware
+  pitfalls" item 6 (EnaCast, 2026-10-06: homes 404'd to Googlebot while the origin was saturated).
 - Telemetry before tuning: hit/miss of every layer (CDN analytics, `redis_exporter`), origin renders
   per hour, CPU per request. Without them a cache change cannot be judged.
