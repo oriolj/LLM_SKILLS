@@ -351,3 +351,12 @@ LAN and `:port` tailnet access stay open until you change the bind.
 - `tailscale set --hostname=<short>` afterwards changes only the REPORTED hostname; the
   machine (MagicDNS) name stays until renamed in the admin console (Machines → Edit
   machine name, untick auto-generate). No Tailscale API key in hq for that.
+- **Not always** (nori, 2026-10-06): a node joined with `--hostname=enacast-apex-fra1-1`,
+  then `tailscale set --hostname=nori`, was renamed to `nori.armadillo-tawny.ts.net`
+  within seconds, with no console click, and kept its disabled key expiry; the old
+  MagicDNS name stopped resolving at once (ssh by the old name failed). So after a
+  `set --hostname`, check `tailscale status` for the name actually in use before
+  asking for a console rename, and update every config that uses the old name in
+  the same step. Cause of the difference with coolify-ovh-vps-2 not established
+  (that machine name may have been edited by hand earlier, which turns
+  auto-generate off).
