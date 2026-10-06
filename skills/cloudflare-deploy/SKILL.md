@@ -164,8 +164,13 @@ Ràdio; record: `enacast/operations_history/2026-10-05-radioibi-laplana-cloudfla
   `GET/PATCH/DELETE …/custom_hostnames/{id}`. Ready = `status` AND `ssl.status` both `active`.
 - **Zone rules apply to custom-hostname traffic.** Scope them by host: a Cache Rule
   `(not http.host wildcard "*<zone>")` and an http→https Redirect Rule
-  `(not ssl and not http.host wildcard "*<zone>")` → `concat("https://", http.host, http.request.uri.path)`
-  cover every client domain without switching on zone-wide Always Use HTTPS.
+  `(not ssl and not http.host wildcard "*<zone>" and not http.request.uri.path wildcard "/.well-known/*")`
+  → `concat("https://", http.host, http.request.uri.path)` cover every client domain without switching on
+  zone-wide Always Use HTTPS. **The `/.well-known/` exclusion is mandatory**: the Redirect Rule runs before
+  Cloudflare answers the CA's HTTP challenge, so without it every HTTP-validated certificate stays
+  `pending_validation` forever (no error shown) — new hostnames never get one and renewals of all of
+  them fail. Found 2026-10-06 with a new hostname stuck 10 min; issued 2 min after the fix. Check:
+  `curl http://<host>/.well-known/acme-challenge/<token from validation_records>` must answer 200, not 301.
 - **Purge works on custom hostnames**: tag purge and host purge in the SaaS zone both clear them
   (verified with an age test, below).
 - **The CA is Cloudflare's pick**: `certificate_authority` is Enterprise-only (`1459`), and the pick
