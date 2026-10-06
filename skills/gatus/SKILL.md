@@ -102,6 +102,13 @@ Endpoint keys (`<group>_<name>`) must be unique estate-wide
   matched; without it Traefik answers its own 404). For the public path through the CDN, pick a
   URL the CDN never caches (`no-store`; check `cf-cache-status: DYNAMIC/BYPASS`), not a page.
   Reference: `config/enantena/enacast-origin.yaml`.
+- **Client radio domains only where EnaCast controls the domain** (Oriol,
+  2026-10-06): certificate, SaaS custom-hostname and naked-domain probes of a
+  radio's own domain are fine when its DNS is ours (Enantena CDmon account,
+  EnaCast Cloudflare account); a radio running its own DNS gets no per-domain
+  row — only it can fix what would page us; `domain_health` covers it. Check
+  `dig NS` / hq `docs/domains.md` before adding a row. Detail and the two
+  flagged tenant probes: hq `shared/docs/gatus.md`.
 - Register the surface even if it is red today (evpricemap.com answered
   503 on day one) — a status page that only lists green things is
   decoration. Report the red one loudly instead.
