@@ -298,6 +298,10 @@ LAN and `:port` tailnet access stay open until you change the bind.
   fails inside every container. Use the literal tailnet IP in container
   config on such hosts (the estate's documented exception) — Debian 13 hosts
   do not have this problem.
+  Ubuntu 24.04 is not uniformly affected: on v5 (Coolify compose resource,
+  2026-10-06) containers resolved `coolify-ovh-vps-1` by short name and FQDN.
+  Test from the container (`python -c 'import socket; print(socket.gethostbyname("<host>"))'`)
+  before choosing names or IPs.
 - **Key expiry silently kills a node.** Disable key expiry on every server
   node in the admin console (also in `fleet-observability`).
 - **A LAN-only box may still not be on the tailnet.** Check before assuming
