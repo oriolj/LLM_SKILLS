@@ -1,14 +1,17 @@
 ---
 name: leadhunter
-description: Operate H2A-LeadHunter, the system of record for leads and outreach across every scope (EnaCast, SmartupSoft/BikeCRM, …), through its REST API — auth with the agent token, organizations → projects, reading accounts/campaigns/funnel stats, exporting campaign lists, marking clients and do-not-contact, logging an email/WhatsApp send and its reply so the funnel counts it (with the message purpose on opted-out accounts), reading an account's whole conversation, next steps with due dates (create / complete / reschedule, quick-add templates and suggested follow-ons, reminders, the daily digest and calendar feed), account notes, and AI drafts. Use when the user mentions LeadHunter, leads, prospects, "mark our clients", "log that message", "who did we contact", "what's the next step / follow-up with X", "remind me to … on <date>", outreach funnel, cold-email campaign lists, relationship_types, or do-not-contact; and before any cold outreach send.
+description: Operate H2A-LeadHunter — AI that ranks thousands of prospects against a target persona so the best are worked first, and the system of record for every relationship and outreach across every scope (EnaCast, SmartupSoft/BikeCRM, …) — through its REST API: auth with the agent token, importing and scoring account lists, organizations → projects, reading accounts/campaigns/funnel stats, exporting campaign lists, marking clients and do-not-contact, logging an email/WhatsApp send and its reply so the funnel counts it (with the message purpose on opted-out accounts), reading an account's whole conversation, next steps with due dates (create / complete / reschedule, quick-add templates and suggested follow-ons, reminders, the daily digest and calendar feed), account notes, and AI drafts. Use when the user mentions LeadHunter, leads, prospects, "mark our clients", "log that message", "who did we contact", "what's the next step / follow-up with X", "remind me to … on <date>", outreach funnel, cold-email campaign lists, relationship_types, or do-not-contact; and before any cold outreach send.
 ---
 
 # LeadHunter — leads and outreach log
 
 H2A-LeadHunter (`leadhunter.humans2agents.com`, personal scope, code in
-`~/git/oriolj/humans2agents/agents/leadhunter/`) holds every lead of every
-product: accounts, contacts, campaigns, AI scores, and the log of what was
-sent and answered. **It logs outreach; it does not send it.** A message
+`~/git/oriolj/humans2agents/agents/leadhunter/`): AI that ranks thousands of
+prospects (website research + persona scoring with reasons, per goal) so the
+best are worked first, then keeps every relationship moving and measures
+what works. It holds every lead of every product: accounts, contacts,
+campaigns, AI scores, the log of what was sent and answered, next steps,
+and cost / ROI per campaign and channel. **It logs outreach; it does not send it.** A message
 goes out from a real mailbox / WhatsApp, then is logged here.
 
 This skill is mechanics. Decisions, rules and campaign records live in hq
