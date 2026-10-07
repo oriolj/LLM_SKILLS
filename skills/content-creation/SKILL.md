@@ -494,6 +494,9 @@ this section keeps the rules and the lessons.
    the server, cache dropped) and delete the local file only then (no local
    copies), and link `raw/`, `renders/` and each output MP4 back so the
    scripts keep their paths (`make nas-move`); caches (`work/`) stay local.
+   **The NAS `not-important` share has no snapshots or backup** (hq
+   `docs/servers/truenas-personal.md`): the camera original also needs a second copy (Oriol's external
+   backup drive, checksum-verified) before the local file goes.
 2. **Detect the language, don't ask.** Cut three 40 s samples (at ~10 %,
    45 % and 80 % of the running time) and run `whisper-cli -l auto` on each:
    Sprint Bike came back `es` on all three (p = 0.79–0.88). An interview can
@@ -945,6 +948,13 @@ format**. Before step 3, check each one:
     published; upload its **audio only** (ElevenLabs dubs an audio file: EnaCast's account dubbed
     an `.mp3` in 2026-02), which skips the transcode and the throw-away video. It costs fewer credits, and the cut points are set before the dub, so the dubbed speech can't
     straddle them (a later re-cut needs a re-dub of the changed part).
+  - **Speakers in a dub**: the dub shares the timeline, not the turn boundaries. Match each dub's own
+    transcript to the original's diarized speakers turn by turn before speaker-labelled subtitles or
+    speaker-following crops; where the dubbed voice and the picture disagree, hold the two-shot.
+  - **Who is credited where** (Oriol, 2026-10-07, EnaCast): the customer is mentioned (name, @handle,
+    collaborator invite, story) **only in the original-language publications**; every dubbed version
+    is labelled as dubbed with the product's AI (EnaCast: "dubbed with EnaCast AI"), which is also its
+    AI-disclosure label. Each language may have its own social accounts.
   - The camera's separate `.WAV` (DJI) is the camera's own mic recording: a **backup only** if a
     wireless mic fails, not a mic track (Oriol, 2026-10-07).
 - A batch run by agents stops when the session ends: each step is
