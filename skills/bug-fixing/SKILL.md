@@ -561,3 +561,32 @@ keep the alarm so unresolved cases stay visible.
   write to production; check `/proc/<pid>/cwd` of whatever already listens on a port before trusting its render.
 - Unit tests that `ts.transpileModule` a helper into a `vm` context (enacast-astro) compile to ES5: `for…of` over
   `matchAll()` silently iterates nothing there. Use `Array.from(...)`, and compare vm-realm arrays via JSON.
+
+### "The filter doesn't work" can be an empty result with a generic message (2026-10-07, H2A Accountant chips)
+
+- Before reading the frontend, ask production how many rows the filter selects: with the agent API token,
+  `GET /api/v1/invoices?direction=purchase&status=scanned` answered `count: 0` and the dashboard queue agreed
+  (`to_review: 0`). Then fetch the deployed page chunk (`curl` the page HTML → its `/_next/static/chunks/app/…/page-*.js`,
+  grep the chip table) to prove prod runs the code you are reading. The chip worked; the empty state said
+  "No invoices match these filters — widen the dates", which reads as broken. Class 3 for the filter, class 2 for the copy.
+- Fix: counts on the chips (from the same aggregate the dashboard uses) and an empty state that names the chip
+  ("Nothing to review — you're caught up"). A count shown next to a list must equal that list's count: write ONE test
+  that walks every chip, compares `queue[key]` with the list count, and seeds rows that must count in neither
+  (here sale rows were in three dashboard counts but never in the purchase lists the counts linked to).
+- django-filter silently ignores an unknown query param, so a frontend that ships a new filter before the backend
+  returns the whole list. Deploy the backend first; that same behaviour makes a nice deploy probe
+  (`?awaiting_upload=true` count drops from "everything" to the real number once the new code is live).
+- Playwright: after a click that `router.replace`s the URL, `waitForLoadState("networkidle")` returns at once;
+  a second click lands before the URL changed and filters stack. Wait for the URL (or reload per case) between clicks.
+
+### Detail page acting on a state a background task already changed (2026-10-07, same app)
+
+- "It says To review but Approve says it's uploaded": the page polled while `scanning` and stopped at `scanned`,
+  exactly when the post-scan tasks start (duplicate check adopts the platform document → `uploaded`). Read the row's
+  timestamps on prod (`created_at`, `uploaded_at`, `status_detail`) to see the task's footprint 50 s after the scan.
+- Fix the mechanism in three places: poll fast for a window after the state that starts follow-up tasks (from the row's
+  own `scanned_at`), poll slowly while the page is open, and re-read the row in the shared action runner's `catch`
+  (a refusal usually means the row changed). The 400 body explains the refusal in the user's terms per state.
+- Repro without the task: open the page headless, then flip the row from a `manage.py shell -c` one-liner (the
+  "task" behind the page), click Approve, log the POST body + the follow-up GET; second run with `scanned_at=now()`
+  and no click proves the page flips by itself. Restore the row at the end of the script.
