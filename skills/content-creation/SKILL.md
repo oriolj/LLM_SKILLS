@@ -945,8 +945,13 @@ format**. Before step 3, check each one:
   - **A dub is a translation, so the truth rule applies**: review each dub's transcript against
     the reviewed original, segment by segment, before publishing. Label the posts as AI-dubbed
     (AI Act art. 50), and get consent that names AI dubbing with synthetic voices.
-  - **Cost: 13,500 ElevenLabs credits per dubbed minute per language** (measured 2026-10-07:
-    500,228 credits for 2 × 18.5 min), ≈ $2.23/min at the Pro price ($99 / 600k credits a month). A
+  - **Cost: it depends on how the dub is made.** EnaCast's Girona FM, dubbed by hand in the ElevenLabs web app:
+    **13,500 credits per dubbed minute per language** (500,228 for 2 × 18.5 min), ≈ $2.23/min at the Pro price
+    ($99 / 600k credits a month). BikeCRM's Sprint Bike, dubbed through the API (`POST /v1/dubbing`,
+    non-editable, no watermark, 1080p HEVC upload; `bikecrm-content-creation/scripts/dub_elevenlabs.py`):
+    **50,910 credits for 16:48, ~3,030 a minute** (≈ $0.50/min), confirmed by `/v1/usage/character-stats`
+    (2026-10-07). The 4.5× gap is unexplained (web-app vs API, editable vs not, are candidates). Read the real
+    figure from usage stats after each dub; budget with the higher rate until the cause is known. A
     20-minute interview into two languages takes 90 % of a Pro month (~44 dubbed minutes a month). Check the balance
     (`GET /v1/user/subscription`) before dubbing: the account may be shared with production TTS
     (EnaCast's is shared with AI Studio, with no overage).
