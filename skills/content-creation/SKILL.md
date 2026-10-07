@@ -937,8 +937,8 @@ format**. Before step 3, check each one:
     the reviewed original, segment by segment, before publishing. Label the posts as AI-dubbed
     (AI Act art. 50), and get consent that names AI dubbing with synthetic voices.
   - **Cost: 13,500 ElevenLabs credits per dubbed minute per language** (measured 2026-10-07:
-    500,228 credits for 2 × 18.5 min), ≈ $2.67/min at the Pro price ($99 / 500k credits). A
-    20-minute interview into two languages takes more than a whole Pro month. Check the balance
+    500,228 credits for 2 × 18.5 min), ≈ $2.23/min at the Pro price ($99 / 600k credits a month). A
+    20-minute interview into two languages takes 90 % of a Pro month (~44 dubbed minutes a month). Check the balance
     (`GET /v1/user/subscription`) before dubbing: the account may be shared with production TTS
     (EnaCast's is shared with AI Studio, with no overage).
   - So dub the **raw cut**, not the whole camera file, and only the languages that will be
