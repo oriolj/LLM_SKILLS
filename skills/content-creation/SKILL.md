@@ -918,6 +918,28 @@ format**. Before step 3, check each one:
   clickable mention sticker. Keep each customer's handle in a sidecar (BikeCRM:
   `interviews/<i>/publish/shop.json`, with who confirmed it: shops often have two accounts, a
   shop and a club, an old and a new one) and record the collaborator on each post.
+- **AI dubbed versions (ElevenLabs)**, first done on EnaCast × Girona FM (recorded in Catalan, dubbed
+  es-ES + en-US, 2026-10-07; measured in `enacast-content-creation/interviews/2026-10-07-girona-fm-girona/README.md`):
+  - **Keep only the dub's audio.** ElevenLabs re-encodes the picture (H.264 1080p at 0.59 Mb/s, an 8 s
+    GOP, the video 66 ms late). Extract the audio with `-map 0:a:0 -c:a copy` and put it on the **camera
+    master's** video; never use a dubbed or uploaded transcode as the edit master (its sparse
+    keyframes rule out stream-copy cuts).
+  - **The dub stays on the original timeline**: same duration, audio from 0, voice activity at lag 0.
+    So one edit list serves every language, with no offset.
+  - **The dub has no usable L/R** (mostly mono) and **none of the original sound** (no room tone).
+    Speakers, the speaker-following crop and the voice mix come from the original's channels:
+    diarize the original once and give the dubs that speaker map (Oriol: "once we have it we don't
+    need anymore the L/R").
+  - **Dub speech spills past the original's sentences** (~30 s per 18 min). Cut points must be
+    silent in **every** published language track, and short boundaries and word subtitles come
+    from WhisperX on each dub track.
+  - **A dub is a translation, so the truth rule applies**: review each dub's transcript against
+    the reviewed original, segment by segment, before publishing. Label the posts as AI-dubbed
+    (AI Act art. 50), and get consent that names AI dubbing with synthetic voices.
+  - Consider dubbing the **raw cut** rather than the whole camera file: fewer credits, and cut points
+    the dub can't straddle (a later re-cut needs a re-dub of the changed part).
+  - The camera's separate `.WAV` (DJI) is the camera's own mic recording: a **backup only** if a
+    wireless mic fails, not a mic track (Oriol, 2026-10-07).
 - A batch run by agents stops when the session ends: each step is
   restartable (scene masters cached, outputs checked on disk), so re-run the
   step rather than the batch.
