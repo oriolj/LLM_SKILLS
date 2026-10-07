@@ -119,6 +119,17 @@ Different from 0c (SSH for Coolify): here the tunnel carries visitors to an app.
   remote catch-all ingress) — the 2026-10-06 second origin on coolify-ovh-vps-1 joined it that way and took
   ~half the requests at once. Name a multi-host tunnel after the service, not a host; a rename is
   `PATCH /accounts/{acc}/cfd_tunnel/{id} {"name": …}` and keeps id, token and live connections.
+- **Taking a replica out of rotation = stop its cloudflared; the per-connector health signal needs no token**
+  (2026-10-07). Cloudflare keeps routing to a connector whose app is down (Traefik 404), so a sick origin must leave
+  by stopping its connector. `GET http://<host>:<metrics port>/ready` on the connector (cloudflared's metrics
+  listener, `0.0.0.0:20241` in hq's role, reachable over the tailnet) answers
+  `{"status":200,"readyConnections":4,"connectorId":"…"}` — the "does this host hold edge connections" fact the
+  `GET /accounts/{acc}/cfd_tunnel/{id}/connections` API gives, without putting any Cloudflare credential on a
+  server (the enacast account has no scoped read-only tunnel token; never deploy the broad one). hq `shared/ansible`
+  role `origin_watchdog` (group `tunnel_origins`) automates it for the enacast-astro origins: stops a host's
+  cloudflared when its origin is unhealthy and a peer's `/ready` + Traefik + purge health are good, re-adds it after
+  a Valkey `FLUSHALL`; never the last connector, never one an operator disabled. Observe mode since 2026-10-07.
+  A stopped connector's metrics target goes down with it: the hub's `hq-target-down` carves that case out.
 - **Close the origin's public 80/443 once the tunnel carries the web** (2026-10-07): Traefik still publishes
   80/443 on the host's public IP, so the site answers around Cloudflare's WAF/bot rules (coolify-ovh-vps-2's
   `http://<public-ip>/` served the radios). Docker-published ports bypass ufw: put the host in the hq ansible group

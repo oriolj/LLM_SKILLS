@@ -1868,7 +1868,18 @@ Postgres/Valkey** with exporters as compose services on the tailnet bind). Repo 
   it fine. Use the documented literal-IP exception (`observability_loki_push_url` /
   `observability_otlp_push_url` per host, as monitor-1-nc does) and
   test with `docker run --rm --network observability_default busybox nslookup monitor-1-nc`
-  BEFORE the play. (Debian 13 hosts, where every other agent lives, resolve it.)
+  BEFORE the play. (Debian 13 hosts, where every other agent lives, USUALLY resolve it — but
+  see the next bullet.)
+- 🔴 **…and a Debian 13 host can lose it at a reboot** (coolify-ovh-vps-2, 2026-10-06 19:20 UTC →
+  2026-10-07 10:31 UTC, ~15 h of that host's logs lost): after a reboot in which Docker started before
+  tailscaled had its address and MagicDNS (here forced by a boot-race test, but any boot can order it so),
+  every push failed with `lookup monitor-1-nc on 127.0.0.11:53: server misbehaving` while the host resolved
+  the name fine (cause likely, not proven). `hq-alloy-not-shipping` and `hq-logs-dropped` DID fire, as
+  `warning` = email only, and the one email bounced on the Resend daily quota; Grafana does not retry a
+  failed notification before the 24 h repeat (hq alerting.md gotchas). Fix as above: literal hub IP push
+  URLs per host + `--tags observability`. After ANY reboot of an agent host whose push URL is the MagicDNS
+  name, check the hub: `sum by (host, reason) (rate(loki_write_dropped_entries_total[30m])) > 0`, or
+  `docker logs observability-alloy-1 | grep 'server misbehaving'` on the host.
 - 🔴 **A node freshly re-logged into the tailnet can be reachable one way only.** The hub's
   netmap showed the peer with no relay and no path (`tailscale status --json`: `Relay ""`,
   `CurAddr ""`, stale `LastHandshake`) while the node pinged the hub fine — every scrape
