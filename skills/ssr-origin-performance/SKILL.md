@@ -86,6 +86,13 @@ Reference: `enacast-astro` `scripts/bench/` (README there). The parts that matte
 1. **Fewer renders reaching the origin** (CDN and bots): Tiered Cache (per-POP misses of hashed
    assets were 25 % of origin requests), robots.txt then edge rules for training crawlers and SEO
    tools (keep search/user agents and your own monitors), negative caching of 404s.
+   Tiered Cache on Cloudflare is two switches (cloudflare-deploy §5); check both. Negative cache:
+   only the backend's own "not found" (JSON 404, or a 200 lookup with no match), never 429/5xx/
+   timeouts/a proxy's text 404; store a timestamped sentinel under the item's own key so the
+   item's purge drops it, expire it on read after 30–60 s, and keep URL junk out of keys
+   (EnaCast `src/utils/not-found-cache.ts`, 2026-10-07). Also cache the detail fetches, not only
+   lists: EnaCast's episode/news/program detail went to the backend on every render until then
+   (bench: −49 % backend calls).
 2. **Runtime config** only with a benchmark row: worker count vs vCPUs left for GC/JIT and the proxy.
 3. **Cheaper renders:** no jsdom per request (sanitise at write time), validate once at cache fill,
    cache parsed objects instead of re-parsing JSON per hit, smaller API payloads, sample tracing.

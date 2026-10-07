@@ -132,7 +132,7 @@ Different from 0c (SSH for Coolify): here the tunnel carries visitors to an app.
   1. Prepare while the records are still DNS-only (all inert): GET the zone's existing rulesets
      first (a client zone can carry years-old Cache Rules: Ràdio Desvern's would have disabled
      stale-while-revalidate; save their JSON, then PUT the house rule), Always Online off,
-     Browser Cache TTL respect origin, Smart Tiered Cache on, Always Use HTTPS on, min TLS 1.2,
+     Browser Cache TTL respect origin, Smart Tiered Cache on (both switches, §5), Always Use HTTPS on, min TLS 1.2,
      the zone in the app's purge list, and a Redirect Rule (phase `http_request_dynamic_redirect`)
      apex → `concat("https://www.<domain>", http.request.uri.path)`, 301, query kept.
   2. Pre-flight: the zone's Universal SSL pack is `active` for apex + `*.` (GET
@@ -537,7 +537,14 @@ full table and sources). The traps, each of which silently does the wrong thing:
   batch and debounce. `invalidate_cache` (2026-09) only saves work with
   ETag/Last-Modified. A 200 means accepted, not done.
 - **Always Online OFF**: it disables `stale-if-error` and shares URLs with the
-  Internet Archive. **Smart Tiered Cache ON** (free). Never cache key
+  Internet Archive. **Smart Tiered Cache ON** (free) = TWO switches: `PATCH
+  /zones/{z}/argo/tiered_caching {"value":"on"}` (the master "Tiered Cache" toggle) AND
+  `…/cache/tiered_cache_smart_topology_enable {"value":"on"}`. The topology alone does
+  nothing: EnaCast's two zones had it `on` for days with the master `off`, and every POP
+  kept fetching each `/_astro/` file from the origin (switching the master on cut origin
+  asset requests 40 %, 2026-10-07). GET both to verify; on Free the master GET says
+  `editable:false` yet the PATCH works; Regional Tiered Cache is not on Free (`1135`);
+  `upperTierColoName` is not readable in GraphQL on Free, so measure at the origin. Never cache key
   "Resolved host" on a multitenant zone (it mixes tenants). No Cache Analytics
   on Free: log `cf-cache-status` yourself.
 - **Cache Rule by API** (verified 2026-10-02, enacasthq.com Free): phase
