@@ -590,3 +590,24 @@ keep the alarm so unresolved cases stay visible.
 - Repro without the task: open the page headless, then flip the row from a `manage.py shell -c` one-liner (the
   "task" behind the page), click Approve, log the POST body + the follow-up GET; second run with `scanned_at=now()`
   and no click proves the page flips by itself. Restore the row at the end of the script.
+
+### "A link goes to a 404" can be a missing feature with a security surface (2026-10-07, EnaCast password reset)
+
+- Ramen's «Has oblidat la contrasenya?» pointed at a route that never existed; the only reset lived in a legacy
+  admin about to be switched off. Before building, list every OTHER path that already does the job: Django's
+  `django.contrib.auth.urls` was mounted under a legacy prefix (`/admin-v2/password_reset/`), live in production,
+  unthrottled, token in the URL path. Removing it was part of the fix.
+- Self-service reset changes the threat model of neighbouring endpoints: an email change without the current
+  password turns a stolen API token into a permanent takeover once reset exists. Review the account-update paths
+  in the same change.
+- Patterns that held up under three reviews: token in the URL FRAGMENT (never reaches logs, proxies, analytics),
+  minted inside the mail task; one task per request whatever the lookup finds (no timing enumeration); caps per
+  normalised email (NFKC + casefold, hashed) AND per account; re-check the token on a `select_for_update` row after
+  slow validators; the API returns the policy (`min_length`, `expires_minutes`) so the frontend holds no copy.
+- Per-IP throttles behind a frontend proxy (Vercel → backend) key on the proxy's egress IP: shared by every user.
+- Sentry: `beforeSend`/`beforeBreadcrumb` do NOT reach Session Replay (it records `location.href` with the hash at
+  init) nor the server SDK's captured request bodies: scrub bodies of credential endpoints, skip Replay on routes
+  whose URL carries a secret. Next 16's Turbopack build ignores `sentry.client.config.ts` entirely.
+- Walk: ramen against the local backend + Mailpit, Playwright reads the mail through Mailpit's API
+  (`/api/v1/messages`), then reload, reuse, and a second link in the same tab (`location.hash = …`, same-document
+  navigation) — each found a real bug. `/src/icons` SVG components render as objects under Turbopack: reuse inline SVGs.
