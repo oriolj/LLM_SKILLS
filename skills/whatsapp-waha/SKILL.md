@@ -51,10 +51,16 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
    "Logging a send and a reply"). Append account notes with
    `POST /api/accounts/{id}/add-note/ {text}`, and fix contacts with
    `/api/contacts/` (the surname may be blank).
-   On project `bikecrm`, also update the stopgap custom fields after each
-   exchange: `conversation_state`, `next_step` and `next_follow_up`, plus
-   `meeting_at` / `meeting_place` / `meeting_attendees` when a meeting is
-   agreed. The saved filter "Open conversations" is the to-do view (hq
+   When an exchange creates a commitment with a date ("he'll send the
+   client list by Friday", "call back on the 15th"), record it as a
+   LeadHunter **next step** (`POST /api/next-steps/`, assignee Oriol,
+   `external_id` = the WAHA message id; `leadhunter` skill § Next steps),
+   and complete / reschedule the existing one instead of adding a twin.
+   On project `bikecrm`, until the stopgap migration runs there (pending
+   Oriol's go, 2026-10-07), also keep the stopgap custom fields current
+   after each exchange: `conversation_state`, `next_step` and
+   `next_follow_up`, plus `meeting_at` / `meeting_place` /
+   `meeting_attendees` when a meeting is agreed. The saved filter "Open conversations" is the to-do view (hq
    growth/smartupsoft). The token and the other mechanics
    are in hq growth/outreach. BikeCRM leads are in LeadHunter project `bikecrm` (organization
    `smartupsoft`; since 2026-09-28 `?project=smartupsoft` matches nothing).

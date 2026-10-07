@@ -1,6 +1,6 @@
 ---
 name: leadhunter
-description: Operate H2A-LeadHunter, the system of record for leads and outreach across every scope (EnaCast, SmartupSoft/BikeCRM, …), through its REST API — auth with the agent token, organizations → projects, reading accounts/campaigns/funnel stats, exporting campaign lists, marking clients and do-not-contact, logging an email/WhatsApp send and its reply so the funnel counts it, and AI drafts. Use when the user mentions LeadHunter, leads, prospects, "mark our clients", "log that message", "who did we contact", outreach funnel, cold-email campaign lists, relationship_types, or do-not-contact; and before any cold outreach send.
+description: Operate H2A-LeadHunter, the system of record for leads and outreach across every scope (EnaCast, SmartupSoft/BikeCRM, …), through its REST API — auth with the agent token, organizations → projects, reading accounts/campaigns/funnel stats, exporting campaign lists, marking clients and do-not-contact, logging an email/WhatsApp send and its reply so the funnel counts it (with the message purpose on opted-out accounts), reading an account's whole conversation, next steps with due dates (create / complete / reschedule, reminders, the daily digest and calendar feed), account notes, and AI drafts. Use when the user mentions LeadHunter, leads, prospects, "mark our clients", "log that message", "who did we contact", "what's the next step / follow-up with X", "remind me to … on <date>", outreach funnel, cold-email campaign lists, relationship_types, or do-not-contact; and before any cold outreach send.
 ---
 
 # LeadHunter — leads and outreach log
@@ -74,11 +74,22 @@ error). Organizations list only member projects.
 | Campaign totals | `GET /api/campaigns/statistics/?project=<uuid>` (counts by status and `by_goal`) |
 | Campaign CSV (reading only, never a send list) | `GET /api/campaigns/{id}/export-accounts/?review_status=approved&fields=name,email,contact_email,status,score,score_label,language,relationship_types,…` (CSV; unknown field → 400). Never `review_status=all`: it brings back the rows you rejected. Send lists: § Send list |
 | Campaign inbox (latest message per account) | `GET /api/campaigns/{id}/inbox/` |
-| Messages | `GET /api/messages/?project=…` or `?lead=<account_id>` |
+| Messages (an account's whole conversation, every campaign + none) | `GET /api/messages/?lead=<account_id>&ordering=-sent_at,-created_at,-id&page_size=50` (newest first); older: `?before=<next_before from the previous response>`; filters `channel=whatsapp,email`, `direction=inbound`, `campaign=<uuid>\|none` |
+| Next steps (due dates, ours / theirs) | `GET /api/next-steps/?account=<id>` or `?project=…&assignee=me&status=open&due=overdue,today` (§ Next steps) |
+| My reminders (what the bell shows) | `GET /api/next-steps/reminders/` |
 | Funnel | `GET /api/dashboard/stats/?project=<slug>` or `?organization=<slug>`; per product/campaign `GET /api/dashboard/breakdown/?project=<slug>` |
 
 Pagination: `count/next/previous/results`, default 20, **max 100**
-(`page_size=500` silently gives 100). Always loop on `next`.
+(`page_size=500` silently gives 100). Always loop on `next` — except
+messages read newest first, which page by keyset: follow `next_before`
+(`?before=`), never page numbers (deletes elsewhere shift numbered pages).
+Garbage query params answer **400 keyed by the param** (since 2026-10-05
+the csv filters too, e.g. `{"channel": "Unknown value(s): …"}`); dates
+must be 1900–2999.
+
+Humans see the same data at `/dashboard/accounts/<id>` (Next steps card,
+Brief & Notes, Conversations card → `/dashboard/accounts/<id>/conversations`),
+`/dashboard/follow-ups` and the topbar bell. Link those when reporting.
 
 ## Account fields that gate outreach
 
@@ -230,9 +241,61 @@ POST /api/messages/
   purpose the message really serves (a reply to a customer's question is
   not `sales`); never pick one just to get past a 403 — that is an opt-out,
   ask Oriol. Accounts without opt-outs and inbound messages: unchanged.
-- Reading a thread: `GET /api/messages/?lead=<account>&ordering=-sent_at,-created_at,-id`
-  (newest first), plus `channel=whatsapp,email` and `campaign=<uuid>|none`.
-  Humans read the same stream at `/dashboard/accounts/<id>/conversations`.
+- A foreign or unknown `account` / `campaign_lead` answers the same 400
+  ("does not exist") — check the id, not your access.
+- Edits lock the row: a PATCH can't undo a send that committed meanwhile;
+  a sent message's `purpose` is fixed (echoing the stored value is fine).
+- Reading a thread: § Reading (messages row). Humans read the same stream
+  at `/dashboard/accounts/<id>/conversations`.
+
+## Account notes
+
+`POST /api/accounts/{id}/add-note/ {"text": "…"}` appends
+`[YYYY-MM-DD <your email>] text` to `Account.notes` in one UPDATE (no
+GET+PATCH race; 5,000 chars). The UI renders notes as Markdown and those
+dated lines as a log. Put **what happened** there; put **what must happen
+next, with a date**, in a next step (below), not in a note. Never PATCH the
+whole `notes` field from a stale copy (it overwrites a human's edit).
+
+## Next steps
+
+Something due on an account (live since 2026-10-06; contract
+[backend/docs/API.md § Next steps](../../../humans2agents/agents/leadhunter/backend/docs/API.md),
+design [NEXT_STEPS.md](../../../humans2agents/agents/leadhunter/backend/docs/NEXT_STEPS.md)).
+They feed the account's Next steps card, the bell, `/dashboard/follow-ups`,
+a daily email digest to the assignee (07:00 Madrid) and their calendar
+feed. **When a meeting, call or message ends with a commitment, record it
+here** — LeadHunter is the canonical list; no Todoist integration exists
+or should be built (Oriol, 2026-10-07).
+
+```jsonc
+POST /api/next-steps/
+{"account": "<uuid>",
+ "text": "Send the 2027 prices",
+ "side": "ours",                 // ours | theirs ("waiting for their client list")
+ "due_on": "2026-10-15",         // optional; 1900–2999
+ "due_time": "16:30",            // optional, needs due_on
+ "assignee": "<user uuid>",      // optional, defaults to the caller; must be an active project member
+ "contact": "<contact uuid>",    // optional, same account
+ "source": "agent:recordings",   // who wrote it
+ "external_id": "<stable id>"}   // retries answer 200 with the stored row
+```
+
+- Close / move: `POST /api/next-steps/{id}/complete/`, `/cancel/`,
+  `/reopen/`, `/reschedule/ {"due_on": "…"}` (the time is **kept** unless
+  you send `due_time`; `null` clears it). A done / cancelled step refuses
+  date changes (400 "Reopen the step first.").
+- Prefer complete / cancel over DELETE (history). `status`,
+  `completed_*` are read-only on PATCH.
+- **Assign to Oriol** unless told otherwise; an agent token creating a step
+  without `assignee` assigns it to the agent's user, whom nobody reminds.
+  Find his user id once via `GET /api/projects/<slug>/members/`.
+- Dedupe before creating: list the account's open steps first
+  (`?account=<id>&status=open`) and update / reschedule a matching one
+  instead of adding a twin.
+- `bikecrm` Sea Otter accounts still carry the stopgap custom fields
+  `next_step` / `next_follow_up` until `migrate_stopgap_next_steps` runs
+  there (pending Oriol's go, 2026-10-07); after that, next steps only.
 
 ## AI drafts
 
