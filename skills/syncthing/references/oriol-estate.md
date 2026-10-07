@@ -73,6 +73,38 @@ xps13wc (ignore verified, `.git` removed, recovery copy under
 2026-09-09, still hold an inert local `.git`). Everything else unmigrated —
 check the rollout table in the runbook and `USER_TODO.md`.
 
+## Retired devices and stray introducers (2026-10-07)
+
+Dead machines kept reappearing in every device list. The cause is
+**introducers**: minisforum is the roster's introducer, but our hosts also
+trusted phones and old boxes as introducers (Fold7, FoldZ5, S21, Xps1321,
+NUC8i7Docker on minisforum). An introducer re-adds every device it knows, and
+**the ignored-devices list does not stop that**: `handleIntroductions` in
+`lib/model/model.go` never checks it (read 2026-10-07). Ignoring only silences
+the "device wants to connect" prompt from the device itself.
+
+So retiring a device means removing it, and keeping it removed:
+
+- The list lives in hq `homelab/ansible/group_vars/all/main.yml`,
+  `syncthing_retired_devices` (name, device id, date).
+- `roles/syncthing/tasks/retired-devices.yml` runs with `--tags syncthing`.
+  It `DELETE`s each device from `/rest/config/devices/<id>`, adds it with
+  `syncthing cli config ignored-devices add` (there is no REST sub-endpoint;
+  `/rest/config/remoteignoreddevices` answers 404 on v2.1, and the list is
+  the `remoteIgnoredDevices` key of `/rest/config`), and warns about every
+  introducer other than the roster's one.
+- Removing a device on minisforum also de-introduces it from the devices
+  minisforum introduced it to (`skipIntroductionRemovals` is false). On
+  fw13pro the first seven had already vanished that way before its own run.
+- What keeps the loop alive are the remaining stray introducers, Fold7 and
+  FoldZ5 as of 2026-10-07. Un-ticking "Introducer" on them is Oriol's
+  decision, and a retired device must be removed by hand on any phone or
+  tablet that still lists it.
+
+Applied 2026-10-07 on minisforum and fw13pro: 11 retired devices, verified
+absent from `devices` and present in `remoteIgnoredDevices`. The mac mini's
+Syncthing app is outside the role (it skips Darwin).
+
 ## Obsidian-specific conflict triage
 
 `assets/sync-conflicts.sh` (`list` / `notes` / `git` / `show <note>` /
