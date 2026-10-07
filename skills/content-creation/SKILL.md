@@ -942,7 +942,8 @@ format**. Before step 3, check each one:
     (`GET /v1/user/subscription`) before dubbing: the account may be shared with production TTS
     (EnaCast's is shared with AI Studio, with no overage).
   - So dub the **raw cut**, not the whole camera file, and only the languages that will be
-    published. It costs fewer credits, and the cut points are set before the dub, so the dubbed speech can't
+    published; upload its **audio only** (ElevenLabs dubs an audio file: EnaCast's account dubbed
+    an `.mp3` in 2026-02), which skips the transcode and the throw-away video. It costs fewer credits, and the cut points are set before the dub, so the dubbed speech can't
     straddle them (a later re-cut needs a re-dub of the changed part).
   - The camera's separate `.WAV` (DJI) is the camera's own mic recording: a **backup only** if a
     wireless mic fails, not a mic track (Oriol, 2026-10-07).
