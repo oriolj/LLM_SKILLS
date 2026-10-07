@@ -541,3 +541,23 @@ keep the alarm so unresolved cases stay visible.
   apply. Look for older victims under a different signature: before an earlier "fail loudly" change the same
   404 returned silently with an EMPTY error, so filtering on the error text missed half of them.
 - Rows on channels disabled today are a client decision (a radio may have opted out), not a re-sync default.
+
+### "I set it in the editor, it does nothing on the site" — read the STORED body first (2026-10-07, EnaCast linked image)
+
+- Fetch the stored content from the API before reading either repo: the custom page body had no `<a>` at all, which
+  put the first gap in the editor, not the renderer. Then render a body that DOES have the feature (the old admin's
+  `<a href><img></a>`, 501 pages in the DB copy) through the public site in a real browser: that exposed the second
+  gap (the renderer lifted `<img>` into a zoom island and left an empty anchor; Chrome re-parented it, so the click
+  opened the link AND the zoom).
+- **ProseMirror/TipTap: a mark cannot sit on a block atom.** `setLink` on a NodeSelection of a block image node
+  applies to nothing, returns, and the dialog closes as if it worked; and on load, an `<a>` around such a node is
+  dropped, so **opening and saving a legacy body silently deletes data**. Count how much legacy content carries the
+  construct (regex over the local DB copy) before sizing the fix. Fix: node attributes (`href`/`target`) parsed from
+  `img.closest('a[href]')`, rendered as `figure > a > img`, and the toolbar dialog branching on
+  `selection instanceof NodeSelection`. Node attributes skip the mark's URI check: allow-list schemes yourself.
+- Editor walks without a jsdom: `document.querySelector('.ProseMirror').editor` is the TipTap v2 instance —
+  `commands.setContent(html)` + `getHTML()` is a load→save round trip, `commands.setNodeSelection(pos)` selects a
+  node, then click the real toolbar. Run the dev server against the LOCAL backend on a spare port so nothing can
+  write to production; check `/proc/<pid>/cwd` of whatever already listens on a port before trusting its render.
+- Unit tests that `ts.transpileModule` a helper into a `vm` context (enacast-astro) compile to ES5: `for…of` over
+  `matchAll()` silently iterates nothing there. Use `Array.from(...)`, and compare vm-realm arrays via JSON.
