@@ -101,9 +101,20 @@ So retiring a device means removing it, and keeping it removed:
   Oriol's decision, and a retired device must be removed by hand on any phone
   or tablet that still lists it.
 
-Applied 2026-10-07 on minisforum and fw13pro: 14 retired devices, verified
-absent from `devices` and present in `remoteIgnoredDevices`. The mac mini's
-Syncthing app is outside the role (it skips Darwin).
+- `retired-devices.yml` is self-contained (it finds the binary and the API
+  itself), and `playbooks/syncthing-retired.yml` runs only that file
+  against inventory group `syncthing_hosts`: minisforum, the laptops, the mac
+  mini and the claw VMs. The mac's binary is inside the app bundle
+  (`/Applications/Syncthing.app/Contents/Resources/syncthing/syncthing`, not
+  on PATH; its `cli` finds the app's config by itself). The claws run
+  Syncthing as the `syncthing@oriol` system unit, so the full role must not
+  touch them.
+
+Applied 2026-10-07: 14 retired devices removed and ignored on minisforum,
+fw13pro, the mac mini, petraclaw, emmaclaw and blakeclaw. minisforum and
+fw13pro were also checked against `devices` / `remoteIgnoredDevices`, and a
+second run changed nothing on any of the six. Stray introducers found: Fold7
+on all of them, and truenas-personal on petraclaw.
 
 ## Obsidian-specific conflict triage
 
