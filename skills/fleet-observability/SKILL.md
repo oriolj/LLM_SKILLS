@@ -431,20 +431,37 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     at ~250 recycles a day a weekly deploy means ~1,700 files. Fix (Panotxa
     `backend/config/prom_multiproc.py`): in `child_exit`, fold the dead pid's
     counter/histogram values into `counter_archive.db` /
-    `histogram_archive.db` with `MmapedDict` (`read_value` + `write_value`
-    of the sum, per key), then delete its files. That is the library's own
+    `histogram_archive.db` with `MmapedDict` (`read_all_values_from_file`,
+    summed per key), then delete its files. That is the library's own
     merge-back-into-mmap pattern, and scraped values are unchanged because the
-    collector sums across files anyway. Wrap it in an exclusive `flock` on a
-    non-`.db` lock file, and have the `/metrics` view read the multiproc
-    registry under the shared lock (the ORM collectors outside it). Without
-    the lock, a scrape between "archive written" and "dead file removed"
-    double-counts, which reads as a counter reset and becomes a `rate()`
-    spike. Load the helper in `gunicorn.conf.py` **by file path**
+    collector sums across files anyway. Three traps, all hit the same day
+    (code review + Codex):
+    1. 🔴 **`child_exit` runs inside gunicorn's SIGCHLD signal handler, and
+       Python re-enters it** when a second worker exits mid-fold. A
+       BLOCKING `flock` there deadlocks the master on its own lock: no
+       respawn, API down. It was reproduced by killing all workers at once
+       and was live in prod for ~25 min. Take the exclusive lock with
+       `LOCK_NB` and skip when busy. The `/metrics` view takes the shared
+       lock with a deadline (503 on timeout), never an unbounded wait.
+    2. **Fold only pids the master actually reaped** (a pending set filled by
+       `child_exit`), never "pids not in `server.WORKERS`". gunicorn forks
+       before it registers the child, so a reap in that gap would fold a
+       LIVE worker, whose later increments then go to an unlinked inode.
+       Keep pids pending across a busy lock or a failed fold, and loop until
+       the set is empty (nested handlers add to it).
+    3. **Stage the sources out of the `*.db` glob before the `os.replace` of
+       the archive** (rename to `.db.folding`), and rename them back if
+       anything before the replace fails. Deleting sources AFTER the replace
+       double-counts permanently when an unlink fails.
+
+    Load the helper in `gunicorn.conf.py` **by file path**
     (`importlib.util.spec_from_file_location`): `import config.x` runs
     cookiecutter's `config/__init__.py`, which builds the Celery app inside
-    the gunicorn master. Prove it with a local
-    `gunicorn --max-requests 5` run: the counted requests must equal an
-    unfolded baseline's.
+    the gunicorn master. Prove it with a local `gunicorn --max-requests 5`
+    run (the counts must equal an unfolded baseline's) AND rounds of
+    `kill -9` on every worker at once (the master must keep respawning).
+    Reference: Panotxa `backend/config/prom_multiproc.py` +
+    `tests/test_prom_multiproc.py`.
   - **Cache the per-scrape business collector** (Panotxa, same day): its
     families are cached in the shared Redis for 300 s, keyed by the
     release so a deploy recomputes at once, failing open, and 0 in tests
