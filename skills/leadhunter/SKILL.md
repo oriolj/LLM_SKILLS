@@ -1,6 +1,6 @@
 ---
 name: leadhunter
-description: Operate H2A-LeadHunter, the system of record for leads and outreach across every scope (EnaCast, SmartupSoft/BikeCRM, …), through its REST API — auth with the agent token, organizations → projects, reading accounts/campaigns/funnel stats, exporting campaign lists, marking clients and do-not-contact, logging an email/WhatsApp send and its reply so the funnel counts it (with the message purpose on opted-out accounts), reading an account's whole conversation, next steps with due dates (create / complete / reschedule, reminders, the daily digest and calendar feed), account notes, and AI drafts. Use when the user mentions LeadHunter, leads, prospects, "mark our clients", "log that message", "who did we contact", "what's the next step / follow-up with X", "remind me to … on <date>", outreach funnel, cold-email campaign lists, relationship_types, or do-not-contact; and before any cold outreach send.
+description: Operate H2A-LeadHunter, the system of record for leads and outreach across every scope (EnaCast, SmartupSoft/BikeCRM, …), through its REST API — auth with the agent token, organizations → projects, reading accounts/campaigns/funnel stats, exporting campaign lists, marking clients and do-not-contact, logging an email/WhatsApp send and its reply so the funnel counts it (with the message purpose on opted-out accounts), reading an account's whole conversation, next steps with due dates (create / complete / reschedule, quick-add templates and suggested follow-ons, reminders, the daily digest and calendar feed), account notes, and AI drafts. Use when the user mentions LeadHunter, leads, prospects, "mark our clients", "log that message", "who did we contact", "what's the next step / follow-up with X", "remind me to … on <date>", outreach funnel, cold-email campaign lists, relationship_types, or do-not-contact; and before any cold outreach send.
 ---
 
 # LeadHunter — leads and outreach log
@@ -287,6 +287,21 @@ POST /api/next-steps/
   date changes (400 "Reopen the step first.").
 - Prefer complete / cancel over DELETE (history). `status`,
   `completed_*` are read-only on PATCH.
+- **Templates** (live 2026-10-07, `3e204239`): when a step matches a
+  quick-add type, create it from the template —
+  `GET /api/next-steps/templates/?project=<slug>&status=<account status>`
+  lists the project's types (built-ins such as `follow_up`, `book_demo`,
+  `send_proposal`, `await_decision`, `await_documents`, `onboarding`,
+  `check_trial_usage`, `payment_setup`, plus custom `c_…` keys; none for
+  do-not-contact) with `label`, `side` and a `due_offset`
+  (`{value, unit}` or null; compute the date from today, months clamp at
+  month end). Send `"template_key": "<key>"` on the create (validated
+  against the account's project; immutable). `POST …/{id}/complete/` then
+  answers `follow_on` (`{key, label, …}` or null — null on a repeat
+  complete) = the logical next step to offer, e.g. book_demo →
+  prepare_demo; create it only if the user wants it. Editing templates
+  is a per-project Settings page (`/dashboard/settings/next-steps`);
+  agents don't change templates unless asked.
 - **Assign to Oriol** unless told otherwise; an agent token creating a step
   without `assignee` assigns it to the agent's user, whom nobody reminds.
   Find his user id once via `GET /api/projects/<slug>/members/`.
