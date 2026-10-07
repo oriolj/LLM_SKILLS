@@ -1541,6 +1541,26 @@ row whose `commit` equals the pushed SHA (`is_webhook: true`), never "the
 newest row": hq `homelab/tools/coolify-deploy.sh --commit <sha>` does
 exactly that and falls back to an API trigger after 90 s.
 
+**`POST /deploy` takes no commit** (params: `uuid`, `tag`, `force`, `pr`,
+`pull_request_id`, `docker_tag`): an API deploy builds the branch HEAD at the
+moment the build runs. To deploy ONE exact commit (several apps that must run
+the same build), pin it: `PATCH /applications/{uuid} {"git_commit_sha":
+"<sha40>"}`, `POST /deploy`, then PATCH it back to `HEAD` as soon as the
+deploy is queued. Coolify reads `git_commit_sha` at QUEUE time
+(`queue_application_deployment`: `$commit ?: git_commit_sha ?: 'HEAD'`) and
+resolves the branch head by `ls-remote` only when the queued commit is
+`HEAD`, so the queued row keeps the pin (Coolify v4.x source, read
+2026-10-07). Never leave an app pinned: every later webhook or API deploy
+would rebuild the old commit (and `POST /deploy` dedupes on "this commit").
+Then prove it from the finished row's `commit`, and from the running image
+(`SOURCE_COMMIT` in a version endpoint or metric). hq `coolify-deploy.sh
+--pin <sha40>` does all of it with an EXIT-trap reset; its exit code tells
+`1` terminal failure from `2` unknown (timeout / poll errors).
+**Shell trap:** a helper that `exit`s on an HTTP error (hq `coolify_api`)
+ends a `{ helper || true; }` group before the `|| true` runs, so under
+`set -e` + `pipefail` the first 503 while polling still killed the script;
+run it in its own `( … )` subshell.
+
 **A Compose deploy removes the old containers BEFORE it starts the new
 ones**, so an SSH drop between the two steps leaves those services DOWN,
 not on the old version. Seen 2026-09-15 on hq-monitoring (monitor-1-nc,
