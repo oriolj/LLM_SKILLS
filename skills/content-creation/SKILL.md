@@ -936,8 +936,14 @@ format**. Before step 3, check each one:
   - **A dub is a translation, so the truth rule applies**: review each dub's transcript against
     the reviewed original, segment by segment, before publishing. Label the posts as AI-dubbed
     (AI Act art. 50), and get consent that names AI dubbing with synthetic voices.
-  - Consider dubbing the **raw cut** rather than the whole camera file: fewer credits, and cut points
-    the dub can't straddle (a later re-cut needs a re-dub of the changed part).
+  - **Cost: 13,500 ElevenLabs credits per dubbed minute per language** (measured 2026-10-07:
+    500,228 credits for 2 × 18.5 min), ≈ $2.67/min at the Pro price ($99 / 500k credits). A
+    20-minute interview into two languages takes more than a whole Pro month. Check the balance
+    (`GET /v1/user/subscription`) before dubbing: the account may be shared with production TTS
+    (EnaCast's is shared with AI Studio, with no overage).
+  - So dub the **raw cut**, not the whole camera file, and only the languages that will be
+    published. It costs fewer credits, and the cut points are set before the dub, so the dubbed speech can't
+    straddle them (a later re-cut needs a re-dub of the changed part).
   - The camera's separate `.WAV` (DJI) is the camera's own mic recording: a **backup only** if a
     wireless mic fails, not a mic track (Oriol, 2026-10-07).
 - A batch run by agents stops when the session ends: each step is
