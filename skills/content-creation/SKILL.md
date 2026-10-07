@@ -936,6 +936,12 @@ format**. Before step 3, check each one:
   - **Dub speech spills past the original's sentences** (~30 s per 18 min). Cut points must be
     silent in **every** published language track, and short boundaries and word subtitles come
     from WhisperX on each dub track.
+  - **Check what the transcriber missed before blaming the dub**: on Girona FM's Spanish dub WhisperX skipped
+    37 s of clear synthetic speech and wrote «Gracias por ver el video» (Whisper's stock hallucination),
+    and both fidelity checkers reported a dub "omission". Compare speech energy in the track with the
+    transcribed words' coverage. Re-transcribe uncovered runs with whisper.cpp and align them with WhisperX's
+    aligner. A brand name mangled by the voice ("NCS", "Enca" for EnaCast in English) is a real dub fault:
+    confirm it with a second engine, then listen.
   - **A dub is a translation, so the truth rule applies**: review each dub's transcript against
     the reviewed original, segment by segment, before publishing. Label the posts as AI-dubbed
     (AI Act art. 50), and get consent that names AI dubbing with synthetic voices.
