@@ -119,6 +119,11 @@ Different from 0c (SSH for Coolify): here the tunnel carries visitors to an app.
   remote catch-all ingress) — the 2026-10-06 second origin on coolify-ovh-vps-1 joined it that way and took
   ~half the requests at once. Name a multi-host tunnel after the service, not a host; a rename is
   `PATCH /accounts/{acc}/cfd_tunnel/{id} {"name": …}` and keeps id, token and live connections.
+- **Close the origin's public 80/443 once the tunnel carries the web** (2026-10-07): Traefik still publishes
+  80/443 on the host's public IP, so the site answers around Cloudflare's WAF/bot rules (coolify-ovh-vps-2's
+  `http://<public-ip>/` served the radios). Docker-published ports bypass ufw: put the host in the hq ansible group
+  `tunnel_only_web` (baseline Docker public guard: DOCKER-USER drop on the public iface, v4+v6; `make check` requires
+  `cloudflared` membership), `make apply HOST=<h> TAGS=firewall`. Never on a host that serves anything publicly.
 - **Test hostnames: ONE label under the zone** (`radiodesvern-origin.enacasthq.com`,
   not `radiodesvern.origin.enacasthq.com`): Universal SSL covers `zone` and
   `*.zone` only; a deeper name gets no edge certificate without a paid
