@@ -96,12 +96,12 @@ So retiring a device means removing it, and keeping it removed:
 - Removing a device on minisforum also de-introduces it from the devices
   minisforum introduced it to (`skipIntroductionRemovals` is false). On
   fw13pro the first seven had already vanished that way before its own run.
-- What keeps the loop alive are the remaining stray introducers, Fold7 and
-  FoldZ5 as of 2026-10-07. Un-ticking "Introducer" on them is Oriol's
-  decision, and a retired device must be removed by hand on any phone or
-  tablet that still lists it.
+- What keeps the loop alive is any remaining stray introducer: Fold7 only,
+  once FoldZ5 was retired on 2026-10-07. Un-ticking "Introducer" on it is
+  Oriol's decision, and a retired device must be removed by hand on any phone
+  or tablet that still lists it.
 
-Applied 2026-10-07 on minisforum and fw13pro: 11 retired devices, verified
+Applied 2026-10-07 on minisforum and fw13pro: 14 retired devices, verified
 absent from `devices` and present in `remoteIgnoredDevices`. The mac mini's
 Syncthing app is outside the role (it skips Darwin).
 
