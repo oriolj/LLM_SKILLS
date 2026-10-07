@@ -423,6 +423,36 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     and each dead pid leaves gauge mmap files behind. A 3-line
     `gunicorn.conf.py` (`child_exit` → `multiprocess.mark_process_dead
     (worker.pid)`) added with `-c` fixes it.
+  - 🔴 **`mark_process_dead` only removes LIVE gauge files — every recycled
+    worker still leaves a `counter_<pid>.db` + `histogram_<pid>.db`**, and
+    `MultiProcessCollector` re-merges all of them on every scrape until the
+    next deploy wipes the dir. That cost grows with traffic: on Panotxa
+    (2026-10-07) 18 dead pids after 36 h already took ~47 ms per scrape, and
+    at ~250 recycles a day a weekly deploy means ~1,700 files. Fix (Panotxa
+    `backend/config/prom_multiproc.py`): in `child_exit`, fold the dead pid's
+    counter/histogram values into `counter_archive.db` /
+    `histogram_archive.db` with `MmapedDict` (`read_value` + `write_value`
+    of the sum, per key), then delete its files. That is the library's own
+    merge-back-into-mmap pattern, and scraped values are unchanged because the
+    collector sums across files anyway. Wrap it in an exclusive `flock` on a
+    non-`.db` lock file, and have the `/metrics` view read the multiproc
+    registry under the shared lock (the ORM collectors outside it). Without
+    the lock, a scrape between "archive written" and "dead file removed"
+    double-counts, which reads as a counter reset and becomes a `rate()`
+    spike. Load the helper in `gunicorn.conf.py` **by file path**
+    (`importlib.util.spec_from_file_location`): `import config.x` runs
+    cookiecutter's `config/__init__.py`, which builds the Celery app inside
+    the gunicorn master. Prove it with a local
+    `gunicorn --max-requests 5` run: the counted requests must equal an
+    unfolded baseline's.
+  - **Cache the per-scrape business collector** (Panotxa, same day): its
+    families are cached in the shared Redis for 300 s, keyed by the
+    release so a deploy recomputes at once, failing open, and 0 in tests
+    because LocMem persists across tests. Keep `app_info` and the
+    heartbeat/queue series live. Prometheus families pickle fine. Every
+    alert on a cached series then needs `for:` ≥ 10 m. Panotxa's
+    `backend/METRICS.md` "Cost rules for a new metric" is the checklist to
+    copy.
   - **Business metrics = a custom collector computed per scrape**, not
     counters sprinkled through app code: `collect()` yields
     `GaugeMetricFamily` from single GROUP-BY ORM aggregates (~10 cheap
