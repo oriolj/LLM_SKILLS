@@ -488,6 +488,12 @@ this section keeps the rules and the lessons.
    (name, side, role), where, the date, the raw file with its sha256, where
    the backup copy is, the language, and the **consent**: who agreed, when,
    and for which uses. `make probe` / `make sheet` for the facts.
+   **Nothing bulky is ever written under `/home` outside `~/not-important`** (Oriol, 2026-10-08):
+   `/home` is snapper-snapshotted every 15 minutes and a video written there stays in the snapshots
+   for months. Camera files arrive in `~/not-important/` (not `~/inbox/`), go to the NAS
+   `not-important` share, and the content repo's `work/` folders are links into `~/not-important/`
+   (local, its own never-snapshotted subvolume) while `raw/` and `renders/` are links to the NAS.
+   EnaCast's `scripts/work_links.sh` makes them from every `make` target; do the same in any content repo.
    **Footage and renders live on the NAS** (Oriol, 2026-09-30: "we will work
    on the NAS"; BikeCRM: `/mnt/truenas/not-important/BikeCRM/`, a tree that
    mirrors the repo): move them with a verified copy (sha256 read back from
