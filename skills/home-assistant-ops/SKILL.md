@@ -153,6 +153,12 @@ script, because `reload_config_entry` has been seen to hang for minutes).
   everything before acting. Guard against arrivals with a signal that changes on entry (alarm
   panel `last_changed` around the lock) and `mode: restart`. "Off for N min" on something that
   may already be off is a `wait_template` on `last_changed`, not a state trigger with `for:`.
+- **Arrival automations (auto-disarm): exclude your own exit.** People arm Away and *then*
+  open the door, so "door opens while armed_away" happens on every departure. Accept only the
+  panel's entry countdown (Eufy: `Alarm delayed`) or `armed_away` older than ~2 min. "Arrived
+  recently" = `expand('person.a', 'person.b') | selectattr('state','eq','home') |
+  selectattr('last_changed','gt', now() - timedelta(minutes=10))`. There is no `states_obj`
+  filter.
 - `GET /api/history/period/<start>` without `end_time` returns **24 h only**. Pass `end_time`
   for longer windows.
 - Nuki coordinator times out a few times a day → lock `unavailable` ~30 s (bridge busy on BLE,
