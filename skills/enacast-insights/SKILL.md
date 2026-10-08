@@ -27,6 +27,11 @@ API; this skill keeps the workflow and the traps.
   Revoke in the enacast-ai admin (Client API keys).
 - Known keys: BikeCRM → hq `homelab/secrets/enacast-ai-publish-bikecrm.env`
   (`ENACAST_AI_PUBLISH_KEY_BIKECRM`), used by bikecrm-content-creation `scripts/publish_pod.py`.
+  EnaCast's own interviews → Client "EnaCast" (`92ea32b3-…`, created 2026-10-08), hq
+  `homelab/secrets/enacast-ai-publish-enacast.env` (`ENACAST_AI_PUBLISH_KEY_ENACAST`), used by enacast-content-creation
+  `scripts/publish_pod.py --lang <l>`: one channel per language (`entrevistes-enacast` ca, `entrevistas-enacast` es,
+  `enacast-interviews` en; the dubbed ones say "dubbed with enacast.fm"). Interviews go there as soon as they are
+  ready, never on a schedule (Oriol, 2026-10-08).
 
 ## Publishing workflow (the BikeCRM Interviews run, 2026-10-01)
 
@@ -59,6 +64,8 @@ API; this skill keeps the workflow and the traps.
 - Video works on the site; the **RSS enclosure is always the extracted MP3** (fixed 2026-10-01:
   before, a video episode could hand podcast apps the video).
 - HEVC 1080p is fine (Oriol, 2026-10-01): Main 8-bit, `hvc1` tag (Safari needs it), `+faststart`.
+  Decode the source in software and encode on the GPU (`format=nv12,hwupload` → `hevc_vaapi`): a VAAPI *decode* of a
+  joined episode silently dropped frames at its joins (EnaCast, 2026-10-08). Check the frame count against the source.
   With VAAPI encode as `hev1` and re-tag by stream copy: tagging `hvc1` in a VAAPI encode writes a
   file every decoder shows green. Don't upload 4K masters (multi-GB, slow, no benefit).
 - Use your own reviewed transcript when you have one (timed on the episode's timeline: an
