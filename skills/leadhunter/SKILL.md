@@ -335,9 +335,12 @@ campaign-account rows; `score-bands` `totals.stale` counts them). The
 {key: "campaign:<id>", own_brief: true}` on the campaign). Rescoring it
 never changes other campaigns, the Accounts fit column or Today, and a
 shared rescore never changes its own scores. Where it has no own score
-yet (brief just added, accounts added later) it shows the shared score as
-`stale: true` with `score_source: "shared"` (own scores say
-`"campaign"`, unscored `null`); rescore those with `stale_only`.
+yet (brief just added, accounts added later) it shows the shared score
+with `score_source: "shared"` (own scores say `"campaign"`, unscored
+`null`): `stale: true` when that shared score was made after 2026-10-08
+(without the brief); scores from before then count as the campaign's own
+version 1 and are stale only after its criteria change. Rescore stale ones
+with `stale_only`.
 
 **Rank a list (no campaign)** — always estimate, tell Oriol count and
 cost, then start with a cap:
