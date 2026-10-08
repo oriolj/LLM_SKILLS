@@ -102,8 +102,21 @@ Brief & Notes, Conversations card → `/dashboard/accounts/<id>/conversations`),
   `{"status","reason","source"}` (writes history, fires webhooks).
 - `relationship_types` (multi): `client`, `prospect`, `reseller`,
   `affiliate`, `supplier`, `partner`, `investor`, `press`, `influencer`,
-  `analyst`, `competitor`, `candidate`, `personal_network`. PATCHable on
-  `/api/accounts/{id}/` — send the **whole** array (it replaces).
+  `analyst`, `competitor`, `candidate`, `personal_network`, and (marketing
+  partners M1, live since 2026-10-08, LeadHunter `7ef56b0d`) `community`,
+  `event_organizer`. PATCHable on `/api/accounts/{id}/` — send the
+  **whole** array (it replaces).
+- **Marketing partners** (contract in
+  [API.md § Marketing partners](../../../humans2agents/agents/leadhunter/backend/docs/API.md#marketing-partners)):
+  an account with a marketing type (influencer, press, partner,
+  affiliate, analyst, community, event_organizer). A *pure* partner (no
+  other type, status not customer / in_trial) is left out of client
+  stats; list them with `?marketing=only`, hide them with
+  `?marketing=exclude`. `partner_stage` (to_contact, contacted, talking,
+  agreed, active, past, declined, not_a_fit) is read-only on PATCH: move
+  it with `POST /api/accounts/{id}/change-partner-stage/ {"stage","reason"}`
+  (400 on a non-partner); a partner without a stage gets `to_contact`.
+  `audience_size` (followers / circulation) is plain PATCH.
 - `do_not_contact_purposes`: per-goal opt-out, only via
   `POST /api/accounts/{id}/record-dnc/` `{"purpose":"sales","action":"opt_out","source":"inbound_request","reason":…}`.
 
@@ -120,7 +133,11 @@ re-applies nothing.
   and `status=in_trial` (`include_trials`), both only on goals that block
   customers (sales and most others; expansion, renewal, event, research
   and partnership admit customers by default); supplier / investor /
-  press / analyst / candidate (`include_<type>`, per goal).
+  press / analyst / candidate (`include_suppliers`, `include_investors`,
+  `include_press`, `include_analysts`, `include_candidates`, per goal);
+  plus influencer / community / event_organizer
+  (`include_influencers`, `include_communities`,
+  `include_event_organizers`) on every goal that soft-blocks press.
 - **Mark existing clients before any cold campaign — and the guardrail
   keys on `status=customer`, NOT on `relationship_types` `client`**.
   A `client` tag alone does not keep an account out of a sales campaign.
@@ -178,14 +195,17 @@ jq -se --argjson total "$TOTAL" 'length == $total and (map(.campaign_lead) | uni
 pages "/api/accounts/?project=$P&in_any_campaign=true&archived=all&page_size=100" \
   '.results[] | {id, name, email, status, relationship_types, do_not_contact_purposes}' > "$OUT/accounts.ndjson"
 jq -n --arg goal "$GOAL" --slurpfile accs "$OUT/accounts.ndjson" --slurpfile rows "$OUT/rows.ndjson" '
-  # goals.py 2026-10-03: soft relationship blocks per goal (all 5 = sales set)
-  ["supplier", "investor", "press", "analyst", "candidate"] as $all5
-  | {sales: $all5, partnership: [], press: ["supplier", "investor", "candidate"],
+  # goals.py 2026-10-07 (marketing partners M1): soft relationship blocks
+  # per goal; $mkt joins every goal that soft-blocks press (live since
+  # 2026-10-08).
+  ["influencer", "community", "event_organizer"] as $mkt
+  | (["supplier", "investor", "press", "analyst", "candidate"] + $mkt) as $sales
+  | {sales: $sales, partnership: [], press: ["supplier", "investor", "candidate"],
      influencer: ["supplier", "investor", "candidate"],
-     investor: ["supplier", "press", "analyst", "candidate"],
-     recruiting: ["supplier", "investor", "press", "analyst"],
-     customer_expansion: $all5, win_back: $all5, event: [], research: [],
-     renewal: $all5}[$goal] as $soft
+     investor: (["supplier", "press", "analyst", "candidate"] + $mkt),
+     recruiting: (["supplier", "investor", "press", "analyst"] + $mkt),
+     customer_expansion: $sales, win_back: $sales, event: [], research: [],
+     renewal: $sales}[$goal] as $soft
   | if $soft == null then error("goal \($goal) not in the copied matrix: re-read goals.py") else . end
   | (["personal_network"] + (if $goal | IN("press", "event", "research") then [] else ["competitor"] end)) as $hard
   | ($accs | map({key: .id, value: .}) | from_entries) as $acc
@@ -205,6 +225,28 @@ dropped on every goal, even the ones LeadHunter lets them into
 that targets them on purpose is not a cold send, so ask Oriol before
 relaxing that filter. Each row of
 `send.json` carries the `campaign_lead` to log the message against.
+
+## Adding accounts to a campaign from a filter (2026-10-08, `7ef56b0d`)
+
+`POST /api/campaigns/{id}/bulk-add-from-filter/` takes
+`{"list_query": {<the same params as GET /api/accounts/>}, "dry_run": true}`
+and resolves them through the SAME queryset as the list, so it adds
+exactly what the list shows (search, country, status, relationship_types,
+`marketing=exclude`, saved_filter, `filter` DSL, `research_id` …).
+- Always dry-run first: it answers `matched`, `would_create`,
+  `already_in_campaign` and `blocked_counts` per guardrail bucket
+  (`blocked_*` id lists are capped at 100 ids). Then send the real add
+  with `expected_count` = the previewed `matched`; a changed size → 409
+  (recount and ask again).
+- A query that narrows nothing → 400 unless `"all": true` (ask Oriol
+  first); more than 10,000 matches → 400 (`over_limit`, `max_add`):
+  narrow the list. Partners hidden by `marketing=exclude` stay out unless
+  you drop that param on purpose (Press / Influencer campaigns).
+- A stale or other-project `saved_filter` → 400 keyed `saved_filter`;
+  unknown `status` / `relationship_types` values → 400 keyed by the param;
+  a request body that isn't a JSON object → 400 on every endpoint.
+- Merges keep the most advanced status (do-not-contact wins) and refuse a
+  `status` override (400); change status afterwards with `change-status`.
 
 ## Logging a send and a reply
 
