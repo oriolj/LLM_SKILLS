@@ -154,3 +154,15 @@ shared Coolify host and it must run unattended. Reference implementation:
   <script>`; nothing routes through a laptop.
 - **Bonus**: `latest.dump` kept on the beta host is an off-provider copy of
   prod. Treat that host's disk as holding production data.
+
+## Worktree trap: never hard-code the compose network or container (BikeCRM, 2026-10-08)
+
+The compose project name follows the FOLDER (`bikecrm-backend`, `bikecrm-backend-master`, …), so a git
+worktree runs its own postgres. BikeCRM's `make sync-prod-db` did drop/create through `$(DC) exec postgres`
+but restored with `docker run --network bikecrm-backend_default … pg_restore --host postgres`: run from a
+worktree it emptied the worktree's DB and fired the restore at the MAIN checkout's DB, which answered
+`constraint … already exists` ×896. Run every step through the same compose service —
+`$(DC) exec -T postgres sh -c 'pg_restore -U "$$POSTGRES_USER" -d <db> --no-owner --no-acl' < dump`
+(custom-format dumps restore from stdin) — no network, host or password in the Makefile. To check what a
+failed restore wrote into the wrong DB: count rows with `created_at` after that DB's last real sync, per
+table (a real restore brings thousands; local testing a handful).
