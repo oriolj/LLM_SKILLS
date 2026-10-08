@@ -59,11 +59,22 @@ API; this skill keeps the workflow and the traps.
 5. **Compare** after processing: `ai_sections` vs your chapters, the machine transcript vs yours
    (a cheap quality check of their pipeline, worth reporting to the EnaCast team).
 
+## Languages: one channel per language (2026-10-08)
+
+A dubbed version gets its own channel (`bikecrm-interviews-en`, `language: en`), never a second episode in the
+original's channel: the feed has one language, and Apple/Spotify classify a show by it. Its transcript is the dub's
+(WhisperX + hand-checked fixes) on the episode timeline, its chapters the dubbed episode's, its cover a language
+variant, its context says not to name the guest's business (credited only in the original) and that the audio is
+dubbed (BikeCRM/EnaCast: "dubbed with enacast.fm"). Episodes go up as soon as they are rendered, no schedule
+(Oriol, 2026-10-08). Scripts: bikecrm-content-creation `pod_export.py` / `publish_pod.py --lang en`.
+
 ## Media
 
 - Video works on the site; the **RSS enclosure is always the extracted MP3** (fixed 2026-10-01:
   before, a video episode could hand podcast apps the video).
-- HEVC 1080p is fine (Oriol, 2026-10-01): Main 8-bit, `hvc1` tag (Safari needs it), `+faststart`.
+- HEVC 1080p is fine (Oriol, 2026-10-01): Main 8-bit, `hvc1` tag (Safari needs it), `+faststart`. Main10 was never
+  tested on the site: re-encode a 10-bit episode to 8-bit. Encode locally and copy to the NAS with verification:
+  ffmpeg writing straight onto the NAS share broke two shorts' H.264 streams (2026-10-08).
   Decode the source in software and encode on the GPU (`format=nv12,hwupload` → `hevc_vaapi`): a VAAPI *decode* of a
   joined episode silently dropped frames at its joins (EnaCast, 2026-10-08). Check the frame count against the source.
   With VAAPI encode as `hev1` and re-tag by stream copy: tagging `hvc1` in a VAAPI encode writes a

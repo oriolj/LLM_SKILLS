@@ -951,6 +951,17 @@ format**. Before step 3, check each one:
   - **A dub is a translation, so the truth rule applies**: review each dub's transcript against
     the reviewed original, segment by segment, before publishing. Label the posts as AI-dubbed
     (AI Act art. 50), and get consent that names AI dubbing with synthetic voices.
+  - **The AI-disclosure label is "Dubbed with enacast.fm"** («Doblado con enacast.fm»; Oriol, 2026-10-08, for EnaCast
+    and BikeCRM alike: the dubbing is EnaCast's tech), on every frame of a short's question + answer, the episode's
+    intro and corner, and in the copy.
+  - **Check every short's subtitles with a second engine** (whisper.cpp on the short's range, diffed against the
+    WhisperX words) before rendering: on Sprint Bike's English dub WhisperX wrote "It can just be a free-for-all"
+    where the voice says "can't" (it would have reversed his point on screen), plus "paddles", "Daboko", a phantom
+    "Sir,". Keep the fixes in a file the localization step re-applies, never by hand in the words file.
+  - **Each language publishes on its own accounts**, and the scheduler picks them by integration ID, never by
+    platform type: with two Instagram channels in one Postiz account, "the instagram integration" became the
+    English one for Spanish posts (BikeCRM, 2026-10-08, caught before any post).
+  - **A dubbed language's stories carry no shop credit** (the town only); the podcast gets a channel per language.
   - **Cost: it depends on how the dub is made.** EnaCast's Girona FM, dubbed by hand in the ElevenLabs web app:
     **13,500 credits per dubbed minute per language** (500,228 for 2 × 18.5 min), ≈ $2.23/min at the Pro price
     ($99 / 600k credits a month). BikeCRM's Sprint Bike, dubbed through the API (`POST /v1/dubbing`,
