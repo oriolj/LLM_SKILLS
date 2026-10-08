@@ -966,6 +966,12 @@ format**. Before step 3, check each one:
     collaborator invite, story) **only in the original-language publications**; every dubbed version
     is labelled as dubbed with the product's AI (EnaCast: "dubbed with EnaCast AI"), which is also its
     AI-disclosure label. Each language may have its own social accounts.
+  - **Two render traps that pass every check** (EnaCast episode, 2026-10-08): a hardware (VAAPI) decode used as
+    the verification pass silently dropped 1–19 frames at the joins of the joined file, with no error and
+    correct timestamps. Verify with a software decode and count frames (expected vs read, no timestamp gaps).
+    And an ffmpeg overlay of a single still image stopped being drawn after a long stretch where it was
+    disabled (the label vanished from a whole episode): loop the image (`-loop 1`) and measure that the
+    overlay is actually in the picture.
   - The camera's separate `.WAV` (DJI) is the camera's own mic recording: a **backup only** if a
     wireless mic fails, not a mic track (Oriol, 2026-10-07).
 - A batch run by agents stops when the session ends: each step is
