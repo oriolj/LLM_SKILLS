@@ -76,11 +76,13 @@ error). Organizations list only member projects.
 | Campaigns | `GET /api/campaigns/?project=…&status=…&archived=all` |
 | Campaign totals | `GET /api/campaigns/statistics/?project=<uuid>` (counts by status and `by_goal`) |
 | Campaign CSV (reading only, never a send list) | `GET /api/campaigns/{id}/export-accounts/?review_status=approved&fields=name,email,contact_email,status,score,score_label,language,relationship_types,…` (CSV; unknown field → 400). Never `review_status=all`: it brings back the rows you rejected. Send lists: § Send list |
-| Campaign inbox (latest message per account) | `GET /api/campaigns/{id}/inbox/` |
+| Campaign inbox (latest message per account) | `GET /api/campaigns/{id}/inbox/?tab=all` — same filters as the campaign-accounts list (`review_status`, `score_label` incl. `unscored`, `score_band`, `min_score` / `max_score` on the effective score, `search` = every word must match name / contact / email / note / directions; bad value → 400 keyed by the param); rows have `ai_score` and `effective_score` |
 | Messages (an account's whole conversation, every campaign + none) | `GET /api/messages/?lead=<account_id>&ordering=-sent_at,-created_at,-id&page_size=50` (newest first); older: `?before=<next_before from the previous response>`; filters `channel=whatsapp,email`, `direction=inbound`, `campaign=<uuid>\|none` |
 | Next steps (due dates, ours / theirs) | `GET /api/next-steps/?account=<id>` or `?project=…&assignee=me&status=open&due=overdue,today` (§ Next steps) |
 | My reminders (what the bell shows) | `GET /api/next-steps/reminders/` |
 | Funnel | `GET /api/dashboard/stats/?project=<slug>` or `?organization=<slug>`; per product/campaign `GET /api/dashboard/breakdown/?project=<slug>` |
+| What's due / waiting today (one call) | `GET /api/dashboard/today/?project=<slug>&scope=mine\|team&today=YYYY-MM-DD` (§ Today) |
+| Campaign scoring runs | `GET /api/dashboard/scoring-runs/?project=<slug>` (running, or started in the last 14 days; progress, cost) |
 
 Pagination: `count/next/previous/results`, default 20, **max 100**
 (`page_size=500` silently gives 100). Always loop on `next` — except
@@ -90,7 +92,7 @@ Garbage query params answer **400 keyed by the param** (since 2026-10-05
 the csv filters too, e.g. `{"channel": "Unknown value(s): …"}`); dates
 must be 1900–2999.
 
-Humans see the same data at `/dashboard/accounts/<id>` (Next steps card,
+Humans see the same data on Today (`/dashboard`), at `/dashboard/accounts/<id>` (Next steps card,
 Brief & Notes, Conversations card → `/dashboard/accounts/<id>/conversations`),
 `/dashboard/follow-ups` and the topbar bell. Link those when reporting.
 
@@ -247,6 +249,298 @@ exactly what the list shows (search, country, status, relationship_types,
   a request body that isn't a JSON object → 400 on every endpoint.
 - Merges keep the most advanced status (do-not-contact wins) and refuse a
   `status` override (400); change status afterwards with `change-status`.
+
+## Reviewing campaign accounts: Shortlist / Defer / Not a fit (2026-10-08, not deployed yet)
+
+The UI words are **Shortlist / Defer / Not a fit**; the API values stay
+`review_status=approved` / `deferred` (new) / `rejected` / `pending`. The
+send list above (`review_status=approved`) = the shortlist.
+- **One account**: `POST /api/campaign-accounts/{id}/approve|reject|defer|reset/`
+  (`reject` / `defer` take an optional `reason`, ≤ 500 stored; `reject`
+  also appends `Rejected: <reason>` to the row's notes). A `PATCH
+  {"review_status": …}` is the same manual decision, ALWAYS recorded —
+  on a row a bulk choice set it turns it `manual` even at the same
+  status (undoing that bulk batch then keeps it). A PATCH of other
+  fields (notes, contact) never changes the review status. Payload carries
+  `review_source` (`manual` / `bulk` / `""`), `reviewed_at`,
+  `reviewed_by_email`, `review_reason`.
+- **Only per-account decisions teach the scoring** (the calibration
+  few-shot reads `review_source=manual`). Shortlisting rows one by one
+  through the single endpoints IS a fit judgement, so do it only for
+  accounts you actually judged; for a triage of a band use bulk.
+- **Bulk**: `POST /api/campaigns/{id}/bulk-review/` with `decision`
+  (`shortlist|defer|not_a_fit|pending`) and either `ids` (campaign-account
+  ids) or `filters` (`review_status`, `score_label` incl. `unscored`,
+  `score_band` `8-10|6-8|4-6|0-4|unscored`, `min_score` / `max_score`,
+  `search`) plus optional `top_n` (best effective score first). Always
+  `"dry_run": true` first (answers `matched`, `changed`, `unchanged`,
+  `by_previous_status`), then the real call with `expected_count` =
+  `matched` (409 → recount). Max 10,000 rows (400 with `matched`; use
+  `top_n` or narrow). Keep the `batch_id`: `POST …/undo-review/
+  {"batch_id"}` reverts rows nobody changed since; `GET …/review-batches/`
+  lists the last 20. Ask Oriol before a bulk decision on a whole
+  campaign.
+- **Bands**: `GET /api/campaigns/{id}/score-bands/` — counts per band
+  (effective score = per-campaign override else AI score; `[min,max)`,
+  8-10 includes 10) × review status, plus totals. Use it for counts,
+  never page through the list to count.
+- **List**: `/api/campaign-accounts/?campaign=…&score_band=8-10&ordering=-effective_score`;
+  `min_score` / `max_score` read the effective score (since 2026-10-08);
+  `review_status` and `score_label` are csv (unknown → 400). An unscored
+  row has `ai_score: null`, `score_label: ""` — it is NOT a mismatch.
+
+## Scoring: estimate before you start (2026-10-08, not deployed yet)
+
+Scoring spends LLM money. Before `POST /api/campaigns/{id}/score_leads/`
+read `GET /api/campaigns/{id}/scoring-estimate/?force=false` (answers
+`accounts_to_score`, `batches`, `model`, `est_cost_usd` (null = no
+price), `basis` `history|heuristic`, `note`), tell Oriol the count and
+cost, and start with `{"expected_count": <accounts_to_score>}` (409 when
+the worklist changed → re-estimate). Project-wide:
+`GET /api/campaigns/scoring-estimate-remaining/?project=<slug>` then
+`POST /api/campaigns/batch-score-remaining/?project=<slug>` with
+`expected_count`. Without `expected_count` both still start (old
+behaviour), but don't rely on that. A plain run scores only accounts
+without a score; to refresh out-of-date scores (`stale: true`) use
+`?stale_only=true` on the estimate and `{"stale_only": true,
+"expected_count": N}` on `score_leads` (rescores just those; `force`
+rescores everything and wins). `expected_count` must be an integer ≥ 0
+(a boolean / float → 400).
+
+## Fit score on accounts (2026-10-08, not deployed yet)
+
+`GET /api/accounts/?project=…&fit_product=<product uuid>&fit_goal=sales&min_fit=7&ordering=-fit_score`
+adds `fit {score, label, scored_at, product_id, goal, criteria_version, current_criteria_version, stale}` to each row (null
+without `fit_product`); `fit=scored|unscored` filters; `min_fit` /
+`max_fit` / `fit` without `fit_product` → 400. The same params work in
+`bulk-add-from-filter`'s `list_query` ("add every 7+ account"). The
+account detail has `fit_scores` (every product × purpose score with its
+reasons).
+
+## Fit criteria and ranking without a campaign (2026-10-08, not deployed yet)
+
+**Fit criteria** = what a product looks for, per purpose (goal). One row
+per (product, goal) at `/api/fit-criteria/` (same as `/api/icps/`):
+`?project=&product=&goal=`; rows carry `version` and `status`
+(approved|draft). Generate without a campaign:
+`POST /api/fit-criteria/generate/ {"product": "<uuid>", "goal": "sales", "hints": "one per line"}`
+→ 202 (async; poll the list for the row / a higher `version`). A PATCH
+of name / summary / industries / job_titles / pain_points / size is a
+new version; `GET /api/fit-criteria/{id}/versions/` lists them. Scores
+made with an older version say `stale: true` (`fit`, `fit_scores`,
+campaign-account rows; `score-bands` `totals.stale` counts them). The
+`fit` block now also has `criteria_version`, `current_criteria_version`.
+
+**A campaign with a scoring brief has its own scores** (`fit_criteria
+{key: "campaign:<id>", own_brief: true}` on the campaign). Rescoring it
+never changes other campaigns, the Accounts fit column or Today, and a
+shared rescore never changes its own scores. Where it has no own score
+yet (brief just added, accounts added later) it shows the shared score as
+`stale: true` with `score_source: "shared"` (own scores say
+`"campaign"`, unscored `null`); rescore those with `stale_only`.
+
+**Rank a list (no campaign)** — always estimate, tell Oriol count and
+cost, then start with a cap:
+
+1. `POST /api/ranking-runs/estimate/ {"project": "<slug>", "product": "<uuid>", "goal": "sales", "list_query": {...accounts-list params...}}`
+   (or `"account_ids": [...]`, a non-empty list; exactly one; a
+   `list_query.project` other than the run's → 400 keyed `list_query`)
+   + optional `force`,
+   `sample_size` → `accounts_matched`, `accounts_to_score` (excludes
+   up-to-date scores unless `force`), `est_cost_usd`, `over_limit`
+   (max 20,000), `pricing_available`, `est_enrichment_reserve_usd`
+   (website discovery set aside before scoring; NOT in `est_cost_usd` —
+   the cap must cover both). No fit criteria → 400 "Generate fit
+   criteria first."
+2. `POST /api/ranking-runs/` same body + `"max_cost_usd": <USD, required>`
+   + `"expected_count": <accounts_to_score>` → 201 run. 409 = the count
+   changed (re-estimate) or a run of that product + goal is already
+   running (`run_id`). 400 `code: "no_pricing"` = the model (or, with a
+   Gemini key, the website-discovery model) has no price: the cap can't be
+   enforced, so the run won't start — tell Oriol, don't retry. The run
+   keeps its `model` to the end. Try `"sample_size": 50` first on a new
+   product.
+3. Follow `GET /api/ranking-runs/{id}/` (`status`, `progress`,
+   `spent_usd` — live: every recorded call adds its cost at once, rounded
+   up to 4 decimals; the exact sum at the end —, `stop_reason`:
+   `budget_reached` → ended `partial`, what
+   it scored is kept; `usage_not_recorded` → a call's cost couldn't be
+   recorded, the run stopped). `POST /api/ranking-runs/{id}/cancel/`
+   stops it within one batch.
+4. Act: `results_query` is the accounts-list query of what it scored,
+   best first (`?ranking_run=<id>&fit_product=…&ordering=-fit_score`);
+   pass it (plus e.g. `min_fit: 8`) as `list_query` to
+   `bulk-add-from-filter` to put the best into a campaign.
+
+The cap counts everything the run pays for (website discovery during
+enrichment and the scoring calls). The run checks its spend before every
+AI call (website lookups and scoring batches) and stops when the cap is
+reached. Calls already in flight finish, so the final spend can go a
+little over the cap, typically by less than one batch. Several chunks run
+in parallel, so the overshoot can be up to one call per running chunk.
+Set the cap with that margin, and never tell Oriol a run "can't" pass it.
+
+Merges and deletes during or after a run are safe: an account deleted
+before the run scored it counts in `counts.gone`, one merged into another
+in `counts.merged` (the survivor is scored only if it is itself in the
+run); already-scored rows keep their outcome; `run_processed` still
+reaches `run_total`. A run copy that lost its chunk to another worker
+writes nothing (no stale scores over newer ones).
+
+## Importing files and cleaning duplicates (2026-10-08, not deployed yet)
+
+Import wizard (multipart upload, then JSON):
+1. `POST /api/accounts/import_preview/` (`project_slug`, `file` .csv/.xlsx,
+   ≤ 10 MB, ≤ 200,000 rows) → `file_id`, `headers`, plus
+   `suggested_mapping` `{header: field|"skip"}` (from the header names,
+   free and deterministic), `unmapped_columns`, `column_samples` and
+   `target_fields` `[{value, label}]`. Start from `suggested_mapping`.
+2. Optional: `POST /api/accounts/import_suggest_mapping/`
+   `{file_id, columns: [<unmapped headers>], taken_fields: [<fields in use>]}`
+   — one LLM call (costs money, `llm` throttle); only maps the asked
+   columns and never a taken field. Skip it when the headers mapped.
+3. `POST /api/accounts/import_mapped/` `{file_id, project_slug, column_mapping,
+   dry_run?}` — always `dry_run: true` first. ≥ 2,000 rows → 202 with
+   `research_id`; poll `GET /api/research/{id}/`.
+- The full list of skipped rows is a CSV:
+  `GET /api/research/{id}/import-report.csv/?kind=invalid` (rows dropped
+  as invalid / rejected, with errors) or `?kind=duplicates` (row, reason,
+  matched value, `existing_account_id`). Keep the trailing slash. Counts
+  ride on `configuration.import_report_counts` and on the sync response.
+  ≤ 10,000 rows per kind.
+- The accounts one import created: `GET /api/accounts/?import_research=<research id>`
+  (the same set "Undo this import" deletes); works in `bulk-add-from-filter`'s
+  `list_query` too ("add everything from that file to the campaign").
+  Check the run's `import_membership` (on `GET /api/research/{id}/` and
+  the list): `"exact"` (every import since 2026-10-08) = exactly the
+  accounts that run created (a duplicate re-import selects nothing);
+  `"approximate"` = an older run, matched by file fingerprint + time
+  window, which can include another import of the same file — say so
+  before acting on it.
+- Undo: `POST /api/research/{id}/revert-import/` (destructive, ask Oriol
+  first). Exact runs delete only their own accounts. An approximate run
+  whose window shares accounts with another old import of the same file
+  answers **400, nothing deleted** ("…can't be told apart…") — don't
+  retry; list the accounts and decide with Oriol which to delete.
+
+Duplicates (no project-size limit any more):
+- `POST /api/accounts/find-duplicates/` `{project, mode: "exact"|"fuzzy",
+  page, page_size ≤ 100, campaign?}` → `duplicate_groups[]` (`reason`
+  = `name_city_exact` 95 / `phone_match` 90 / `website_domain` 85 /
+  `google_place_id` 100 / `fuzzy_name` = the WEAKEST name similarity in
+  the group, so a `confidence ≥ 90` filter holds for every member),
+  `size`, `total_groups`,
+  `num_pages`, `counts_by_type`. One account appears in one group.
+- Before merging: `POST /api/accounts/merge-preview/` for one group, or
+  `POST /api/accounts/bulk-merge/` with `dry_run: true` (≤ 100 groups) to
+  see each survivor (oldest) and golden record. Merges are irreversible
+  and delete the absorbed accounts: show Oriol the preview and get a yes
+  before any real merge.
+- Merges and campaign decisions: when both accounts are in one campaign
+  and only the absorbed one was decided, the survivor takes the decision
+  WITH its review events, so `review-batches` counts hold and
+  `undo-review` of that batch reverts the survivor. A survivor that was
+  already decided keeps its decision; the absorbed one's is dropped
+  (listed in `merge_history[-1].folded_review_decisions`, each dropped
+  event archived under `events`: from / to status, source, reason,
+  reviewer id `by_id`, batch id, timestamps) and undoing its batch never
+  touches the survivor.
+
+## Today and Runs (2026-10-08, not deployed yet)
+
+"What should we do today / who is waiting on us" = ONE call:
+`GET /api/dashboard/today/?project=<slug-or-uuid>&scope=mine|team&today=<local YYYY-MM-DD>`
+(`project` required; unknown / foreign → 400; bad `scope` / `today` → 400;
+`&sections=due_steps,replies_waiting` returns only those sections,
+unknown → 400).
+Four sections, each `{count, results}` with the exact count and the top N:
+
+- `due_steps` (20; + `overdue` / `today` / `tomorrow` counts) — open next
+  steps due on or before tomorrow, in the `/api/next-steps/` row shape.
+  `scope=mine` = assigned to the token's user — for an agent token that
+  is usually Oriol; use `team` to see everyone's.
+- `replies_waiting` (20, newest first) — accounts whose latest sent
+  inbound message has no sent outbound at or after it (drafts don't
+  count), not archived, not `do_not_contact`. Team-wide. Heuristic: an
+  answer on any channel clears it. **Logging your send (§ Logging a send
+  and a reply) is what clears a reply** — check this list before saying
+  "nobody answered X".
+- `clients_to_contact` (10) — Client Pulse overdue clients; `enabled:
+  false` + empty when the project's pulse is paused.
+- `best_prospects` (10) — highest fit scores of `prospect` accounts
+  nobody is working (never contacted, no open next step, not shortlisted
+  or contacted in any campaign, not "not a fit" or deferred for that product + goal,
+  no opt-out for that goal, not a pure marketing partner; `mismatch`
+  never). One row per account (its best eligible score, deduped before
+  the top 10 is cut, so 10 rows whenever `count` ≥ 10) with
+  `product_name`, `goal`, `score`, `score_label`, `top_reason`; `count` =
+  distinct accounts.
+
+Scoring runs: `GET /api/dashboard/scoring-runs/?project=` → `results[]`
+`{campaign_id, campaign_name, status, run_total, run_processed, progress,
+started_at, finished_at, summary{error, cancelled_at, newly_scored, …},
+api_cost{total (USD string), currency, call_count, total_input_tokens,
+total_output_tokens, by_model[]}}` (the standard api_cost block); cancel one with
+`POST /api/campaigns/{id}/cancel-scoring/`. Imports / enrichment /
+searches stay on `GET /api/research/?project=`.
+
+UI (link these when reporting): Today = `/dashboard`; Runs =
+`/dashboard/runs` (the old `/dashboard/tasks` redirects there); Insights =
+`/dashboard/insights?tab=funnel|breakdown|usage` (old `/dashboard/stats`
+and `/dashboard/usage` redirect). Sidebar: Today · Accounts · Campaigns ·
+Clients · Marketing · Insights · Runs · Settings.
+
+## Marketing actions and results (2026-10-08, not deployed yet)
+
+Contract: [API.md § Marketing actions and results](../../../humans2agents/agents/leadhunter/backend/docs/API.md#marketing-actions-and-results-m2-2026-10-08).
+An **action** = one collaboration / placement with a partner (reel,
+article, fair booth, newsletter slot…). It is a channel with
+`action_type` set, so it lives on `/api/channels/`; `account` = the
+partner.
+
+- List: `GET /api/channels/?project=<slug>&is_action=true[&partner=<account uuid>&action_stage=…&action_type=…&search=…]`.
+  Each row has a `results` block: `reach` (manual), `clicks`, `accounts`
+  (attributed, partners excluded), `trials` (in trial now or ever),
+  `clients` (status customer now), `revenue_*`, `cost_*` (in-kind
+  included), `cost_per_client`, `roi_ratio` (null + reason when currencies
+  differ). Add `&summary=none` for slim option rows.
+- Create: `POST /api/channels/ {"project", "label": "<name, required>",
+  "action_type": "event_booth|post|reel|video|article|ad|podcast|newsletter|event_talk|sponsorship|giveaway|affiliate_deal|other",
+  "account": "<partner uuid>", "started_on", "published_on", "ended_on",
+  "manual_reach", "content_links": [...], "promo_code"}`; `kind` is
+  optional (defaults from the type: event_* / sponsorship → event, post /
+  reel / video / giveaway → influencer, affiliate_deal → referral, else
+  partner). The stage starts at `idea`; change it with
+  `POST /api/channels/{id}/change-action-stage/ {"stage": "proposed|agreed|scheduled|published|done|cancelled", "reason"}`
+  (PATCH ignores it). In-kind costs: `POST /api/channel-expenses/` with
+  `"in_kind": true` at list price.
+- **Attribute accounts to an action (first touch, one per account)**:
+  `POST /api/channels/{id}/attribute-accounts/` with ONE of `account_ids`
+  / `names` (matched ignoring case, accents, punctuation) / `list_query`
+  (+ `all: true` if it narrows nothing, else 400 with `matched`; a
+  `list_query.project` other than the channel's → 400 keyed `list_query`;
+  `account_ids` must be non-empty and may name archived accounts).
+  **Dry run by default** (it ignores `expected_count`): show the
+  plan (`counts.will_attach / already_this / has_other_channel`,
+  `unmatched_names`, `ambiguous_names`) to Oriol, then repeat with
+  `"dry_run": false, "expected_count": <matched>` (409 if the set
+  changed). Accounts on another channel are skipped unless
+  `"overwrite": true`. `acquired_at` is set only where empty
+  (`acquired_on`, else the action's start / publish day). Status is not
+  touched. Server-side the same is `manage.py attribute_accounts_to_action
+  --project <slug> --action <uuid> --names-file f.txt` (dry run; `--commit`
+  writes) — e.g. the Sea Otter Europe Girona 2026 list on bikecrm: dry
+  run, Oriol approves the printed list, then `--commit`.
+- One account: PATCH `/api/accounts/{id}/ {"acquisition_channel_obj": "<action uuid>"}`
+  (the enum follows the action's kind).
+- Who it brought: `GET /api/channels/{id}/attributed-accounts/`.
+- Dashboard: `GET /api/marketing/summary/?project=&period_start=&period_end=`
+  (actions by action date; totals, `by_action_type`, `by_partner_kind`,
+  `top_actions`). Per partner: `GET /api/marketing/partner-results/?project=&accounts=<≤100 uuids>`.
+- UI: Marketing dashboard `/dashboard/marketing`, Actions
+  `/dashboard/marketing/actions`, an action `/dashboard/marketing/actions/<id>`.
+- Auto-attach never puts an enum-only account on an action; attribution
+  to actions is always explicit.
 
 ## Logging a send and a reply
 
