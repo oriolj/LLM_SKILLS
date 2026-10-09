@@ -870,7 +870,7 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   them with the static `AggregatorRegistry.aggregate()`: prom-client's
   `clusterMetrics()` pull waits for every worker and rejects the whole scrape
   after 5 s, so it goes empty exactly when an event loop is starved; export a
-  per-worker snapshot-age gauge instead. Count at the top of the raw
+  per-worker snapshot-age gauge instead. Its alerts (hq-monitoring `enacast-astro.yml`, group `hq;enacast-astro`, 2026-10-09) are the reference set for such an origin: sheds, 5xx ratio including `stream_error` with a volume guard, p95 of non-asset responses, saturation PER WORKER (`MAX_INFLIGHT` is per worker, so compare in-flight to max on the same series before `max by (host)`), and a stuck/missing worker as snapshot age > 120 s OR `workers_listening < workers_configured` (a dead worker's series leave with it, so the age alone never sees a crash) OR `up == 1 unless` the primary's series (metrics off behind a live router); all OK on NoData, replayed against 3 days of data before deploying. Count at the top of the raw
   `request` handler, before any admission queue, or 503 sheds never reach the
   counter; wrap `globalThis.fetch` in the worker before importing the app to
   count every upstream call in one place. Two field facts from it: behind a
