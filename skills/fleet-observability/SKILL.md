@@ -748,6 +748,49 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     `record_current_stats.cycle`, ~25 + 2·rows spans after suppression,
     down from ~2,500), crashed passes as error traces; the host agent's
     decision window is raised to 90 s for it.
+- **Tenth reference (enantena scope, STAGED 2026-10-09 — implemented and
+  tested, not deployed; check the repo's USER_TODO before copying): EnaCast
+  backend** (`EnaCast/enacast`, Coolify **compose** resource on v5, 16 SYNC
+  gunicorn workers, an in-stack Caddy that proxies EVERYTHING to `web:8000`).
+  Code `gunicorn_conf.py` + `enacast_backend/observability/{metrics,exporter,
+  celery_metrics,prom_multiproc}.py`; hub job `enacast-app`, dashboard
+  `enacast/enacast/enacast-backend.json`, alert group `hq;enacast-web`. What it
+  adds:
+  - 🔴 **gunicorn takes `SERVER_NAME`/`SERVER_PORT` from the Host header**
+    (gunicorn 23 `http/wsgi.py` `create()`), so a Django view that gates
+    `/metrics` on "arrived on the metrics port" is spoofable by any client that
+    sends `Host: x:9464` through the public proxy. Don't gate by port inside
+    Django.
+  - **The `/metrics` listener lives in the gunicorn MASTER**: `when_ready`
+    starts a wsgiref `ThreadingMixIn` server in a daemon thread that renders
+    `MultiProcessCollector` under the fold's shared lock (503 on timeout) plus
+    per-scrape Redis collectors — the prometheus-flask-exporter
+    `start_http_server_when_ready` shape. No Django in the path (no
+    `ALLOWED_HOSTS`, no spans, no access-log line), and with sync workers a
+    scrape no longer queues behind user requests when the pool is saturated
+    (it would read as "target down" exactly then). `post_fork` closes each
+    worker's inherited copy of the listening socket: verified that after a
+    `kill -9` of the master the port REFUSES (curl exit 7) while orphan
+    workers still run, instead of accepting and hanging. The fold's flock works
+    unchanged between the master's scrape thread and its SIGCHLD handler (two
+    opens of the lock file conflict even in one process).
+  - **Fold `summary` files too**: django_rq builds a Summary
+    (`rq_request_processing_seconds_total`) at import in every worker, so each
+    recycled worker left a `summary_<pid>.db` that Panotxa's
+    `MERGED_KINDS = ("counter", "histogram")` never folded. A multiprocess
+    summary is only `_count` + `_sum`, both additive. Run the local
+    `--max-requests 5` proof and `ls` the directory: it is what found it.
+  - Published as `"${TAILNET_IP:-127.0.0.1}:9464:9464"` on the compose `web`
+    service (+ `oj.metrics.port`, still contract-only). On Coolify the compose
+    interpolation of `ports:` reads the **build-time** env, so `TAILNET_IP`
+    must be build-time + runtime (same as `OTEL_EXPORTER_OTLP_ENDPOINT`).
+  - Route label = `resolver_match.route` (the URL pattern, = the traces'
+    `http.route`) with admin/udon/debug trees and the health probes collapsed:
+    597 possible values for 1,708 patterns, tested over the whole resolver.
+    Status as a class (`5xx`), and the 5xx/p95 rules exclude `route="health"`.
+  - Local proof: 3 workers, `--max-requests 5`, six rounds of `kill -9` on
+    every worker at once — scraped count = requests sent each round, the master
+    respawned every time, 10 files in the directory.
 - **Django management-command workers (`while True`, no Celery)** — the
   unscrapeable-container problem without a broker to hang signal hooks off
   (EnaStats `worker-stats` / `worker-radios`, 2026-09-08). Same answer as
