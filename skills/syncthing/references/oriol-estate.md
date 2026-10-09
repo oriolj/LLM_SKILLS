@@ -30,6 +30,10 @@ for d in r.findall('device'):
 PY
 ```
 
+`3YUBEUZ`=Fold7-fork is a second Syncthing install on the same Fold7
+(model `SM-F966B`, presumably the Syncthing-Fork app), added on minisforum
+2026-10-09 with introducer and auto-accept off and no folders shared yet.
+
 Known offenders: `QKSA3OR`=Fold7 (phone), `UQBVM7N`=xps13wc, `R42IZ47`=Boox,
 `HO7OJKA`=fw13pro, `M5CTZCN`=minisforum, `E4CQLHF`=X1yogaG9. IDs that resolve
 to nothing (`77GSROW`, `XW7CVUO`) are removed devices; their conflicts date
