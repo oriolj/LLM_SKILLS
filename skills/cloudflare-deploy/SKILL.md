@@ -235,6 +235,18 @@ Ràdio; record: `enacast/operations_history/2026-10-05-radioibi-laplana-cloudfla
 - **Testing cache from one machine**: consecutive requests reach different data centres (CDG, MRS,
   LIS, MAD within a minute), each with its own cache, so a MISS proves nothing. Prove a purge by
   `age`: once it has propagated, every HIT is younger than the purge.
+- **Hostnames in a zone you don't control (client domains chained through a CNAME you repoint) cannot
+  be pre-validated**: TXT needs their DNS, and the validation URLs Cloudflare gives for Google/SSL.com
+  are ACME `http://<host>/.well-known/acme-challenge/<token>` paths, which Vercel answers itself
+  ("Token not found"), so the old host cannot serve them. Their certificate starts only after the
+  switch: plan a gap. Measured 2026-10-09 (enacast-astro): 6–8 min when each unit is re-validated
+  (PATCH with the current `ssl` settings) right after DNS converges; ~20 min when the re-validation
+  waited for a whole 18-unit wave; one Google validation stayed `pending` with no error past 20 min.
+  Re-validate per unit ~5 min after ITS switch, keep waves small, and set the rollback limit with
+  that in mind. Check CAA on the client zones beforehand (the chain's end decides after the switch).
+- **Cloudflare can rotate a TXT DCV token by itself**: a hostname sat in `pending_validation` with no
+  error and `validation_records` showed one NEW value replacing the two published (2026-10-08). When a
+  TXT validation stalls, re-read `validation_records` and publish what it asks for now.
 
 ## 0d. R2 for Coolify backups — three traps, all hit on 2026-08-28
 
