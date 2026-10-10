@@ -158,6 +158,11 @@ Different from 0c (SSH for Coolify): here the tunnel carries visitors to an app.
      header** (see the coolify-deploy skill: the origin may refuse it), a purge, a real browser
      run. Your own workstation may resolve the OLD host for minutes (local/gateway cache): check
      `getent hosts` before trusting a browser test.
+- **Never `purge_everything` a zone that holds more than the thing you deployed** (2026-10-10, enacast-astro): the
+  deploy purged the whole `enacasthq.com` zone, which also serves `img.enacasthq.com` (imgproxy), so every deploy
+  threw away every generated image and the image service regenerated them all. Tag every response of the app
+  (`Cache-Tag: …,<app-tag>`, a global tag next to the per-tenant ones) and purge `{"tags": ["<app-tag>"]}`; tag purge
+  works on Free. Proof: purge the tag, a tenant page goes MISS while an image URL keeps its growing `age` and HIT.
 - **Cloudflare's cache survives a deploy of the origin** (Vercel's does not: the deployment is in
   its cache key). Cached HTML of the previous build then references hashed assets the new
   container may not have. Purge the served hostnames after every origin deploy
