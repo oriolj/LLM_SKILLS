@@ -1,8 +1,8 @@
 ---
 name: oj-codex-review
-description: Adversarial QA review by Codex, run in a herdr pane next to yours; the review comes back to this session when Codex finishes. Accepts a scope in words. Run only when the user types /oj-codex-review.
+description: Adversarial QA review by Codex, run in a herdr pane next to yours; the review comes back to this session when Codex finishes. Accepts a scope in words. Use when the user types /oj-codex-review, or asks in words for a Codex review of the changes ("have Codex review this", "adversarial review by Codex", "let Codex challenge today's commits"). For the whole ladder (simplify, code-review, security, Codex) use oj-review.
 argument-hint: "[scope: today | last 7 days | since master | last 3 commits] [focus]"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # /oj-codex-review — Codex challenges the change, in a pane you can watch

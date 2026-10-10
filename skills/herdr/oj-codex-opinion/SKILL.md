@@ -1,16 +1,17 @@
 ---
 name: oj-codex-opinion
-description: Ask Codex for its opinion on what we are discussing right now — the approach or decision on the table — in a herdr pane that stays open so the user can keep chatting with Codex. Like /oj-codex-ask with the question prefilled. Run only when the user types /oj-codex-opinion.
+description: Ask Codex for its opinion on what we are discussing right now — the approach or decision on the table — in a herdr pane that stays open so the user can keep chatting with Codex. Like /oj-codex-ask with the question prefilled. Use when the user types /oj-codex-opinion, or asks in words for Codex's opinion on the current discussion ("get Codex's take on this", "what would Codex do here", "ask Codex if this approach is right").
 argument-hint: "[optional angle, e.g. 'mainly the data model']"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # /oj-codex-opinion — Codex's take on what we are discussing
 
 The question is built into `oj-codex opinion` (is the approach right, what
 would it do differently, which risks we miss, which option it would pick);
-`$ARGUMENTS` only narrows the angle. ONE Bash call, as a task with
-`run_in_background: true` (description "Codex opinion"), 1. Write the context with the **Write tool** to a new file of your own (in
+`$ARGUMENTS` only narrows the angle.
+
+1. Write the context with the **Write tool** to a new file of your own (in
    your scratchpad directory if this session has one, else under a fresh
    `mktemp -d`). Not a heredoc: a line in the context that equals the
    heredoc's end marker would end it and run the rest as shell commands.

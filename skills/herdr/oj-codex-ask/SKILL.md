@@ -1,8 +1,8 @@
 ---
 name: oj-codex-ask
-description: Ask Codex for a second opinion about what we are working on right now, in a herdr pane that stays open so the user can keep chatting with Codex there. Run only when the user types /oj-codex-ask.
+description: Ask Codex for a second opinion about what we are working on right now, in a herdr pane that stays open so the user can keep chatting with Codex there. Use when the user types /oj-codex-ask, or asks in words for a second opinion from Codex on a question ("ask Codex", "what does Codex think about X", "get a second opinion from Codex").
 argument-hint: "<question for Codex>"
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # /oj-codex-ask — a second opinion from Codex, in a pane that stays open
