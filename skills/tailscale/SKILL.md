@@ -333,6 +333,20 @@ LAN and `:port` tailnet access stay open until you change the bind.
   NetworkManager dispatcher on the home SSID, and run `ip route get
   <lan-ip>` before blaming ufw — a half-loaded ufw on a kernel with
   missing modules produced a convincing second suspect that day.
+  **Third time, 2026-10-10** (Jellyfin on fw13pro, Android TV "connection
+  timed out"; the dispatcher had never been installed). This time rp_filter
+  let the SYN in: `ss -tan` showed the TV's connections stuck in
+  `SYN-RECV` (SYN-ACK leaving via `tailscale0`), ufw logged nothing for
+  the port, and the TV had streamed fine an hour earlier. The dispatcher
+  now lives in this skill:
+  [scripts/50-home-lan-over-wifi](scripts/50-home-lan-over-wifi). It keys
+  on holding a `192.168.7.x` address, not the SSID, so the 2.4/5 GHz
+  networks both count. Install with `sudo install -m 755 -o root -g root
+  scripts/50-home-lan-over-wifi /etc/NetworkManager/dispatcher.d/`, and
+  add the rule by hand once for the current connection (`sudo ip rule add
+  to 192.168.7.0/24 lookup main priority 5000`); the script handles every
+  later connect and disconnect.
+  Verify: `ip route get 192.168.7.<x>` says `dev wlan0`.
 - **`--accept-routes` on, LAN still unreachable → nobody is advertising
   it.** Don't debug the client; list the routes the tailnet actually
   offers: `tailscale status --json` → each peer's `PrimaryRoutes` /
