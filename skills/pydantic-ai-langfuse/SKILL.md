@@ -138,7 +138,11 @@ endpoints answer 403, so the SDK logs `Failed to export span batch code:
 403 … Ingestion suspended` at ERROR on every flush (dozens an hour in Loki
 and the error tracker). **Prompt management and the read API keep working**,
 so an app that fetches its prompts from Langfuse is not down, and the usage
-can still be audited.
+can still be audited. To wait for the reset without the error noise, set the
+SDK's own `LANGFUSE_TRACING_ENABLED=false` on every process and redeploy: no
+spans are created, `@observe`d functions and `get_prompt` keep working
+(verified on 3.8.1). Record the revert date where the owner will see it; a
+forgotten flag is a project with no LLM traces.
 
 **The leak.** The Langfuse SDK attaches its span processor to the GLOBAL
 OpenTelemetry `TracerProvider`. In a project that also traces to Tempo, that
