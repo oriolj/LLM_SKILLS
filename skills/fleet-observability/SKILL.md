@@ -1626,8 +1626,14 @@ tests), and pytest-django's DB connection predates the instrumentor
 (`connection.close()` before the request or no DB spans appear).
 **EnaChat lessons** (`EnaCast/enasuite` `enachat/`, 2026-09-05): a
 Langfuse helper that builds its OWN `OTLPSpanExporter` (not the Langfuse
-client) needs the LIW-style `_LLMSpansOnly` wrapper whatever the langfuse
-version; a Django app with **no `LOGGING` dict at all** silently inherits
+client) needs an `_LLMSpansOnly` wrapper whatever the langfuse version, since
+the SDK's v4 filter guards only the SDK's own processor. 🔴 The wrapper must
+**subclass `SpanProcessor`** (the enasuite copies do): the duck-typed class in
+LLM Index Watcher, Licita Radar and LeadHunter has no `_on_ending`, which the
+SDK calls on every span end, so it raises `AttributeError` the day Langfuse
+keys and tracing are both on (found dormant in all three, 2026-10-10; their
+tests never ended a span through it). Better on v4: no raw exporter, one
+`Langfuse()` after `init_tracing()` (pydantic-ai-langfuse skill); a Django app with **no `LOGGING` dict at all** silently inherits
 `DEFAULT_LOGGING`'s `mail_admins` — the audit greps for `LOGGING`
 explicitly; multi-tenant apps serve on the TENANT host
 (`santjust.chat`), so the verification burst must hit that host, not the

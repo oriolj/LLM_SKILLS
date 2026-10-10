@@ -112,11 +112,21 @@ def report(api: Api, since: dt.datetime) -> None:
     units = t_sum + o_sum + scores
     print(f"\nsince {z(since)}: {t_sum} traces + {o_sum} observations + {scores} scores = {units} billable events")
     print(f"per day over {days:.1f} days: {units / days:,.0f}   per 30 days at this rate: {units / days * 30:,.0f}")
+    if rows and (active := len(rows)) < days * 0.8:
+        # A project that only started (or only runs some days) is under-projected by the line above.
+        print(f"events on {active} of those days: {units / active:,.0f} per active day, "
+              f"{units / active * 30:,.0f} per 30 days if every day were one")
     if o_sum:
         per_trace = o_sum / max(t_sum, 1)
         print(f"observations without a model: {n_sum} ({n_sum / o_sum:.0%}); observations per trace: {per_trace:.1f}")
         if per_trace > 5 and n_sum / o_sum > 0.5:
             print("-> more than 5 spans per trace and most of them not LLM calls: run --scopes <busy day>")
+
+
+def scope_name(metadata: dict) -> str:
+    # SDK v3 spans carry {"scope": {"name": ...}}; v4 spans carry the flat key "scope.name".
+    nested = metadata.get("scope")
+    return (nested.get("name") if isinstance(nested, dict) else None) or metadata.get("scope.name") or "?"
 
 
 def scopes(api: Api, day: str) -> None:
@@ -131,7 +141,7 @@ def scopes(api: Api, day: str) -> None:
         for o in d["data"]:
             if o["id"].startswith("t-"):
                 continue  # the trace itself, listed as a row; not an observation
-            scope = ((o.get("metadata") or {}).get("scope") or {}).get("name") or "?"
+            scope = scope_name(o.get("metadata") or {})
             by_scope[scope] += 1
             names[(scope.rsplit(".", 1)[-1], (o.get("name") or "")[:50])] += 1
         cursor = (d.get("meta") or {}).get("cursor")

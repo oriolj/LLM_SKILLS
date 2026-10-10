@@ -207,16 +207,72 @@ NutriLens `backend/config/tracing.py` (`_provider_class`,
    Langfuse (reproduced in review). Tracing first is an invariant to keep,
    not a case the check handles.
 
-`langfuse>=4` exports only Langfuse and GenAI scopes by default
-(`should_export_span` to customise); the wrapper is then redundant but
-harmless, and the same test tells you whether the upgrade kept the property.
-Recheck the wrapper then: it delegates `on_start`, `on_end`, `force_flush`
-and `shutdown`, and inherits the base no-op for OpenTelemetry's newer
-`_on_ending` hook, which the 3.8.1 processor does not use.
+**SDK v4 filters by default; v3 does not** (read in 4.0.1, 4.14.x and 4.15.x
+and reproduced with in-memory exporters, 2026-10-10). v4 still adds its
+processor to the app's global provider (`_client/resource_manager.py`,
+`_init_tracer_provider`), but `LangfuseSpanProcessor.on_end` exports a span
+only when `is_default_export_span` says so (`_client/span_filter.py`): scope
+`langfuse-sdk`, or any attribute starting with `gen_ai`, or a scope in the
+fixed LLM-instrumentation list (`openinference`, `litellm`,
+`opentelemetry.instrumentation.openai`, `pydantic-ai`, …). Each span is judged
+alone, so a psycopg span inside a Langfuse span is dropped; no env var changes
+the filter, only `should_export_span=` on the client. Consequences:
 
-The OTel-exporter pattern above (`init_langfuse()` setting its own global
-provider) has the same exposure the day someone adds Django or database
-instrumentors to that provider: everything on it goes to Langfuse.
+- A v4 project with Tempo tracing needs no provider wrapper. It needs a
+  **test**, because its safety is an SDK default: emit a span from an
+  `opentelemetry.instrumentation.psycopg` tracer next to an LLM span and
+  assert what the Langfuse exporter receives. Pin `langfuse>=4,<5`.
+- Traces arrive unnamed with a dangling parent id when their root was a
+  filtered Django or Celery span. Expected; name the trace from the LLM span.
+- On v3, port the provider filter. Its allow-list must name every scope the
+  project relies on: `langfuse-sdk`, plus `pydantic-ai` when
+  `Agent.instrument_all()` feeds Langfuse.
+- When writing any `SpanProcessor` wrapper, **subclass
+  `opentelemetry.sdk.trace.SpanProcessor`**. The SDK calls `_on_ending(span)`
+  on every registered processor at every span end; a duck-typed class with
+  only `on_start` / `on_end` / `shutdown` / `force_flush` raises
+  `AttributeError` there. EnaArchive went down on this on 2026-09-14, and three
+  more projects carried the same class unnoticed, because their tests counted
+  processors and never ended a span through the wrapper.
+
+**A hand-made OTLP exporter to Langfuse has no filter at all.** The
+"OTel exporter pattern" above (`OTLPSpanExporter` to
+`/api/public/otel/v1/traces` in a `BatchSpanProcessor`) exports whatever the
+provider carries. Rules for it:
+
+- Do not make that provider global. Keep it private to PydanticAI:
+  `Agent.instrument_all(InstrumentationSettings(tracer_provider=provider))`,
+  built with `sampler=ALWAYS_ON`. Then no instrumentor added later can reach
+  it (H2A Accountant sets it global: clean today only because nothing else
+  emits spans).
+- Do not run it NEXT TO the SDK. A project that has both the raw exporter and
+  an SDK client (`@observe`, `get_client()`) sends every LLM span twice, and on
+  v3 its own filter on the raw exporter hides that the SDK's processor is
+  unfiltered. On v4 prefer one `Langfuse()` created after `init_tracing()` plus
+  `instrument_all()`, and delete the raw exporter.
+
+**A lazily created client makes the leak intermittent, which hides it.**
+EnaArchive (v3) filtered its raw exporter correctly and still leaked: the
+SDK's default client is created by the first `@observe` call *in each
+process*, and from then on that process exports everything until it is
+recycled. It leaked for 42 hours after ten photo tasks ran, then stopped when
+the Celery children hit `max-tasks-per-child`; 84 of its 85 traces were
+periodic tasks with no LLM call. "Only two days of data" or "only some
+workers" is this pattern, not a fix.
+
+**Tests and local runs must not hold the production key.** A dev env file
+with the production `LANGFUSE_*` values makes every pytest run write to the
+production project: one project's whole volume (24,000 events a month, and
+$95 of $96 "cost" from a fixture) was its test suite. Blank `LANGFUSE_*` and
+set `LANGFUSE_TRACING_ENABLED=false` in the test settings or an autouse
+fixture, give dev its own project or no keys, and never commit a key in a
+prompt-upload script (three repositories had the production secret key in
+tracked files).
+
+**Query-string API keys end up in spans.** `httpx.get(url, params={"key":
+api_key})` puts the key in `http.url` of the httpx span, which goes to Tempo
+and, in a leak, to Langfuse. Send provider keys as headers
+(`x-goog-api-key` for Gemini).
 
 **Find out who used the quota** (read-only, works while suspended):
 
@@ -227,12 +283,19 @@ scripts/langfuse_usage.py --env <…> --since 14d --scopes <a busy day>
 
 It prints the key's project and organization, events per day, the share of
 observations with no model, observations per trace, and with `--scopes` one
-day split by instrumentation scope. Reading it: about one model-less
+day split by instrumentation scope (v3 rows store it as `metadata.scope.name`,
+v4 rows as the flat key `metadata["scope.name"]`; `resourceAttributes` /
+`resourceAttributes.service.name` tells which service sent a row when two
+share a project). For a project that only started recently it also prints the
+rate over the days that have data. Reading it: about one model-less
 observation per trace is the `@observe` wrapper and is fine; **more than ~5
 observations per trace, mostly model-less, is infrastructure leaking**. The
 org id in the mail's billing link identifies the organization; a key's
 organization comes from `GET /api/public/projects`. Run it for every project
-of that organization before blaming one. The plain list endpoints
+of that organization before blaming one. Events per LLM call are worth a look
+too: a trace + an `@observe` wrapper span + a hand-made generation + PydanticAI's
+`agent run` and `chat <model>` is 5 billable events for one call, and 2 is
+enough (the trace and one generation). The plain list endpoints
 (`/api/public/observations`, `/traces`) are limited to a few calls a minute;
 `/api/public/metrics/daily` and `/api/public/v2/observations` (cursor, 1,000
 per page) are the ones for volume.
