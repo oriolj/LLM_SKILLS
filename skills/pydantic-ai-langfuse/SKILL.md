@@ -286,7 +286,38 @@ cheap LLM call through the app's own traced function inside it, flush
 /api/public/traces/<id>` and list the observations by scope: only LLM scopes
 must be there. `/api/public/v2/observations` lags by minutes; the trace
 endpoint does not. Tempo's tail sampling may drop the probe trace, which is
-not a failure.
+not a failure. Do the `GET` from the same script, with the container's own
+`LANGFUSE_*` variables: no key file is needed on the workstation and no key
+is printed.
+
+**A function-level trace must not open before a model is called.** Langfuse's
+`@observe` opens its span when the function is entered, so a guard that
+returns early, a cache hit, a validation error, or a function that hands its
+model calls to a thread pool (where the caller's span is not the parent) each
+leave a billable trace with no LLM call in it. Either put `@observe` on the
+function that does nothing but call the model, or use a lazy wrapper: the
+decorator only stores the trace name in a `ContextVar`, and the one helper
+every model call goes through opens the span (outermost decorated function
+first) right before the call; the decorator closes it on exit. Reference:
+LeadHunter `common/langfuse_config.py` (`try_observe`, `open_pending_trace`)
+and `billing/llm_tracking.py` (`run_agent_tracked`), tests in
+`tests/test_tracing.py` (no model call sends nothing; thread pool leaves no
+empty parent; nested functions make one trace and restore the context). Open
+and close in the same thread, and never let the wrapper raise into the call.
+
+**PydanticAI's instrumentation captures content by default.**
+`Agent.instrument_all()` (and `instrument=True`) record the prompts, the
+binary parts (images, PDFs) and the answers on the spans, which Langfuse then
+stores: H2A Accountant was sending invoice and payroll page images and the
+extracted names, tax ids and salaries (2026-10-10). Unless reading the content
+in Langfuse is a decision someone made for that product, pass
+`InstrumentationSettings(include_content=False)`: Langfuse still gets the
+model, the tokens, the timing and the message structure (roles and part
+types, no text). Test it by running an agent on `TestModel` with marker
+strings in the system prompt, the user prompt, a `BinaryContent` and the
+output, and asserting none of them appears in any exported span's attributes
+or events; prove it in production by reading the probe's trace back and
+searching its JSON for the markers.
 
 **Query-string API keys end up in spans.** `httpx.get(url, params={"key":
 api_key})` puts the key in `http.url` of the httpx span, which goes to Tempo
