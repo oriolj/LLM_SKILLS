@@ -106,21 +106,23 @@ def report(api: Api, since: dt.datetime) -> None:
         no_model = sum(u.get("countObservations", 0) for u in r.get("usage", []) if not u.get("model"))
         t, o = r["countTraces"], r["countObservations"]
         t_sum, o_sum, n_sum = t_sum + t, o_sum + o, n_sum + no_model
-        print(f"{r['date']:10s} {t:7d} {o:8d} {no_model:9d} {(o / t if t else 0):9.1f} {r['totalCost']:8.2f}")
-    days = max(len(rows), 1)
+        print(f"{r['date']:10s} {t:7d} {o:8d} {no_model:9d} {(o / t if t else 0):9.1f} {r.get('totalCost') or 0:8.2f}")
+    # The window, not the rows: the API returns no row for a day without events.
+    days = max((dt.datetime.now(dt.timezone.utc) - since).total_seconds() / 86400, 1)
     units = t_sum + o_sum + scores
     print(f"\nsince {z(since)}: {t_sum} traces + {o_sum} observations + {scores} scores = {units} billable events")
-    print(f"per day: {units / days:,.0f}   per 30 days at this rate: {units / days * 30:,.0f}")
+    print(f"per day over {days:.1f} days: {units / days:,.0f}   per 30 days at this rate: {units / days * 30:,.0f}")
     if o_sum:
-        print(f"observations without a model: {n_sum} ({n_sum / o_sum:.0%}); observations per trace: {o_sum / max(t_sum, 1):.1f}")
-        if o_sum / max(t_sum, 1) > 5 and n_sum / o_sum > 0.5:
+        per_trace = o_sum / max(t_sum, 1)
+        print(f"observations without a model: {n_sum} ({n_sum / o_sum:.0%}); observations per trace: {per_trace:.1f}")
+        if per_trace > 5 and n_sum / o_sum > 0.5:
             print("-> more than 5 spans per trace and most of them not LLM calls: run --scopes <busy day>")
 
 
 def scopes(api: Api, day: str) -> None:
     by_scope: collections.Counter[str] = collections.Counter()
     names: collections.Counter[tuple[str, str]] = collections.Counter()
-    cursor, n = None, 0
+    cursor = None
     while True:
         q = f"/api/public/v2/observations?limit=1000&fromStartTime={day}T00:00:00Z&toStartTime={day}T23:59:59.999Z&fields=core,basic,metadata"
         if cursor:
@@ -129,14 +131,14 @@ def scopes(api: Api, day: str) -> None:
         for o in d["data"]:
             if o["id"].startswith("t-"):
                 continue  # the trace itself, listed as a row; not an observation
-            n += 1
             scope = ((o.get("metadata") or {}).get("scope") or {}).get("name") or "?"
             by_scope[scope] += 1
             names[(scope.rsplit(".", 1)[-1], (o.get("name") or "")[:50])] += 1
         cursor = (d.get("meta") or {}).get("cursor")
         if not cursor or not d["data"]:
             break
-    print(f"\n{day}: {n} observations by instrumentation scope")
+    n = max(by_scope.total(), 1)
+    print(f"\n{day}: {by_scope.total()} observations by instrumentation scope")
     for scope, count in by_scope.most_common():
         print(f"  {count:7d}  {count / n:5.0%}  {scope}")
     print("top span names:")

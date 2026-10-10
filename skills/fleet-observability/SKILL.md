@@ -1564,18 +1564,18 @@ an `AppConfig.ready()`, plus `CeleryInstrumentor` from
 `worker_process_init` (the prefork child); Langfuse, when keyed, attaches
 to the SAME provider — 🔴 **Langfuse v3 (`langfuse<4`) then exports EVERY
 span it sees to Langfuse's quota** (`_init_tracer_provider` reuses the
-global provider; verified in 3.8.1 source): construct the client with
-`blocked_instrumentation_scopes=[the django/wsgi/psycopg/dbapi/redis/httpx/celery
-scopes]` (Panotxa `nutrilens/meals/langfuse_service.py`); v4 exports only
+global provider; verified in 3.8.1 source); v4 exports only
 Langfuse + GenAI scopes by default (`should_export_span` to customise).
-🔴 **The block list alone is not enough (Panotxa, 2026-10-10: free-tier
-ingestion suspended, 251,023 events in 14 days, 98 % DB/Redis spans, five
-weeks after the block list shipped).** The SDK keeps the FIRST client created
-in a process, and `@observe` / `langfuse.get_client()` create an unfiltered
-default one from the env. Create the filtered client at process start
-(`AppConfig.ready()` after the tracing init, and `worker_process_init`; not
-in the Celery worker's main process) and test what Langfuse's processor
-actually exports. Full rule, checks and the usage audit script: the
+🔴 **Do not rely on the client's `blocked_instrumentation_scopes=[…]`: it
+does not apply (Panotxa, 2026-10-10: free-tier ingestion suspended, 251,023
+events in 14 days, 98 % DB/Redis spans, five weeks after that block list
+shipped).** The SDK keeps the FIRST client created in a
+process, and `@observe` / `langfuse.get_client()` create an unfiltered
+default one from the env. Filter in the provider instead: a `TracerProvider`
+subclass that wraps the processor Langfuse adds and forwards an allow-list of
+scopes (`config/tracing.py` `_provider_class` in NutriLens), with a test on
+what Langfuse's processor is handed. Full rule, test recipe and the usage
+audit script: the
 [pydantic-ai-langfuse skill](../pydantic-ai-langfuse/SKILL.md), section
 "Langfuse is for LLM calls only". **Adding tracing to a project that already
 uses Langfuse includes that step.**

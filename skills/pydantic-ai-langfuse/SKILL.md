@@ -73,7 +73,7 @@ When touching an unfamiliar pydantic-ai version, introspect before writing code:
 
 ## Langfuse tracing (OTel exporter pattern)
 
-One init function, called once at process start (Django: end of `settings.py` — covers gunicorn, manage.py commands, and cron jobs alike). **No-op without keys** so dev/test never need Langfuse:
+One init function, called once at process start (Django: end of `settings.py` — covers gunicorn, manage.py commands, and cron jobs alike). **No-op without keys** so dev/test never need Langfuse. **Not in a project that also traces to Tempo**: there the tracing provider is installed first and `init_langfuse` must not set a provider of its own, or the tracing one is refused (section "Langfuse is for LLM calls only", point 5):
 
 ```python
 # config/observability.py
@@ -153,38 +153,63 @@ v3 (`langfuse<4`) exports all of them** unless its client was built with
 wrapped in ~33 infrastructure spans, and every periodic Celery task was a
 trace of its own.
 
-**The trap inside the fix: the first client created in a process wins.** The
-SDK keeps one client per public key (`LangfuseResourceManager`). `@observe`
-and `langfuse.get_client()` build a default `Langfuse()` from the
-`LANGFUSE_*` env vars, with no block list, when no client exists yet; a later
-`Langfuse(..., blocked_instrumentation_scopes=[…])` silently returns that
-unfiltered one. Panotxa had the block list in its service module for five
-weeks and it never applied, because a decorated function always ran first.
+**The trap: a block list on your own client does not apply.** The SDK keeps
+one client per public key (`LangfuseResourceManager`) and the first
+constructor wins. `@observe` and `langfuse.get_client()` build a default
+`Langfuse()` from the `LANGFUSE_*` env vars, with no block list, when no
+client exists yet; a later `Langfuse(..., blocked_instrumentation_scopes=[…])`
+silently returns that unfiltered one. Panotxa had the block list in its
+service module for five weeks and it never applied, because a decorated
+function always ran first.
 
-What a project with both needs:
+**The fix: filter in the provider you own, not in the client.** Every
+Langfuse client, the default one included, reaches the global provider
+through one call, `tracer_provider.add_span_processor(<LangfuseSpanProcessor>)`.
+So the project's `TracerProvider` is a small subclass whose
+`add_span_processor` wraps any processor that comes from the `langfuse`
+package in a `SpanProcessor` that forwards `on_end` only for an allow-list of
+scopes (`("langfuse-sdk",)`, plus a GenAI instrumentation's scope when one is
+adopted) and delegates `on_start` / `force_flush` / `shutdown`. Reference:
+NutriLens `backend/config/tracing.py` (`_provider_class`,
+`LANGFUSE_ALLOWED_SCOPES`). What that buys:
 
-1. **Create the filtered client at process start**, before any `@observe`
-   can run: from an `AppConfig.ready()` right after the tracing init, and
-   from Celery's `worker_process_init`. Not in the Celery worker's MAIN
-   process: the client owns threads (media upload, score ingestion) that do
-   not survive the fork into the pool children, and `flush()` joins their
-   queues, so a child would wait forever on the first queued score or image
-   (read from the 3.8.1 source, not reproduced). Reference: NutriLens
-   `backend/nutrilens/meals/langfuse_service.py` (`init_langfuse_client`),
-   `nutrilens/users/apps.py`, `config/celery_app.py`.
-2. **Check the live client, loudly**: after creating it, compare
-   `LangfuseResourceManager._instances[public_key].blocked_instrumentation_scopes`
-   with the list and log an ERROR when it is missing.
-3. **Test what the processor exports, not the constant.** Emit a span from
-   an `opentelemetry.instrumentation.psycopg` tracer and assert Langfuse's
-   processor did not take it; add the reverse-order test (`@observe` first)
-   that proves the trap. The original test asserted that two constants were
-   equal and passed for the whole five weeks (NutriLens
-   `backend/tests/test_tracing.py`).
-4. **A new instrumentor means a new scope in the block list.** A block list
-   fails open. `langfuse>=4` inverts it (only Langfuse and GenAI scopes are
-   exported by default, `should_export_span` to customise) and is the
-   lasting answer; verify it the same way after upgrading.
+1. **No dependence on creation order or process type.** A first attempt
+   created the filtered client at process start (`AppConfig.ready()` and
+   Celery `worker_process_init`). It needed an argv check to skip the Celery
+   worker's main process (the client's score and media threads do not survive
+   the fork, and `flush()` joins their queues), read the SDK's private
+   `_instances` to check itself, and still leaked under a threads or gevent
+   pool, where `worker_process_init` never fires. Do not build that.
+2. **An allow-list, so it fails closed.** A new instrumentor cannot leak; a
+   new LLM instrumentation is dropped until its scope is listed, with one
+   warning per scope so that is not silent.
+3. **Tempo is untouched.** The project's own exporter is added unwrapped;
+   infrastructure spans stay children of the LLM span there.
+4. **Test what Langfuse's processor is handed, not a constant.** Replace
+   `LangfuseSpanProcessor.on_end` with a recorder, run an `@observe`d function
+   that emits a span from an `opentelemetry.instrumentation.psycopg` tracer,
+   and assert the recorder got the LLM span only, in both creation orders
+   (SDK default client first, yours first). Then disable the wrapper once and
+   see the tests fail. The original test compared two constants and passed
+   for the whole five weeks (NutriLens `backend/tests/test_tracing.py`).
+5. **The one order that still matters: your provider must be the global one
+   before any Langfuse client exists.** OpenTelemetry has the same
+   first-wins rule as the SDK: `trace.set_tracer_provider` keeps the first
+   provider and only logs a warning about the second. A Langfuse client
+   created earlier (import time, `init_langfuse()` at the end of
+   `settings.py`, an earlier `ready()`) finds no provider, installs a plain
+   one, and yours is refused: the instrumentors then feed Langfuse
+   everything and Tempo nothing. So after `set_tracer_provider(provider)`,
+   check `trace.get_tracer_provider() is provider`; when it is not, log an
+   error and do not instrument (NutriLens `init_tracing`, with a test). That
+   stops your own instrumentors, not the leak: the foreign provider stays
+   unfiltered, and any span another library emits on it still reaches
+   Langfuse (reproduced in review). Tracing first is an invariant to keep,
+   not a case the check handles.
+
+`langfuse>=4` exports only Langfuse and GenAI scopes by default
+(`should_export_span` to customise); the wrapper is then redundant but
+harmless, and the same test tells you whether the upgrade kept the property.
 
 The OTel-exporter pattern above (`init_langfuse()` setting its own global
 provider) has the same exposure the day someone adds Django or database
@@ -336,9 +361,10 @@ Anonymous/public endpoints that call a model (citizen RAG, "ask the archive") ar
 
 ## Django integration checklist
 
-- [ ] `init_langfuse()` at end of `settings.py` (guarded, idempotent)
-- [ ] If the project also traces to Tempo: the filtered Langfuse client is created at process start, and a test proves a
-      database span is not exported to Langfuse (section "Langfuse is for LLM calls only")
+- [ ] If the project also traces to Tempo: the tracing provider is installed before any Langfuse client exists and filters what
+      Langfuse's processor receives, and a test proves a database span is not exported to Langfuse (section "Langfuse is for
+      LLM calls only")
+- [ ] Otherwise: `init_langfuse()` at end of `settings.py` (guarded, idempotent)
 - [ ] One documented tenant identifier, passed as `user_id` on **every** trace —
       the helper that opens the trace should require it, not default it to `None`
 - [ ] `LLM_MODEL`, `LANGFUSE_*`, `GEMINI_API_KEY`/`ANTHROPIC_API_KEY` in `.env.example` + compose env
