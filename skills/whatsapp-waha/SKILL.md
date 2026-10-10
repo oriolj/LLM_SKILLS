@@ -98,7 +98,7 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
 | Dashboard / Swagger | `/dashboard` (user `oriol`, `WAHA_DASHBOARD_PASSWORD`; the dashboard also needs the API key in its server entry) · Swagger UI at `/`, raw spec at `/-json` (basic auth `WHATSAPP_SWAGGER_*`) |
 | Secrets | `~/.config/waha/env` on minisforum ONLY: `WAHA_API_KEY`, dashboard + swagger user/password. Never print them; parse with grep/cut |
 | State | `~/.local/share/waha/sessions` (the linked login — whoever holds it IS the account; not synced, not in git), `media/`, `downloads/`, `sent.jsonl` (wa.py send log) |
-| Version | WAHA Core `2026.9.1`, engine WEBJS (Chromium + [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js)), image `devlikeapro/waha:latest` |
+| Version | WAHA Core `2026.9.2` (upgraded 2026-10-10: `docker compose pull && up -d` in hq `homelab/whatsapp`, ~30 s, logins survive — `bikecrm` came back WORKING without a QR; check newer with Docker Hub tags `latest-<ver>`), engine WEBJS (Chromium + [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js)), image `devlikeapro/waha:latest` |
 
 From another machine, the script needs `WAHA_URL=http://minisforum-um880:3010`
 and `WAHA_API_KEY` in the environment (the key file is not on the laptops).
@@ -235,6 +235,11 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
   again. **Don't keep restarting.** `POST /api/sessions/<s>/stop` (the login survives:
   `me` still set), wait, then `start`. Take the screenshot first: it tells a
   429 apart from a logout or a WhatsApp Web change.
+- `FAILED` with `Session has been logged out!` in `docker logs waha` (session
+  `personal`, seen 2026-10-10, after `Navigating frame was detached` / `The browser
+  has been disconnected` during a restart) = WhatsApp dropped the linked device;
+  `me` is null. No restart brings it back: restart → `SCAN_QR_CODE` → Oriol scans.
+  Gatus re-pages every 4 h until then.
 - `SCAN_QR_CODE` after it had worked = Oriol's phone unlinked the device, or
   the phone was offline ~14 days. Re-pair; the session dir keeps the rest.
 - Container restarts keep the login (`restart: unless-stopped`, sessions on a
