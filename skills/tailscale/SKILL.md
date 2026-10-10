@@ -322,31 +322,41 @@ LAN and `:port` tailnet access stay open until you change the bind.
   `wlan0` while the reply route points at `tailscale0` — `rp_filter`
   drops it as a martian before the firewall, so ufw logs nothing and
   `ss` shows nothing. It impersonates a firewall bug perfectly. Check
-  `ip route get <lan-ip>` FIRST; fix with `ip rule add to <lan>/24 lookup
-  main priority 5000` or `tailscale set --accept-routes=false` while on
-  that LAN. A subnet router also SNATs, so LAN devices see the ROUTER's
+  `ip route get <lan-ip>` FIRST; fix with `tailscale set
+  --accept-routes=false` while serving on that LAN (a `lookup main` ip
+  rule works too, but see the Wi-Fi caveat below). A subnet router also SNATs, so LAN devices see the ROUTER's
   address, not the laptop's — allowlists by client IP break too.
   **It recurs** (fw13pro again 2026-10-03, a Jellyfin server the LG TV
   "timed out" on; `RouteAll: true` was back): a one-off `tailscale set`
-  is not a fix on a laptop that also wants the routes when away. Make it
-  durable with the `ip rule … lookup main priority 5000` installed by a
-  NetworkManager dispatcher on the home SSID, and run `ip route get
-  <lan-ip>` before blaming ufw — a half-loaded ufw on a kernel with
+  is not a fix on a laptop that also wants the routes when away: tie it
+  to the thing that serves (2026-10-10 below; the dispatcher idea was
+  rejected there), and run `ip route get <lan-ip>` before blaming ufw — a half-loaded ufw on a kernel with
   missing modules produced a convincing second suspect that day.
   **Third time, 2026-10-10** (Jellyfin on fw13pro, Android TV "connection
-  timed out"; the dispatcher had never been installed). This time rp_filter
-  let the SYN in: `ss -tan` showed the TV's connections stuck in
-  `SYN-RECV` (SYN-ACK leaving via `tailscale0`), ufw logged nothing for
-  the port, and the TV had streamed fine an hour earlier. The dispatcher
-  now lives in this skill:
-  [scripts/50-home-lan-over-wifi](scripts/50-home-lan-over-wifi). It keys
-  on holding a `192.168.7.x` address, not the SSID, so the 2.4/5 GHz
-  networks both count. Install with `sudo install -m 755 -o root -g root
-  scripts/50-home-lan-over-wifi /etc/NetworkManager/dispatcher.d/`, and
-  add the rule by hand once for the current connection (`sudo ip rule add
-  to 192.168.7.0/24 lookup main priority 5000`); the script handles every
-  later connect and disconnect.
-  Verify: `ip route get 192.168.7.<x>` says `dev wlan0`.
+  timed out"). This time rp_filter let the SYN in: `ss -tan` showed the
+  TV's connections stuck in `SYN-RECV` (SYN-ACK leaving via `tailscale0`),
+  ufw logged nothing for the port. **Decision (Oriol): no routing-rule
+  fix; turn `--accept-routes` off while serving.** Research that day:
+  upstream [#1227](https://github.com/tailscale/tailscale/issues/1227)
+  (open since 2021, locked 2025) and
+  [#6231](https://github.com/tailscale/tailscale/issues/6231) (open since
+  2022) have no fix, and Tailscale's
+  [overlapping-subnets page](https://tailscale.com/docs/reference/troubleshooting/network-configuration/lan-traffic-overlapping-subnets)
+  gives `ip rule add to <lan> priority 2500 lookup main` but warns
+  against it on Wi-Fi laptops: a foreign network with the same prefix
+  would then receive traffic meant for the tailnet. A dispatcher keyed on
+  "I hold a 192.168.7.x address" has exactly that hole (fw13pro knows ~20
+  café/coworking SSIDs); a per-profile NetworkManager `ipv4.routing-rules`
+  on the home SSIDs is narrower but still a community workaround, not an
+  accepted fix. The `/23` advertise trick only helps Windows/macOS
+  (longest-prefix wins there; on Linux table 52 is consulted first
+  regardless). What runs now: fw13pro's user unit
+  `~/.config/systemd/user/jellyfin.service` has
+  `ExecStartPre=-tailscale set --accept-routes=false` and
+  `ExecStopPost=-tailscale set --accept-routes=true` (works without sudo:
+  `OperatorUser` is `oriol`). Read `tailscale debug prefs` before touching
+  `RouteAll` — never "test" with a `set`, it is not a no-op if Oriol
+  already changed it by hand.
 - **`--accept-routes` on, LAN still unreachable → nobody is advertising
   it.** Don't debug the client; list the routes the tailnet actually
   offers: `tailscale status --json` → each peer's `PrimaryRoutes` /
