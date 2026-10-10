@@ -210,6 +210,9 @@ NutriLens `backend/config/tracing.py` (`_provider_class`,
 `langfuse>=4` exports only Langfuse and GenAI scopes by default
 (`should_export_span` to customise); the wrapper is then redundant but
 harmless, and the same test tells you whether the upgrade kept the property.
+Recheck the wrapper then: it delegates `on_start`, `on_end`, `force_flush`
+and `shutdown`, and inherits the base no-op for OpenTelemetry's newer
+`_on_ending` hook, which the 3.8.1 processor does not use.
 
 The OTel-exporter pattern above (`init_langfuse()` setting its own global
 provider) has the same exposure the day someone adds Django or database
