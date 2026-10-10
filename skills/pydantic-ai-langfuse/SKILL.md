@@ -248,8 +248,15 @@ provider carries. Rules for it:
 - Do not run it NEXT TO the SDK. A project that has both the raw exporter and
   an SDK client (`@observe`, `get_client()`) sends every LLM span twice, and on
   v3 its own filter on the raw exporter hides that the SDK's processor is
-  unfiltered. On v4 prefer one `Langfuse()` created after `init_tracing()` plus
-  `instrument_all()`, and delete the raw exporter.
+  unfiltered. On v4 delete the raw exporter and keep `instrument_all()`: the SDK
+  client is then the one export path. Do not create it at boot (`ready()` also
+  runs in the Celery prefork main process and the client's threads do not
+  survive the fork); it is created lazily by the first `@observe` /
+  `get_client()`, so make sure every agent run passes through one of them (a
+  `get_client()` in the run helper). `instrument_all()` at boot is fine before
+  any provider exists: PydanticAI's tracer is a proxy that starts delivering
+  once the SDK installs its provider (five projects fixed this way,
+  2026-10-10).
 
 **A lazily created client makes the leak intermittent, which hides it.**
 EnaArchive (v3) filtered its raw exporter correctly and still leaked: the
@@ -268,6 +275,18 @@ set `LANGFUSE_TRACING_ENABLED=false` in the test settings or an autouse
 fixture, give dev its own project or no keys, and never commit a key in a
 prompt-upload script (three repositories had the production secret key in
 tracked files).
+
+**Prove it in production with one probe, not by waiting for traffic.** In a
+one-off `python -c` inside the running worker container (`django.setup()`
+installs the provider): open a span from a tracer named like an
+instrumentation (`opentelemetry.instrumentation.celery`, kind CONSUMER, so the
+no-orphan sampler keeps the children), run a real `SELECT` and one real,
+cheap LLM call through the app's own traced function inside it, flush
+(`get_client().flush()`), print the trace id. Then `GET
+/api/public/traces/<id>` and list the observations by scope: only LLM scopes
+must be there. `/api/public/v2/observations` lags by minutes; the trace
+endpoint does not. Tempo's tail sampling may drop the probe trace, which is
+not a failure.
 
 **Query-string API keys end up in spans.** `httpx.get(url, params={"key":
 api_key})` puts the key in `http.url` of the httpx span, which goes to Tempo

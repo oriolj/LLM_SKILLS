@@ -1632,8 +1632,9 @@ the SDK's v4 filter guards only the SDK's own processor. 🔴 The wrapper must
 LLM Index Watcher, Licita Radar and LeadHunter has no `_on_ending`, which the
 SDK calls on every span end, so it raises `AttributeError` the day Langfuse
 keys and tracing are both on (found dormant in all three, 2026-10-10; their
-tests never ended a span through it). Better on v4: no raw exporter, one
-`Langfuse()` after `init_tracing()` (pydantic-ai-langfuse skill); a Django app with **no `LOGGING` dict at all** silently inherits
+tests never ended a span through it; all three fixed that day). Better on v4:
+no raw exporter, the SDK client created lazily at the LLM call sites, never
+at boot (pydantic-ai-langfuse skill); a Django app with **no `LOGGING` dict at all** silently inherits
 `DEFAULT_LOGGING`'s `mail_admins` — the audit greps for `LOGGING`
 explicitly; multi-tenant apps serve on the TENANT host
 (`santjust.chat`), so the verification burst must hit that host, not the
