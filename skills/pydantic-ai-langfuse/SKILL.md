@@ -1,6 +1,6 @@
 ---
 name: pydantic-ai-langfuse
-description: Implement LLM features in Python with PydanticAI + Langfuse observability. Use when adding LLM calls to any Python/Django project, integrating PydanticAI agents, wiring Langfuse tracing, testing agents without hitting real models, choosing model strings, debugging "Unknown provider" / instrument errors, fetching websites as LLM input, or controlling LLM costs in batch pipelines. Also use for LLM cost attribution questions — "who is spending", cost per client/tenant/user, "n/a is my top user", missing or wrong cost in Langfuse, trace user_id/session_id/tags not showing up, auditing which code path emits untagged traces. Covers PydanticAI 2.x API changes, OTel→Langfuse setup, TestModel/FunctionModel testing, Django-specific OOM traps, SPA scraping, and rate-limit-safe batch scoring.
+description: Implement LLM features in Python with PydanticAI + Langfuse observability. Use when adding LLM calls to any Python/Django project, integrating PydanticAI agents, wiring Langfuse tracing, testing agents without hitting real models, choosing model strings, debugging "Unknown provider" / instrument errors, fetching websites as LLM input, or controlling LLM costs in batch pipelines. Also use for LLM cost attribution questions — "who is spending", cost per client/tenant/user, "n/a is my top user", missing or wrong cost in Langfuse, trace user_id/session_id/tags not showing up, auditing which code path emits untagged traces. Also when Langfuse mails "ingestion suspended" / usage limit exceeded, when asked which project used the Langfuse quota, when a project has BOTH Langfuse and OpenTelemetry tracing (Tempo) and its database/Redis/HTTP spans show up in Langfuse, or before adding OTel instrumentation to a project that already uses Langfuse. Covers PydanticAI 2.x API changes, OTel→Langfuse setup, TestModel/FunctionModel testing, Django-specific OOM traps, SPA scraping, and rate-limit-safe batch scoring.
 ---
 
 # PydanticAI + Langfuse: Python LLM implementation
@@ -123,6 +123,87 @@ def score_match(profile, tender): ...
 - **`langfuse.openai.OpenAI` wrapper buffers streamed responses** to write the trace — defeats client-side byte caps. Use the native client + explicit `start_as_current_generation` spans when you need streaming size limits.
 - Without keys, `@observe` logs a one-time "client will be disabled" warning and continues — harmless, don't chase it.
 - **Inherited code defaults to capturing everything.** A codebase merged in on 2026-08-29 had `@observe(name=...)` on functions taking image bytes and citizen questions, plus `start_as_current_observation(..., input=prompt)` — the full RAG prompt (question + archive text) went to Langfuse. Rule: every `@observe` carries `capture_input=False, capture_output=False`; generation spans record `model`, `usage_details`, `cost_details` only. Guard it with a static test that regex-scans the codebase for `@observe(` without both flags and for `input=`/`output=` inside `start_as_current_observation(` (`apps/clients/tests/test_langfuse_privacy.py` in enaarchive is the template).
+
+## Langfuse is for LLM calls only (quota, and the global-TracerProvider leak)
+
+**Rule (Oriol, 2026-10-10): Langfuse receives LLM calls and nothing else.**
+Request, database, Redis, HTTP and task spans go to Tempo
+(`fleet-observability` skill). Langfuse bills **events = traces +
+observations + scores**, added up over every project of the *organization*;
+the free tier is 50,000 per billing period and when it is exceeded ingestion
+is suspended until the reset date (the mail says which) or an upgrade.
+
+What a suspension does and does not do (Panotxa, 2026-10-10): the ingestion
+endpoints answer 403, so the SDK logs `Failed to export span batch code:
+403 … Ingestion suspended` at ERROR on every flush (dozens an hour in Loki
+and the error tracker). **Prompt management and the read API keep working**,
+so an app that fetches its prompts from Langfuse is not down, and the usage
+can still be audited.
+
+**The leak.** The Langfuse SDK attaches its span processor to the GLOBAL
+OpenTelemetry `TracerProvider`. In a project that also traces to Tempo, that
+provider carries every Django/psycopg/Redis/httpx/Celery span, and **Langfuse
+v3 (`langfuse<4`) exports all of them** unless its client was built with
+`blocked_instrumentation_scopes=[…]`. Panotxa sent 251,023 events in 14 days,
+98 % of them database and Redis spans: a real LLM trace was 1 generation
+wrapped in ~33 infrastructure spans, and every periodic Celery task was a
+trace of its own.
+
+**The trap inside the fix: the first client created in a process wins.** The
+SDK keeps one client per public key (`LangfuseResourceManager`). `@observe`
+and `langfuse.get_client()` build a default `Langfuse()` from the
+`LANGFUSE_*` env vars, with no block list, when no client exists yet; a later
+`Langfuse(..., blocked_instrumentation_scopes=[…])` silently returns that
+unfiltered one. Panotxa had the block list in its service module for five
+weeks and it never applied, because a decorated function always ran first.
+
+What a project with both needs:
+
+1. **Create the filtered client at process start**, before any `@observe`
+   can run: from an `AppConfig.ready()` right after the tracing init, and
+   from Celery's `worker_process_init`. Not in the Celery worker's MAIN
+   process: the client owns threads (media upload, score ingestion) that do
+   not survive the fork into the pool children, and `flush()` joins their
+   queues, so a child would wait forever on the first queued score or image
+   (read from the 3.8.1 source, not reproduced). Reference: NutriLens
+   `backend/nutrilens/meals/langfuse_service.py` (`init_langfuse_client`),
+   `nutrilens/users/apps.py`, `config/celery_app.py`.
+2. **Check the live client, loudly**: after creating it, compare
+   `LangfuseResourceManager._instances[public_key].blocked_instrumentation_scopes`
+   with the list and log an ERROR when it is missing.
+3. **Test what the processor exports, not the constant.** Emit a span from
+   an `opentelemetry.instrumentation.psycopg` tracer and assert Langfuse's
+   processor did not take it; add the reverse-order test (`@observe` first)
+   that proves the trap. The original test asserted that two constants were
+   equal and passed for the whole five weeks (NutriLens
+   `backend/tests/test_tracing.py`).
+4. **A new instrumentor means a new scope in the block list.** A block list
+   fails open. `langfuse>=4` inverts it (only Langfuse and GenAI scopes are
+   exported by default, `should_export_span` to customise) and is the
+   lasting answer; verify it the same way after upgrading.
+
+The OTel-exporter pattern above (`init_langfuse()` setting its own global
+provider) has the same exposure the day someone adds Django or database
+instrumentors to that provider: everything on it goes to Langfuse.
+
+**Find out who used the quota** (read-only, works while suspended):
+
+```
+scripts/langfuse_usage.py --env <project env file> --since <billing period start>
+scripts/langfuse_usage.py --env <…> --since 14d --scopes <a busy day>
+```
+
+It prints the key's project and organization, events per day, the share of
+observations with no model, observations per trace, and with `--scopes` one
+day split by instrumentation scope. Reading it: about one model-less
+observation per trace is the `@observe` wrapper and is fine; **more than ~5
+observations per trace, mostly model-less, is infrastructure leaking**. The
+org id in the mail's billing link identifies the organization; a key's
+organization comes from `GET /api/public/projects`. Run it for every project
+of that organization before blaming one. The plain list endpoints
+(`/api/public/observations`, `/traces`) are limited to a few calls a minute;
+`/api/public/metrics/daily` and `/api/public/v2/observations` (cursor, 1,000
+per page) are the ones for volume.
 
 ## Cost attribution — tag every trace with a tenant
 
@@ -252,6 +333,8 @@ Anonymous/public endpoints that call a model (citizen RAG, "ask the archive") ar
 ## Django integration checklist
 
 - [ ] `init_langfuse()` at end of `settings.py` (guarded, idempotent)
+- [ ] If the project also traces to Tempo: the filtered Langfuse client is created at process start, and a test proves a
+      database span is not exported to Langfuse (section "Langfuse is for LLM calls only")
 - [ ] One documented tenant identifier, passed as `user_id` on **every** trace —
       the helper that opens the trace should require it, not default it to `None`
 - [ ] `LLM_MODEL`, `LANGFUSE_*`, `GEMINI_API_KEY`/`ANTHROPIC_API_KEY` in `.env.example` + compose env
