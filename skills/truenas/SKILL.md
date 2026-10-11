@@ -230,9 +230,14 @@ job = r.json()          # poll core/get_jobs?id=<job>
 
 The dev machines mount SMB shares through hq `homelab/ansible`
 `roles/nas` (`--tags nas`), one entry of `nas_servers` per NAS, systemd
-automounts on Linux and autofs on macOS. A box on the same tailnet as the
-machines is addressed by its tailnet name; one on another tailnet by its
-LAN address. Details and the per-option reasons: hq
+automounts on Linux and autofs on macOS. **Both boxes are addressed by
+their LAN IP** (Oriol, 2026-10-11): the tailnet name works at home and
+away, but the bytes then ride WireGuard even on the direct LAN path, and
+on truenas-enantena's two-thread CPU that measured 49.9 / 43.5 MB/s
+write / read against about 149 / 63 by LAN address. A LAN-IP mount needs
+the address pinned on the gateway, and away from home the home subnet
+route. Measure with `oj-nas-speed -N <nas>` (hq dotfiles `local-bin`),
+on an idle NAS, not across the hourly snapshot. Details and the per-option reasons: hq
 `docs/servers/truenas-personal.md` ("Laptop clients") and
 `homelab/ansible/CLAUDE.md`.
 
