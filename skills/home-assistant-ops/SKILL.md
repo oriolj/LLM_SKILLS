@@ -159,6 +159,16 @@ script, because `reload_config_entry` has been seen to hang for minutes).
   recently" = `expand('person.a', 'person.b') | selectattr('state','eq','home') |
   selectattr('last_changed','gt', now() - timedelta(minutes=10))`. There is no `states_obj`
   filter.
+- **Android Health Connect sensors (Companion app): who wrote it, and when.** The `source` /
+  `sources` attribute names the writing app (`com.garmin.android.apps.connectmobile` vs
+  `com.android.healthconnect.phone.*`); merged sensors (daily steps, distance) list both and
+  cannot be split. Heart rate carries the sample's own timestamp in attribute `date`; age is
+  `now() - as_datetime(state_attr(...,'date'))`, never `last_changed`. A wearable reaches HA
+  only when its app writes to Health Connect (Garmin: 3–9 times a day, gaps up to 11 h on a worn
+  day), so "silent for hours" proves nothing. "Not worn" = a sync happened (a daily total from
+  that source went up) while the newest heart-rate sample is old (worn ≤ 33 min, unworn ≥ 54 min,
+  measured 2026-10-11). Sensors of one Companion push land separately: trigger with `for: 2 min`
+  before comparing two of them. Daily totals reset around midnight and can *increase* doing so.
 - `GET /api/history/period/<start>` without `end_time` returns **24 h only**. Pass `end_time`
   for longer windows.
 - Nuki coordinator times out a few times a day → lock `unavailable` ~30 s (bridge busy on BLE,
