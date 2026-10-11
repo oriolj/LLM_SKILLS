@@ -106,6 +106,17 @@ exist even though the list does not show them.
   local user needs "SMB user" on and membership of `builtin_users`** or
   nobody can log in to the share. A fresh box has only `truenas_admin`
   with SMB off.
+- **A share that stops mounting: ask the server what it offers before
+  touching the client.** From any machine with the SMB login, no mount and
+  no sudo: `USER=<u> PASSWD=<p> smbclient -L //<nas> -m SMB3` (credentials
+  through the environment from the secrets file, never argv or a temp
+  file), then `smbclient //<nas>/<share> -c ls`. A share missing from the
+  list answers `NT_STATUS_BAD_NETWORK_NAME`, and the client's automount
+  fails with `mount error(2): No such file or directory` (kernel: `CIFS:
+  VFS: cifs_mount failed w/return code = -2`) while the other shares of
+  the same box open. Seen 2026-10-11 on truenas-personal for
+  `not-important` and `Docs` after a morning reboot: it fits datasets
+  left locked, but that cause was not read (no credential on that box).
 - Record size is inherited (128K). For large video files set 1M before
   the data lands; it only applies to files written afterwards.
 - `statfs` on a ZFS dataset reports that dataset's own bytes, so a pool's
