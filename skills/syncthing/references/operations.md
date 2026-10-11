@@ -34,6 +34,35 @@ paths. Read the fields needed rather than logging a full configuration with
 credentials. Treat configured peer identity as authoritative; a LAN IP alone
 is not an identity check.
 
+## Locked out of the web GUI (forgotten user or password)
+
+The API key in `config.xml` works whatever the GUI login is, so the
+built-in CLI resets the credentials live, with no restart and no file
+ownership change:
+
+```sh
+syncthing cli --home=<dir with config.xml> config gui user set <user>
+syncthing cli --home=<dir with config.xml> config gui password set '<password>'
+```
+
+Syncthing hashes the password itself. Worked on v2.1.6 in the TrueNAS
+catalog app (2026-10-11, config in `/var/syncthing/config`, GUI on 20910).
+
+**In a container, `Both --gui-address and --gui-apikey should be
+specified` does not mean the config was not found.** The CLI raises it
+when exactly ONE of the two is set, and the Docker image sets the address
+through the `STGUIADDRESS` environment variable, so `--home` changes
+nothing. Either `unset STGUIADDRESS` in that shell, or pass both flags
+with the key read from the file (`sed -n
+'s:.*<apikey>\(.*\)</apikey>.*:\1:p' config.xml`). One of the two fixed
+it that day; which one was not recorded.
+
+Fallbacks, both needing a restart: `syncthing generate --home=<dir>
+--gui-user=<user> --gui-password=-` (check `ls -ln config.xml` before and
+after: run as root it can leave a root-owned file a non-root daemon cannot
+read), or delete the `<user>` and `<password>` lines inside `<gui>`, which
+opens the GUI with no login until one is set.
+
 ## Diagnose before changing settings
 
 - Check daemon/service state, share/device pause state, connectivity, folder
