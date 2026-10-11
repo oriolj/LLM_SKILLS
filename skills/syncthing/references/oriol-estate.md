@@ -120,6 +120,29 @@ fw13pro were also checked against `devices` / `remoteIgnoredDevices`, and a
 second run changed nothing on any of the six. Stray introducers found: Fold7
 on all of them, and truenas-personal on petraclaw.
 
+Applied again 2026-10-11 (`truenas-personal-old`, the NAS app before a
+reinstall): the playbook reached six hosts, seven were offline.
+
+**The two TrueNAS Syncthing apps are not ansible hosts** (no ssh, no CLI
+from outside): manage them through REST with their API keys (hq
+`homelab/secrets/syncthing-truenas-{enantena,personal}.env`; UI and API on
+port **20910**, sync on 20978, the TrueNAS catalog defaults). Retired
+devices: `DELETE /rest/config/devices/<id>`, then append to
+`remoteIgnoredDevices` and `PUT /rest/config` with the whole config (entries
+`{deviceID, name, address: "", time}`); no restart needed.
+
+**A fresh or reinstalled Syncthing has NO ignore on `Syncthing-mobile-docs`**
+(the `.stignore` is per device and never syncs), so it pulls whatever
+`hq/.git` any unprotected peer announces. Seen 2026-10-11: the phone's
+`fold7fork` instance still announces an old `hq/.git`, and both NAS apps had
+pulled it within the hour. Check it on every new peer:
+`GET /rest/db/ignores?folder=aemk7-7vf3s` (empty = unprotected) and
+`GET /rest/db/file?folder=aemk7-7vf3s&file=hq/.git/HEAD` (`availability`
+names the devices that hold it). Fix: `POST /rest/db/ignores?folder=…`
+`{"ignore": ["#include hq/.stignore-hq"]}` once `hq/.stignore-hq` is present
+locally (an include of a missing file stops the folder), and read the
+`expanded` list back. The copy already on disk is not removed by the ignore.
+
 ## Obsidian-specific conflict triage
 
 `assets/sync-conflicts.sh` (`list` / `notes` / `git` / `show <note>` /
