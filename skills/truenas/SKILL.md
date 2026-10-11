@@ -158,6 +158,15 @@ and sync 20978, BorgWarehouse UI 30406 and SSH 30407.
 - **Syncthing** (catalog): a forgotten UI login is reset from the app's
   shell with `syncthing cli … config gui user/password set`, after
   `unset STGUIADDRESS` (`syncthing` skill, operations reference).
+- **BorgWarehouse on truenas-enantena is the estate's tier-3 backup target**
+  (Oriol, 2026-10-11): every server of every scope is to back up there
+  with borgmatic, one at a time. Intent, prerequisites and the queue: hq
+  `docs/next-steps.md` ("borgmatic on every server"); policy: hq
+  `shared/docs/backups.md` tier 3. Before a first client: take
+  `tank/borgwarehouse/borg-repository` out of the snapshot tasks, and
+  settle passphrase or key file for the dataset (a locked dataset fails
+  every client's run). The Borg port answers on the tailnet and the LAN
+  only.
 - **A catalog template can be older than the app it installs.**
   BorgWarehouse v3.6 (2026-10-11): the template set only the retired
   `NEXTAUTH_SECRET`, so `BETTER_AUTH_URL` was unset, Better Auth issued
