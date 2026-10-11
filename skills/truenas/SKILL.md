@@ -32,9 +32,18 @@ record, and the Gen8 iLO's unauthenticated `https://<ilo>/xmldata?item=all`
 2026-10-11: a first read was refused as a production read until Oriol asked
 for a check on the box in plain words; creating a user account
 (`POST /user`) was refused as a permission grant even though the mount he
-asked for needed it. After one refusal, stop: hand the step to Oriol
-(`USER_TODO.md`) and prepare what he needs (a generated password in a
-secrets file, never in chat).
+asked for needed it, and went through once he said "create the user
+yourself". After one refusal, stop: say what the call is and why it is
+needed, and let Oriol either approve that exact step or do it in the UI.
+Prepare what he needs meanwhile (a generated password in a secrets file,
+never in chat).
+
+A local SMB user through the API: `POST /user` with `username`,
+`full_name`, `uid`, `group_create: true`, `groups: [<id of
+builtin_users>]`, `password`, `smb: true`, `home: "/var/empty"`, `shell:
+"/usr/sbin/nologin"`; a new password later is `PUT /user/id/<id>`
+`{"password": …}`. Change the NAS first and write the secrets file only
+on a 200, so the two never disagree.
 
 ## 2. The REST API
 
