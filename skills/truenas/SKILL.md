@@ -167,7 +167,9 @@ and sync 20978, BorgWarehouse UI 30406 and SSH 30407.
   *Additional Environment Variables*: `BETTER_AUTH_URL` (scheme and host
   exactly as typed in the browser), `BETTER_AUTH_TRUSTED_ORIGINS` (the
   other addresses), `BETTER_AUTH_SECRET` (else a new one at every restart
-  logs everyone out), `FQDN`, `SSH_SERVER_PORT`. When an app half-works
+  logs everyone out), `FQDN`, `SSH_SERVER_PORT`. Set that way on
+  truenas-enantena, the login worked (confirmed by Oriol, 2026-10-11).
+  When an app half-works
   after install, compare the template's environment
   (`github.com/truenas/apps`, `ix-dev/<train>/<app>/templates/`) with the
   upstream project's own `.env.sample`.
