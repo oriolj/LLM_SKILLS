@@ -255,6 +255,19 @@ Go through this list on every review; each line comes from a real miss.
   only when `PUBLIC_NEWSLETTER_TURNSTILE_SITE_KEY` is set) rather than
   holding back a shared push: parallel sessions share one site repo, and a
   gated feature can ride along safely.
+- **Tailwind v4 scans the whole repo, not the site source** (BikeCRM,
+  2026-10-11). Automatic source detection reads every non-ignored file from
+  the project root, so the HTML in `content-sources/` (video, illustrations),
+  the docs and any mockups add their utility classes to the production
+  stylesheet. Scope the import to the site source, with the path relative to
+  the CSS file: `@import 'tailwindcss' source('../');` in
+  `src/styles/global.css` scans only `src/`. BikeCRM's stylesheet went from
+  28.9 KB to 25.7 KB (13 unused classes, some pulling `@property` blocks).
+  `@source not "<dir>"` also works for the site build, but an explicit
+  `@source` elsewhere cannot re-include that folder afterwards. Verify: list
+  the class names that disappear and grep them in the built HTML (none may be
+  referenced), then run the visual diff. Every site with a `content-sources/`
+  folder has this; check it on the next review of each.
 - **Know the real public directory.** An Astro site with `publicDir: 'static'`
   plus a leftover `public/` folder serves nothing from `public/`: the web
   manifest 404ed for months. Check `astro.config.*` before adding any file.
