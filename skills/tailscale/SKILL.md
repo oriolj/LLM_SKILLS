@@ -28,7 +28,19 @@ there silently, and the fix is `tailscale logout` + a new key (2026-09-20).
 *Hostname* field does not apply (containerboot skips `tailscale up` once
 logged in) — the node that re-joined after a logout took the field's
 default `truenas-scale`; rename it in the admin console (Machines → Edit
-machine name) rather than via the app.
+machine name) rather than via the app. After that rename the MagicDNS name
+is the new one and the old one stops resolving, while `tailscale status
+--json` keeps showing the app's `HostName` (`truenas-scale`): search peers
+by `DNSName`, not `HostName` (2026-10-11). On a FIRST join the field does
+apply: `truenas-enantena` joined the EnaCast tailnet on 2026-10-11 with
+the name typed in the app. Company NAS on the EnaCast tailnet, personal
+NAS on the personal one.
+
+**"I added X to Tailscale" and X is not in `tailscale status`**: sort the
+peers by `Created` on BOTH tailnets before concluding anything (`jq -r
+'.Peer[] | "\(.Created)\t\(.HostName)\t\(.DNSName)"' | sort | tail`).
+The newest row answers which tailnet it joined, or that it has not joined
+yet; a few minutes can pass between "I added it" and the node appearing.
 
 `tail4d837.ts.net` is **dead** — an old SmartupSoft identity. Any doc still
 naming it is stale.
