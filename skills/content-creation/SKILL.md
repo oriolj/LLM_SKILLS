@@ -490,19 +490,26 @@ this section keeps the rules and the lessons.
    and for which uses. `make probe` / `make sheet` for the facts.
    **Nothing bulky is ever written under `/home` outside `~/not-important`** (Oriol, 2026-10-08):
    `/home` is snapper-snapshotted every 15 minutes and a video written there stays in the snapshots
-   for months. Camera files arrive in `~/not-important/` (not `~/inbox/`), go to the NAS
-   `not-important` share, and the content repo's `work/` folders are links into `~/not-important/`
+   for months. Camera files arrive in `~/not-important/` (not `~/inbox/`), go to the company NAS
+   `Content-creation` share, and the content repo's `work/` folders are links into `~/not-important/`
    (local, its own never-snapshotted subvolume) while `raw/` and `renders/` are links to the NAS.
    EnaCast's `scripts/work_links.sh` makes them from every `make` target; do the same in any content repo.
-   **Footage and renders live on the NAS** (Oriol, 2026-09-30: "we will work
-   on the NAS"; BikeCRM: `/mnt/truenas/not-important/BikeCRM/`, a tree that
-   mirrors the repo): move them with a verified copy (sha256 read back from
-   the server, cache dropped) and delete the local file only then (no local
-   copies), and link `raw/`, `renders/` and each output MP4 back so the
-   scripts keep their paths (`make nas-move`); caches (`work/`) stay local.
-   **The NAS `not-important` share has no snapshots or backup** (hq
-   `docs/servers/truenas-personal.md`): the camera original also needs a second copy (Oriol's external
-   backup drive, checksum-verified) before the local file goes.
+   **Footage and renders live on the company NAS, truenas-enantena, for every work-related
+   project, personal ones included** (Oriol, 2026-10-11: "the correct and final place", then
+   "we will share that for all work related projects, even personal ones"):
+   `/mnt/truenas-enantena/Content-creation/<Project>/`, a tree that mirrors the repo
+   (`EnaCast/`, `BikeCRM/`, `Panotxa/` today; a new project gets its own top-level folder).
+   Move them with a verified copy (sha256 read back from the server, cache dropped) and
+   delete the local file only then (no local copies), and link `raw/`, `renders/` and each
+   output MP4 back so the scripts keep their paths (`make nas-move`); caches (`work/`) stay
+   local. The path exists on a machine once hq's `--tags nas` has run there: check that it
+   is mounted before writing. Until 2026-10-11 the place was the personal NAS's
+   `not-important` share (`/mnt/truenas/not-important/…`); everything there was moved,
+   verified and deleted that day, so a doc or link still naming it is stale.
+   **The share is snapshotted on the NAS (2 weeks / 1 year / 2 years) but the pool has no
+   second box yet** (hq `docs/servers/truenas-enantena.md`): the camera original also needs
+   a second copy (Oriol's external backup drive, checksum-verified) before the local file
+   goes. Because of the snapshots, never render or churn intermediates on the share.
 2. **Detect the language, don't ask.** Cut three 40 s samples (at ~10 %,
    45 % and 80 % of the running time) and run `whisper-cli -l auto` on each:
    Sprint Bike came back `es` on all three (p = 0.79–0.88). An interview can

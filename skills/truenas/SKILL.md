@@ -241,6 +241,36 @@ on an idle NAS, not across the hourly snapshot. Details and the per-option reaso
 `docs/servers/truenas-personal.md` ("Laptop clients") and
 `homelab/ansible/CLAUDE.md`.
 
+### What lives on which box, and moving a tree between them
+
+- **Content work of every work-related project, personal ones included,
+  lives on truenas-enantena's `Content-creation` share**, one top-level
+  folder per project (`EnaCast/`, `BikeCRM/`, `Panotxa/`; Oriol,
+  2026-10-11). truenas-personal's `not-important` (no snapshots, no
+  backup) holds no content folder since that day. The rule itself is the
+  "Bulky files" section of hq `homelab/claude/CLAUDE-global.md`.
+- **NAS to NAS, without a mount and without a file on disk**: rclone with
+  two SMB remotes defined through the environment
+  (`RCLONE_CONFIG_<NAME>_TYPE=smb`, `_HOST`, `_USER`, `_PASS` = the output
+  of `rclone obscure -` fed on stdin, `RCLONE_CONFIG=/dev/null`), values
+  parsed from the two `homelab/secrets/*-smb.env` files. Use the LAN
+  addresses. Then `rclone copy old:<share>/<dir> new:<share>/<dir>`.
+  Measured 2026-10-11: 214 GiB of large video in 86 min, and 1,898 small
+  files (1.16 GiB) at 33 MiB/s.
+- **Verify before deleting anything**: SMB carries no hashes, so
+  `rclone check` alone compares sizes. For a small tree use
+  `rclone check --download` (byte for byte, both sides read). For a large
+  one, read every file back from the new box and compare with the
+  recorded checksums (`SHA256SUMS`, manifests), and hash on both boxes
+  only the files those records do not settle. Right before the delete,
+  `rclone sync --dry-run old:… new:…` must list nothing to copy (sizes and
+  modification times equal: nobody wrote to the old side meanwhile).
+- **Delete with `rclone purge old:<share>/<dir>`**, one literal path per
+  folder, only when Oriol asked for that deletion, then list the parent.
+  On a share without snapshots that is final.
+- A share whose dataset is locked is absent from `rclone lsd old:` (and
+  answers "Network Name Not Found"); that is not an empty share.
+
 ## 7. Writing a new NAS into hq
 
 1. Server file from `docs/servers/_template.md`; omit what was not read.
