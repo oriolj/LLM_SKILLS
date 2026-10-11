@@ -71,6 +71,14 @@ the recovery and the debris kinds are in hq `git_on_syncthing.md` §"When
 minisforum itself is offline" and in [file-recovery.md](file-recovery.md)
 §"Classify the copies before reading them".
 
+**The recordings archive's audio is excluded from the share too** (Oriol,
+2026-10-11): `.stignore-hq` ignores every audio extension under
+`hq/oriolj/recordings/` (plus plaud-sync's `.audio.*` temp files), so the same
+`#include` line that keeps `.git` off a device also keeps those private
+recordings off it. Copies synced before stay where they are (ignoring never
+deletes). Check a path's effective state with `GET /rest/db/file` (`local.ignored`);
+minisforum's GUI/API is `127.0.0.1:8080`, key in `~/.config/syncthing/config.xml`.
+
 Per-device state, 2026-09-12: minisforum (git owner, ignore verified),
 xps13wc (ignore verified, `.git` removed, recovery copy under
 `~/.local/state/hq-git-recovery/`), fw13pro and Mac mini (ignore installed
