@@ -351,6 +351,15 @@ Go through this list on every review; each line comes from a real miss.
    overlay against `astro preview` on localhost instead (with the
    `@astrojs/vercel` adapter `astro preview` fails: serve
    `.vercel/output/static` with a static server).
+   **Astro 7's dev server detaches** (BikeCRM, 2026-10-11): `astro dev` runs
+   as a background process, so Playwright's `webServer` reports "Process from
+   config.webServer exited early" on the first run and passes on the second,
+   and `reuseExistingServer` will reuse a server left running for weeks. One
+   had been up 23 days, kept its old config after a new integration was
+   installed, and answered 500 to every page. Before blaming the tests:
+   `npx astro dev status`, `npx astro dev logs`, `npx astro dev stop`. It also
+   refuses a second dev server for the same project, so a preview with other
+   build flags is a build served by a static server, not a second `astro dev`.
 6. **Security findings are reported, not silently fixed** in components the
    review does not own (the app, the backend): the 2026-09-26 reviews found
    open signups without the anti-bot kit on the FichaChat app, LeadHunter

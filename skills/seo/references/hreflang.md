@@ -153,3 +153,34 @@ curl -s https://example.com/es/articulo | grep -E 'hreflang|rel="canonical"'
 After shipping, watch Google Search Console → Legacy Tools → International
 Targeting (if still available) or the Search Console coverage report
 for hreflang-related errors.
+
+## A section that skips a language (Astro, BikeCRM 2026-10-11)
+
+A site in en/es/fr added a section that exists in en and es only. Two places
+kept declaring a French version that was a 404:
+
+- **The layout's own hreflang loop** (`LANGS.map(...)`), and with it
+  `og:locale:alternate` and the language menu. Give the layout a `locales`
+  prop (default: all languages) and pass the page's real list; point
+  `x-default` at a language in that list.
+- **`@astrojs/sitemap` with the `i18n` option**: it writes an
+  `xhtml:link` alternate for every configured locale on every URL without
+  checking that the page exists. Strip them in `serialize()`:
+
+  ```js
+  sitemap({
+    i18n: { defaultLocale: 'en', locales: { en: 'en', es: 'es', fr: 'fr' } },
+    serialize(item) {
+      if (/\/(tests|blog)(\/|$)/.test(new URL(item.url).pathname) && item.links) {
+        item.links = item.links.filter((l) => l.lang !== 'fr');
+      }
+      return item;
+    },
+  })
+  ```
+
+Verify in the built files, not in the code: the section's entries in
+`sitemap-0.xml` carry no alternate for the missing language, the page's
+`<head>` lists only the real ones, and the missing-language URL does not exist
+in the output. Pages whose languages vary one by one (a blog post written in
+one language only) get the list of languages that entry exists in.
