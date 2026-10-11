@@ -15,8 +15,11 @@ live estate with the date noted; re-verify anything undated.
 | EnaCast / Enantena | `armadillo-tawny.ts.net` | HTTPS certs **enabled** (verified 2026-09-13: `CertDomains` populated, cert issued for `internal-1-coolify`) |
 | SmartupSoft | — | its boxes live on the EnaCast tailnet |
 
-**No agent credential on the TrueNAS boxes** (hq `shared/docs/backups.md`
-§2 rule 11) — verify them from a peer, never from the box. `truenas-personal`
+**No agent credential on `truenas-personal`** (hq `shared/docs/backups.md`
+§2 rule 11) — verify it from a peer, never from the box. The company NAS
+`truenas-enantena` (EnaCast tailnet) is the exception since 2026-10-11: an
+API key made for the agent, read-only use unless Oriol asks for a change
+(its server file in hq has the terms). `truenas-personal`
 is on the personal tailnet and reaches the (EnaCast-native) Beszel hub
 through the existing node share; it briefly sat on the EnaCast tailnet on
 2026-09-20 until `enric@`'s presence there settled the question.
