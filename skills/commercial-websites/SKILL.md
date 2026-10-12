@@ -268,6 +268,19 @@ Go through this list on every review; each line comes from a real miss.
   the class names that disappear and grep them in the built HTML (none may be
   referenced), then run the visual diff. Every site with a `content-sources/`
   folder has this; check it on the next review of each.
+- **Tailwind v4 reads every word in the scanned folder, comments and inline
+  scripts included** (BikeCRM, 2026-10-12). A bare `ring`, `blur`, `filter`
+  or `shadow` anywhere in a `.astro`/`.ts` file (a comment saying "the dot's
+  white ring", `addEventListener('blur', …)`, a `filter: brightness()`
+  declaration in a `<style>` block) generates that utility, and the first
+  ring, translate, shadow or filter utility on a site brings its `@property`
+  declarations with it (about 1 KB each family). Two chart classes
+  (`ring-2`, `-translate-x-1/2`) plus two such words cost BikeCRM 3 KB of the
+  stylesheet every page loads. For a one-off, use an inline style
+  (`translate:-50% 0`, `box-shadow:0 0 0 2px #fff`) and write `focusout`
+  instead of `blur`. Check: list the single-word class selectors in the built
+  CSS and look for each as a real `class` value; count `@property` blocks
+  before and after adding a new kind of utility. CSS files are not scanned.
 - **Know the real public directory.** An Astro site with `publicDir: 'static'`
   plus a leftover `public/` folder serves nothing from `public/`: the web
   manifest 404ed for months. Check `astro.config.*` before adding any file.
