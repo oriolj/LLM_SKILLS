@@ -407,8 +407,10 @@ restriction.
   a path with a one-use token; `GET` it without the Bearer header and
   never print the URL. Each path rsync could not copy is one line.
 - **Size check**: the dataset's `used` × `compressratio` against the
-  source's used space (the pilot: 157.8 GiB × 1.73 ≈ 273 GiB for 271 GiB
-  on `/`). `GET /pool/dataset/id/<name>` has no `logicalused`.
+  source's used space minus the excludes (the pilot: 157.8 GiB × 1.73 ≈
+  273 GiB for 263 GiB expected). A little over is normal: without
+  `--sparse`, sparse files are written out in full. Look for a
+  shortfall. `GET /pool/dataset/id/<name>` has no `logicalused`.
 - **Paths**: `POST /filesystem/listdir {"path": …}` (the body takes
   nothing else on 25.10: `query-filters` is a 400; sort client-side).
   Look for the Docker volumes and a database directory with its numeric
@@ -417,8 +419,8 @@ restriction.
   with subject "Alerts" in the same second as the failure. Sent is not
   arrived; only Oriol sees the inbox.
 - Snapshots of a dataset: `GET /pool/snapshot?dataset=<name>`
-  (`/zfs/snapshot` is a 404). The hourly task takes none while nothing
-  changed.
+  (`/zfs/snapshot` is a 404). The house tasks have `allow_empty:
+  false`, so no snapshot appears while nothing changed.
 - Timing seen: a first copy of 273 GiB and about a million files over
   the LAN took 2 h on the Gen8 (ZSTD, encrypted dataset, `compress:
   false` on the wire).
