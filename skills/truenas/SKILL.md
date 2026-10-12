@@ -376,6 +376,13 @@ those as `candidates:` in the registry and ask.
   (`Application?Support`), so the list survives any quoting.
 - `--inplace` is why a snapshot of a big database file keeps only its
   changed blocks instead of a second whole file.
+- **A tailnet source goes in by its `100.x` address.** With the Tailscale
+  app on `host_network: true` and `userspace: false` the NAS host itself
+  reaches tailnet peers, but with `accept_dns: false` it resolves no
+  MagicDNS name (`getaddrinfo <name>: Name or service not known`). The
+  host key scan above is the reachability test: it runs on the NAS and
+  needs no key on the target (truenas-enantena → two servers on port
+  1922, 2026-10-12).
 - **Schedules**: nightly, each machine its own slot between 01:00 and
   05:00 Madrid time (the tool refuses a shared slot).
 
