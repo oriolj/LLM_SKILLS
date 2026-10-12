@@ -66,8 +66,10 @@ Rules that keep it a shared space:
 editor: then the file is all there is, which is fine); `5` the editor holds
 unsaved edits it could not merge, so tell the user to choose in the editor
 (`:e!` takes the disk version, `:w!` keeps theirs) and do not edit until
-then; `6` the editor is waiting on a prompt the user has to dismiss, and
-the file on disk is still safe to read and edit.
+then; `6` the editor is waiting on a prompt the user has to dismiss, or on a
+command line they are typing (it could not write their last keystrokes: the
+file may be a second behind), and the file on disk is still safe to read and
+edit.
 
 ## Open and close things for the user
 
