@@ -248,11 +248,22 @@ Cases that are not one-to-one:
   practice (often a clearing account).
 - **Foreign-currency invoices**: the bank charge is in the account currency
   and includes the bank's rate, so it will not equal the invoice total. Match
-  on vendor and date with a tolerance (total ÷ rate within 4 % worked), and
-  see the next section. The bank charge is the real cost in euros.
+  on vendor and date with a tolerance (total ÷ rate within 4 % found most; one
+  pair was 4.1 % apart), and see the next section. A large gap is a reason to
+  check the dates and the rate, not only to widen the tolerance. The bank
+  charge is what left the bank; it is not the invoice's value at its date.
 - **Movements that need no document**: transfers between the company's own
   accounts, loan repayments, tax payments. Classify them first so they do
   not land in the missing-invoice list.
+- **Many movements, one invoice**: a bank that invoices its fees monthly
+  (one invoice for the subscription and every small card fee of the month).
+  Sum the month's movements against the invoice total.
+- **A charge whose text matches no known vendor is "unclassified", not
+  "no document".** Give it the same tests as the rest (amount, then
+  currency) and look by hand before reporting it missing; two real invoices
+  were reported missing this way.
+- **Marketplace orders** (Amazon): the charge names the marketplace and the
+  invoice names the seller, so match on amount and date, not on vendor.
 - **Card statements** settled as one monthly movement.
 
 ## v1 and v2 disagree
@@ -265,6 +276,12 @@ Cases that are not one-to-one:
   holds 66.67 €. So an integration that writes the foreign figure through v1
   (or re-sends it with a v1 `PUT`) books dollars as euros. When figures look
   off by the exchange rate, compare the ledger entry with the real invoice.
+  A document that kept Holded's own conversion is closer, not proven right:
+  when the create call sends no rate, Holded applies its own, and its help is
+  not clear whether that is the rate of the invoice date or of the day the
+  document was registered
+  ([currencies and exchange rates](https://help.holded.com/en/articles/6985003-currencies-and-exchange-rates)).
+  For an invoice uploaded weeks late, check the rate against its date.
   The rate itself is **not in the v2 purchases list** (its items have no
   `currency_change`); it is on the single-document `GET /purchases/{id}` and
   on the v1 list (`currencyChange`), where one call covers a whole date range.
