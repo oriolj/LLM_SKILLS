@@ -1,6 +1,6 @@
 ---
 name: truenas
-description: Operate TrueNAS SCALE (25.10 Community Edition) from outside the box — the REST API with an API key (HTTPS only, what answers and what is gone), datasets and passphrase encryption (everything locks at reboot), SMB shares and users, periodic snapshot tasks, catalog and custom apps (Tailscale, Syncthing, Beszel agent, BorgWarehouse) and editing an app's settings through the API. Use when checking or changing anything on truenas-enantena or truenas-personal, when the user mentions TrueNAS, a NAS dataset, a NAS share, a snapshot task, a TrueNAS app or "the NAS", when an app on the NAS misbehaves after an install or a reboot, or before writing a new NAS into hq. Carries the estate's access rules (which box an agent may touch and how), the app.update merge trap, the outdated-catalog-template trap, and the calls the permission classifier refuses.
+description: Operate TrueNAS SCALE (25.10 Community Edition) from outside the box — the REST API with an API key (HTTPS only, what answers and what is gone), datasets and passphrase encryption (everything locks at reboot), SMB shares and users, periodic snapshot tasks, rsync PULL tasks that back up other machines to the NAS (SSH connections, the read-only key, excludes, the space analysis that precedes them, failure alerts and outgoing mail), catalog and custom apps (Tailscale, Syncthing, Beszel agent, BorgWarehouse) and editing an app's settings through the API. Use when checking or changing anything on truenas-enantena or truenas-personal, when the user mentions TrueNAS, a NAS dataset, a NAS share, a snapshot task, an rsync task or "pull this server to the NAS", a TrueNAS app or "the NAS", when an app on the NAS misbehaves after an install or a reboot, or before writing a new NAS into hq. Carries the estate's access rules (which box an agent may touch and how), the app.update merge trap, the outdated-catalog-template trap, and the calls the permission classifier refuses.
 ---
 
 # TrueNAS SCALE — the API, datasets, apps, and the estate's two boxes
@@ -33,7 +33,12 @@ record, and the Gen8 iLO's unauthenticated `https://<ilo>/xmldata?item=all`
 for a check on the box in plain words; creating a user account
 (`POST /user`) was refused as a permission grant even though the mount he
 asked for needed it, and went through once he said "create the user
-yourself". After one refusal, stop: say what the call is and why it is
+yourself". On 2026-10-12, with the pull lane being built at his request, creating a
+dataset, an SSH connection, an rsync task and the NAS's mail settings all
+went through, but **adding the NAS's public key to a server's
+`authorized_keys` was refused** (a new login on a machine), restricted to
+a read-only rsync or not: that step is Oriol's (a playbook run, or
+`truenas-rsync-authorize.sh`). After one refusal, stop: say what the call is and why it is
 needed, and let Oriol either approve that exact step or do it in the UI.
 Prepare what he needs meanwhile (a generated password in a secrets file,
 never in chat).
@@ -66,6 +71,17 @@ c.get("/api/v2.0/system/info")
   body `"/mnt/tank/x"`, `POST /filesystem/listdir` body `{"path": …}`,
   `POST /filesystem/getacl` body `{"path": …, "simplified": true,
   "resolve_ids": true}`.
+- **The request and response shapes are in the box itself**:
+  `GET /api/v2.0/openapi.json` (6 MB), `components.schemas.<method>_create`
+  / `_update` list every field with its default (`rsynctask_create`,
+  `cronjob_create`, `mail_update`…). Read it before a first `POST` of a
+  kind instead of guessing; `oneOf` bodies (`keychaincredential_create`,
+  `pool_dataset_create`) show no properties there.
+- `filesystem/stat` and `filesystem/listdir` answer for any path;
+  `filesystem/statfs` only under `/mnt/`.
+- Every REST call authenticates again, and TrueNAS raises a
+  `RESTAPIUsage` warning that counts them (81 in 24 hours on 2026-10-12):
+  batch reads in one script instead of many small ones.
 - Long operations return a **job id**; poll
   `GET /core/get_jobs?id=<n>` until `state` is `SUCCESS` or `FAILED`.
 
@@ -84,7 +100,10 @@ Reads that answered (enough to fill a server file):
 | scrub, replication, cloud sync, rsync | `GET /pool/scrub`, `/replication`, `/cloudsync`, `/rsynctask` |
 | apps, one app's settings | `GET /app`, `POST /app/config` |
 | where apps and the system dataset live | `GET /docker`, `GET /systemdataset` |
-| alerts | `GET /alert/list`, `GET /alertservice` |
+| alerts | `GET /alert/list`, `GET /alertservice`, `GET /alert/list_categories` (every alert class with its level) |
+| outgoing mail, who gets it | `GET /mail`, `GET /mail/local_administrator_email` |
+| SSH key pairs and connections | `GET /keychaincredential` (**the answer includes private keys**: print names, types and non-key attributes only) |
+| cron jobs | `GET /cronjob` |
 | network | `GET /interface`, `GET /network/configuration`, `GET /system/general` (timezone) |
 
 Dataset properties are `{"value": …, "source": …}` objects; `encrypted`,
@@ -271,7 +290,119 @@ on an idle NAS, not across the hourly snapshot. Details and the per-option reaso
 - A share whose dataset is locked is absent from `rclone lsd old:` (and
   answers "Network Name Not Found"); that is not an empty share.
 
-## 7. Writing a new NAS into hq
+## 7. Rsync pull tasks: backing up other machines to the NAS
+
+The estate's rule (Oriol, 2026-10-12): truenas-enantena pulls the whole
+`/` of every always-on machine nightly, as the safety net; laptops push
+with Vorta. Policy, reasons and the state per machine: hq
+`shared/docs/backups.md` §14. **The tools do the work** (hq
+`homelab/tools/`): `truenas-rsync-task.py` (`status`, `plan`, `apply`,
+`run`, `log`) from the registry `truenas-rsync-sources.yml`,
+`truenas-rsync-sizes.sh` (space analysis on the source),
+`truenas-rsync-authorize.sh` (the key on a machine outside ansible). Use
+them; the mechanics below are what they do and what was learned.
+
+**Adding a machine** (only when Oriol names it): space analysis → he
+decides the exclude candidates → registry entry → the key on the machine
+→ `plan`, `apply` → `run` and check the result → `apply --enable`.
+
+**The space analysis**, read-only, on the source as root:
+`ssh -p <port> root@<host> 'bash -s' < homelab/tools/truenas-rsync-sizes.sh`.
+Read it in this order:
+
+1. *Mounts that are not the root filesystem.* There is no
+   `--one-file-system` in the task (it would silently skip `/boot` or a
+   data disk), so every mount needs a verdict: a second view of files
+   copied anyway (mergerfs, overlay, squashfs, a bind mount) or another
+   machine's disk (nfs, cifs, sshfs: above all the NAS's own shares) is
+   excluded; a local data disk is copied.
+2. *Big folders and files over 1 GiB.* A candidate is big AND rebuilt by
+   a program. Everything else is copied.
+3. *Docker.* Volumes and database directories are never excluded.
+   `overlay2` is copied too: next to the image layers it holds each
+   container's writable layer (the `docker ps -as` column), which is where
+   an app without a volume keeps its data. Only its `*/merged/*` mount
+   views are excluded by default.
+
+**The exclude rule** ("better backup things we dont want that dont backup
+things we may want"): defaults exclude only what is not data (`/proc/*`,
+`/sys/*`, `/dev/*`, `/run/*`, `/tmp/*`, `/snap/*`, lxcfs, overlay2 merged
+views, swap files). A machine's own excludes each carry reason, measured
+size and who decided. The tool refuses a pattern that covers or sits
+inside `/etc /root /home /opt /srv /data /var/www`, Docker volumes or a
+database directory unless the entry quotes Oriol (`override:`): propose
+those as `candidates:` in the registry and ask.
+
+**What is created on the NAS, and the traps:**
+
+- **Key pair** (`SSH_KEY_PAIR` in the keychain; `backups-rsync`, made by
+  Oriol). An rsync task does not take a key pair: it takes an **SSH
+  connection** (`SSH_CREDENTIALS`): `POST /keychaincredential` with
+  `{"name", "type": "SSH_CREDENTIALS", "attributes": {"host", "port",
+  "username", "private_key": <pair id>, "remote_host_key",
+  "connect_timeout"}}`. Get the host key with `POST
+  /keychaincredential/remote_ssh_host_key_scan {"host","port"}` and
+  compare it with a `known_hosts` entry a workstation already has before
+  trusting it. With `ssh_credentials` set, the task's `remotehost` and
+  `remoteport` stay null.
+- **Dataset per machine**: `POST /pool/dataset {"name":
+  "tank/Backups-servers/<scope>/<host>", "type": "FILESYSTEM",
+  "share_type": "GENERIC", "refquota": <bytes>}`. It inherits the parent's
+  encryption root and compression. The cap (about 3 × the first copy)
+  turns a runaway copy into a failed task instead of a full pool. These
+  datasets stay INSIDE the snapshot tasks: the snapshots are the mirror's
+  history (the opposite of a Borg repository).
+- **Task**: `POST /rsynctask` with `mode: "SSH"`, `direction: "PULL"`,
+  `user: "root"`, `remotepath: "/"`, `path`, `ssh_credentials`,
+  `archive: true`, `delete: true`, `preserveattr: true`, `compress:
+  false`, `delayupdates: false` (it conflicts with `--inplace`), `extra`
+  = a LIST, one option per item (`--numeric-ids`, `--hard-links`,
+  `--acls`, `--inplace`, one `--exclude=<pattern>` each), `schedule`
+  (`minute hour dom month dow`, in the box's timezone), `enabled`.
+  **`validate_rpath: false`**: the default runs a shell test over ssh,
+  which a forced-command key refuses. `validate_rpath` and `ssh_keyscan`
+  are write-only (a GET does not return them, so do not diff on them).
+  Create it disabled, run it once by hand (`POST
+  /rsynctask/id/<n>/run` → job id), check, then enable.
+- A path with spaces in an exclude: write `?` for each space
+  (`Application?Support`), so the list survives any quoting.
+- `--inplace` is why a snapshot of a big database file keeps only its
+  changed blocks instead of a second whole file.
+- **Schedules**: nightly, each machine its own slot between 01:00 and
+  05:00 Madrid time (the tool refuses a shared slot).
+
+**The key on the source** is never a plain root login:
+`restrict,from="<NAS LAN address>,<NAS tailnet address>",command="/usr/bin/rrsync -ro /"`.
+It needs `/usr/bin/rrsync` there (rsync ≥ 3.2.4 ships it; Ubuntu 20.04's
+3.1.3 has it as a symlink). Servers: hq `shared/ansible` group
+`nas_rsync_sources`; always-on dev machines: `homelab/ansible`
+`nas_rsync_source_hostnames` (root's key, with sshd on `PermitRootLogin
+forced-commands-only`); others: the authorize script. macOS cannot (no
+root ssh, openrsync, no rrsync). **Not yet verified (no pull had run on
+2026-10-12)**: that TrueNAS's rsync command line passes rrsync as is. If a
+run fails with an `rrsync` line, one option was refused: drop that option
+for the machine, keep the restriction.
+
+**Alerts.** A fresh TrueNAS mails nobody: no SMTP server and no address
+on any admin user, while its *E-Mail* alert service sits enabled. Make
+them deliverable: `PUT /mail` (`outgoingserver`, `port`, `security`:
+`SSL`/`TLS`/`PLAIN`, `smtp: true`, `user`, `pass`, `fromemail`,
+`fromname`; here Resend: `smtp.resend.com`, 465, `SSL`, user `resend`,
+password = the Resend API key), `PUT /user/id/<truenas_admin>`
+`{"email": …}` (then `GET /mail/local_administrator_email` shows it),
+`POST /mail/send {"message": {"subject","text","to":[…]}, "config": {}}`
+(a job) and `POST /alertservice/test` with the service's own
+`name/attributes/level/enabled`. Classes that matter: `RsyncFailed`
+(CRITICAL), `TaskLocked` (WARNING: the task's dataset is locked after a
+reboot), `RsyncSuccess` (INFO). A NAS cannot report its own silence: a
+healthchecks.io dead-man pinged from a NAS cron job (`POST /cronjob`) is
+the proposed second signal, not built.
+
+**The mirror concentrates secrets**: each machine's `/etc/shadow`, env
+files and keys sit readable on the dataset. No share on it, ever; and an
+admin API key on the NAS reads all of them.
+
+## 8. Writing a new NAS into hq
 
 1. Server file from `docs/servers/_template.md`; omit what was not read.
    A serial from `system/info` settles "which chassis is this" (a refit
