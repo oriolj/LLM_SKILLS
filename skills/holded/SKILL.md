@@ -89,7 +89,8 @@ introduction. Never commit the spec file to a repo.
   (verified). Pass `cursor` back for the next page and stop when `has_more` is
   false. The spec's introduction says `page` and `limit`; that is wrong.
 - **Page size** differs per endpoint: the guide says default 25, maximum 100;
-  bank movements default to 50 and accepted 200 (verified).
+  bank movements and purchases default to 50 with a maximum of 200 in the
+  spec (verified: 200 accepted on movements, 100 on purchases).
 - **Dates** are ISO strings (`"2026-07-01"`, bank movements carry full
   timestamps). Date filters are `start_date` / `end_date`, inclusive.
   `ledger-entries` requires both and answers 400 without them (verified).
@@ -161,12 +162,18 @@ All paths are under `/api/v2`. `status` on a document is one of `pending`,
 ### Bank accounts and movements (verified)
 
 - An account carries `type` (`bank`, `card`, `gateway`, `cash`),
-  `institution_name`, `iban`, `balance`, `archived`, **`synced_at`** and
-  **`transactions_pending_to_reconcile`**. A recent `synced_at` on an
+  `institution_name`, `institution_id` (a slug such as `qonto`), `iban`,
+  `bic`, `account_number`, `accounting_account_id` and
+  `accounting_account_number`, `balance`, `archived`, **`synced_at`** and
+  **`transactions_pending_to_reconcile`**. A payment-gateway account has no
+  IBAN; its `account_number` is the processor's account id. A recent `synced_at` on an
   unarchived account means the bank feed is alive; do not infer that an
   account is closed from its paperwork.
-- A movement carries `id`, `description` (the bank's text), `note`, `amount`
-  (signed, account currency), `balance`, `booking_date`, `value_date`,
+- A movement carries `id` (24 hex characters, like a document id),
+  `banking_account_id`, `description` (the bank's text), `note`, `amount`
+  (signed, account currency), `balance`, `accounting_amount` and
+  `accounting_currency` (null on unreconciled euro movements), `flagged_at`,
+  `booking_date` and `value_date` (full timestamps),
   `status` (`pending`, `reconciled`, `partial`, `forced_reconciled`),
   `reconciled_amount` and `origin` (the feed provider, e.g. `bankin`,
   `afterbanks`, or `manual`, `stripe`).
@@ -234,6 +241,9 @@ Cases that are not one-to-one:
   holds 66.67 €. So an integration that writes the foreign figure through v1
   (or re-sends it with a v1 `PUT`) books dollars as euros. When figures look
   off by the exchange rate, compare the ledger entry with the real invoice.
+  The rate itself is **not in the v2 purchases list** (its items have no
+  `currency_change`); it is on the single-document `GET /purchases/{id}` and
+  on the v1 list (`currencyChange`), where one call covers a whole date range.
 - **Drafts.** v1 lists show `draft: null` for everything; v2 shows a real
   `draft` boolean and takes `approval_status=draft|approved` as a filter.
   Purchases created through v1 with `approveDoc: false` showed `draft: false`
@@ -270,6 +280,14 @@ questions if the owner connects it (Analyst first).
 - The H2A-Accountant app's own integration (v1 client, uploads, the v2
   migration plan) is documented in its repo: `agents/accountant/docs/holded_api.md`
   and `docs/todo.md`.
+
+## Who verified what
+
+2026-10-12: the first pass, by the session that wrote this skill, and a second
+set of reads by the session building bank review into H2A-Accountant (list
+fields, page sizes, the missing `currency_change`). The reconcile POST is
+still unverified by anyone: the first real call is planned on one movement
+chosen by the owner.
 
 ## Keeping this current
 

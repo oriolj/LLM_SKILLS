@@ -4,9 +4,10 @@
 GET only: this script cannot write to Holded. It never prints the token.
 
     holded.py --scope smartupsoft usage
-    holded.py --scope smartupsoft accounts
+    holded.py --scope smartupsoft accounts [--json]
     holded.py --scope smartupsoft movements <account-id> --from 2026-07-01 --to 2026-09-30 [--status pending]
     holded.py --scope smartupsoft get /api/v2/purchases start_date=2026-07-01 end_date=2026-09-30 [--all]
+        (without --all: the {items, cursor, has_more} envelope of one page; with --all: a bare list of every item)
     holded.py spec                      # tags with their endpoint counts (no token, no quota)
     holded.py spec --tag "Banking accounts"
     holded.py spec --path /api/v2/payments [--method post]
@@ -216,7 +217,8 @@ def main() -> None:
     ap.add_argument("--scope", help="secrets file suffix, e.g. smartupsoft")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("usage")
-    sub.add_parser("accounts")
+    ac = sub.add_parser("accounts")
+    ac.add_argument("--json", action="store_true")
     mv = sub.add_parser("movements")
     mv.add_argument("account_id")
     mv.add_argument("--from", dest="start")
@@ -243,7 +245,10 @@ def main() -> None:
         status, body = api.get("/api/v2/usage")
         print(json.dumps(body, indent=1) if status == 200 else f"{status}: {body}")
     elif args.cmd == "accounts":
-        for acc in api.items("/api/v2/treasury/accounts"):
+        accounts = api.items("/api/v2/treasury/accounts")
+        if args.json:
+            json.dump(accounts, sys.stdout, indent=1)
+        for acc in [] if args.json else accounts:
             print(f"{acc['id']}  {acc.get('type'):8} archived={acc.get('archived')!s:5} "
                   f"pending={acc.get('transactions_pending_to_reconcile')!s:4} synced={str(acc.get('synced_at'))[:10]} "
                   f"balance={acc.get('balance')} {acc.get('currency')}  {acc.get('name')} ({acc.get('institution_name')})")
