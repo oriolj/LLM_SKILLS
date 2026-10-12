@@ -308,10 +308,13 @@ them; the mechanics below are what they do and what was learned.
 **Adding a machine** (only when Oriol names it): space analysis → he
 decides the exclude candidates → registry entry → the key on the machine
 → `plan`, `apply` → `run` and check the result → `apply --enable`.
-Each of `run` and `--enable` is its own word from him: "run X" starts one
-copy and leaves the schedule off, and a long first copy from a
-production box starts at the hour he gives. `run` follows the job until
-it ends (start it as a background command for anything over a minute).
+A long first copy from a production box starts at the hour he gives
+("run X"). **Once the first copy has run clean and been checked, enable
+the schedule without asking again** (Oriol, 2026-10-12: "when we add a
+server and it successfully backs up we schedule and enable it"); a
+FAILED copy or a shortfall is reported, not scheduled. `run` follows the
+job until it ends (start it as a background command for anything over a
+minute).
 
 **The space analysis**, read-only, on the source as root:
 `ssh -p <port> root@<host> 'bash -s' < homelab/tools/truenas-rsync-sizes.sh`.
@@ -378,15 +381,38 @@ those as `candidates:` in the registry and ask.
   = a LIST, one option per item (`--numeric-ids`, `--hard-links`,
   `--acls`, `--inplace`, one `--exclude=<pattern>` each), `schedule`
   (`minute hour dom month dow`, in the box's timezone), `enabled`.
-  **`validate_rpath: false`**: the default runs a shell test over ssh,
-  which a forced-command key refuses. `validate_rpath` and `ssh_keyscan`
-  are write-only (a GET does not return them, so do not diff on them)
-  **and default to true again on every `PUT`**: an update of only
-  `{"enabled": true}` answers `422 … Connection to Remote Host was
-  successful but failed to verify Remote Path`. Send `validate_rpath:
-  false` with every update (2026-10-12, enabling the pilot's schedule).
+  `validate_rpath` and `ssh_keyscan` are write-only (a GET does not
+  return them, so do not diff on them) and go back to their defaults
+  (true, false) on every `PUT`.
   Create it disabled, run it once by hand (`POST
   /rsynctask/id/<n>/run` → job id), check, then enable.
+- **An ENABLED task is validated at every save, and 25.10 has a bug
+  there** (middleware `plugins/rsync.py`, read 2026-10-12; a disabled
+  task is not validated at all, which is why creating and editing a
+  disabled one always works):
+  - `validate_rpath: true`: the NAS logs in with the connection's key
+    and runs `test -d <remotepath>`. A plain `rrsync` forced command
+    refuses it: 422 `The Remote Path you specified does not exist or is
+    not a directory` (rrsync's exit 1) or `Connection to Remote Host was
+    successful but failed to verify Remote Path` (another exit).
+  - `validate_rpath: false`: it looks the host key up in the
+    connection's own key list with `match(host, '', None)`, **without
+    the port**, while the list is written as `[host]:port` for any port
+    but 22. Result on a non-22 source: 422 `rsync_task_update.remotehost:
+    Host key not found in /root/.ssh/known_hosts`, whatever
+    `ssh_keyscan` says. On port 22 it passes.
+  So a task on port 1922 with a read-only key cannot be enabled either
+  way. Upstream: NAS-139773; PR 18235 (26.0.0-BETA.1) changes the probe
+  to `ls <path>` and is not known to fix the port. What forum users do:
+  run rsync from a cron job, or a key in the user's home with a
+  port-less `known_hosts` line, or another tool.
+  **Our answer (Oriol's choice, 2026-10-12): the key's forced command
+  answers the probe.** See "The key on the source". It is a WORKAROUND:
+  hq backups.md §14 has the table of workarounds and the test that tells
+  when one can go; run it after every TrueNAS upgrade (Oriol: "note for
+  future ref that we should remove them if a future truenas fixes
+  them"). The tool's `save_task` picks the value: probe for an enabled
+  task, the lookup as fallback for a port-22 source with the old line.
 - **An exclude added after a copy leaves the copied files in the
   mirror.** rsync protects excluded paths on the receiver and the task
   has no `--delete-excluded`, so the exclude only stops updates; the
@@ -432,7 +458,19 @@ those as `candidates:` in the registry and ask.
   05:00 Madrid time (the tool refuses a shared slot).
 
 **The key on the source** is never a plain root login:
-`restrict,from="<NAS LAN address>,<NAS tailnet address>",command="/usr/bin/rrsync -ro /"`.
+`restrict,from="<NAS LAN address>,<NAS tailnet address>",command="case $SSH_ORIGINAL_COMMAND in 'test -d /'|'ls /') exit 0;; *) exec /usr/bin/rrsync -ro /;; esac"`.
+The `case` answers TrueNAS's save-time probe (above) with exit 0 and no
+output; every other command, a shell request and a push still end in
+rrsync's refusal (tested end to end in a container with sshd: probes 0,
+`id` and `test -d /; id` and `test -d /etc` refused, pull with the
+task's options works, push refused). Rules for that string: no double
+quote and no backslash (it sits inside `command="…"`), the case word
+unquoted (the shell neither splits nor globs it), and root's login shell
+must be sh-compatible (fish fails closed). The first form, `command=
+"/usr/bin/rrsync -ro /"`, still pulls but cannot be enabled off port 22.
+Three copies of the string (both playbooks, the authorize script), kept
+equal by `homelab/ansible/playbooks/test-nas-rsync-key.yml`;
+`ansible.posix.authorized_key` writes it unchanged and idempotently.
 It needs `/usr/bin/rrsync` there (rsync ≥ 3.2.4 ships it; Ubuntu 20.04's
 3.1.3 has it as a symlink). Servers: hq `shared/ansible` group
 `nas_rsync_sources`; always-on dev machines: `homelab/ansible`
