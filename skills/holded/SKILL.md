@@ -142,7 +142,7 @@ bookings, time tracking and more).
 | Banking accounts | `GET /treasury/accounts` (`type`, `archived`) | `accounting:banks.read` | verified |
 | Bank statement lines | `GET /treasury/accounts/{id}/bank-movements` (`start_date`, `end_date`, `status`, `limit`) | `accounting:banks.read` | verified |
 | Cash-account lines | `GET /treasury/accounts/{id}/cash-movements` | `accounting:banks.read` | spec |
-| Reconcile a movement | `POST /treasury/accounts/{accountId}/bank-movements/{movementId}/reconcile` | `accounting:banks.write` | verified (one document, same amount) |
+| Reconcile a movement | `POST /treasury/accounts/{accountId}/bank-movements/{movementId}/reconcile` | `accounting:banks.write` | verified (one document per movement, same amount; 62 calls) |
 | Payments | `GET /payments` (`start_date`, `end_date`, `document_id`, `document_type`, `banking_account_id`) | `accounting:payments.read` | verified (list) |
 | Sales invoices, credit notes | `GET /invoices`, `GET /credit-notes` (`start_date`, `end_date`, `status`, `approval_status`, `contact_id`) | `sales:invoices.read` | verified (list) |
 | Find a sales invoice by number | `GET /invoices/find-by-number` | `sales:invoices.read` | spec |
@@ -180,7 +180,7 @@ All paths are under `/api/v2`. `status` on a document is one of `pending`,
 - Movements come ordered by value date, newest first. Cash accounts return
   nothing here; use `cash-movements`.
 
-### Reconciling (verified once, 2026-10-12)
+### Reconciling (verified, 2026-10-12)
 
 `POST …/bank-movements/{movementId}/reconcile` with
 `{"documents": [{"document_id": "…", "document_type": "purchase"}]}`.
@@ -201,6 +201,15 @@ payment**; nothing has to be created beforehand. Read the movement and the
 document before and after every first call of a batch. Splitting across
 several documents, the empty body, partial amounts and foreign-currency
 documents are still spec only.
+
+A batch of 61 more followed (one POST per movement, 0.8 s apart, each
+answering 200) and a re-read confirmed every movement `reconciled` in full
+and every purchase paid in full. What kept it safe: a fresh read of movements
+and documents right before writing, a guard per pair (movement still
+`pending`, document still fully unpaid, same currency, amount equal to the
+cent, each id used once), a log written after every call, stopping on any
+answer other than 200, and a fresh read after. Checking the pair in v1 works
+too: a reconciled purchase shows `status: 1` and `paymentsPending: 0` there.
 
 What makes it dangerous:
 
@@ -301,7 +310,7 @@ questions if the owner connects it (Analyst first).
 2026-10-12: the first pass, by the session that wrote this skill, and a second
 set of reads by the session building bank review into H2A-Accountant (list
 fields, page sizes, the missing `currency_change`). The reconcile POST was
-called once that evening, on one movement the owner approved.
+called that evening on one movement the owner approved, then on 61 more.
 
 ## Keeping this current
 
