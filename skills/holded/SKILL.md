@@ -285,11 +285,24 @@ Cases that are not one-to-one:
   The rate itself is **not in the v2 purchases list** (its items have no
   `currency_change`); it is on the single-document `GET /purchases/{id}` and
   on the v1 list (`currencyChange`), where one call covers a whole date range.
-  To change it (spec, not called): `POST /purchases` takes `currency` and
-  `currency_change`, but `PUT /purchases/{id}` takes only `number`, `date`,
-  `due_date` and `items`, and replaces everything it is not given. So the
-  rate of an existing purchase cannot be corrected in v2; its euro amount can
-  only be changed through the line prices, or by creating the document again.
+  In v2, `POST /purchases` takes `currency` and `currency_change`, but
+  `PUT /purchases/{id}` takes only `number`, `date`, `due_date` and `items`
+  and replaces everything it is not given (spec, not called).
+- **Correcting a foreign-currency document that holds the wrong euro
+  amount** (verified once, 2026-10-12, on an 11 USD purchase stored as 11 €):
+  a **v1 `PUT /documents/purchase/{id}`** whose item `subtotal`s are the
+  foreign prices **divided by the document's stored `currencyChange`**, in
+  the same body shape the integration creates documents with (`date`,
+  `dueDate`, `contactId`, `invoiceNum`, `currency`, `notes`, and per item
+  `name`, `units`, `subtotal`, `taxes`, `accountingAccountId`). Holded
+  answered `{"status": 1, "info": "Updated"}`; the stored total became
+  9.82 €, v2 then showed `total: "11,00"` USD (equal to the PDF again), the
+  rate, notes, tax keys and accounts were kept, and the ledger entry of the
+  purchase moved from 11 to 9.82 on both lines. So this repair fixes the
+  euro value and the foreign display together. Round each line, then put the
+  rounding drift on one line so the total is the rounded total. It uses the
+  rate Holded stored; whether that is the rate the accountant wants is a
+  separate question (check it against the ECB reference rate of the date).
 - **Reconciling a foreign-currency purchase: do not edit the document to
   equal the bank charge.** The charge fixes what left the bank, not the
   purchase's value or its VAT at the invoice date; the gap is an exchange
@@ -299,10 +312,18 @@ Cases that are not one-to-one:
   on the same movement Transferir → Asiento → account 668000000 →
   Transferir y conciliar; when it is lower, a manually added payment gateway
   linked to 768000000 pays the remaining balance of the invoice. Whether the
-  public API reproduces either step is unknown: the `entry` document type,
-  partial payments and `accounting_amount` exist in the spec, none was
-  tried. Before any of it, the document must hold the right euro value at
-  its own date, which is the accountant's call to confirm.
+  first step works through the API (verified once, 2026-10-12): reconciling
+  a 10.22 € charge against a purchase of 9.82 € answered 200 `null`; the
+  purchase became `completed` with a payment of 9.82 dated on the movement,
+  and the movement became **`partial`** with `reconciled_amount` -9.82,
+  leaving 0.40. The ledger got the payment entry (supplier account against
+  the bank account) for 9.82. Sending the remainder to 668 through the API
+  was not tried (the `entry` document type exists in the spec); it was left
+  for the owner to do in the web app. Before any of it, the document must
+  hold the right euro value at its own date, which is the accountant's call
+  to confirm. A gap of several per cent with no bank FX fee line next to it
+  can be the vendor's payment processor charging in euros at its own rate,
+  not a market movement: say so, the accountant may book it differently.
 - **Drafts.** v1 lists show `draft: null` for everything; v2 shows a real
   `draft` boolean and takes `approval_status=draft|approved` as a filter.
   Purchases created through v1 with `approveDoc: false` showed `draft: false`
@@ -339,6 +360,38 @@ questions if the owner connects it (Analyst first).
 - The H2A-Accountant app's own integration (v1 client, uploads, the v2
   migration plan) is documented in its repo: `agents/accountant/docs/holded_api.md`
   and `docs/todo.md`.
+
+## Sources
+
+Where each kind of claim comes from, so it can be re-checked:
+
+- **Holded's API reference** and guides: [reference](https://www.holded.com/developers/api-reference),
+  [getting started](https://www.holded.com/developers/getting-started),
+  [authentication](https://www.holded.com/developers/authentication),
+  [pagination](https://www.holded.com/developers/pagination),
+  [errors](https://www.holded.com/developers/errors),
+  [limits](https://www.holded.com/developers/rate-limiting) (the plan table),
+  [webhooks](https://www.holded.com/developers/webhooks),
+  [MCP server](https://www.holded.com/developers/mcp),
+  [v1 docs](https://www.holded.com/developers/v1).
+- **The OpenAPI file**, `https://api.holded.com/openapi/api2.json`: every
+  claim marked "spec" (endpoints, parameters, scopes, enums). Read it with
+  `holded.py spec`. Its introduction is wrong on pagination and limits.
+- **Holded's help centre**: [creating an API token](https://help.holded.com/en/articles/6896051),
+  [currencies and exchange rates](https://help.holded.com/en/articles/6985003-currencies-and-exchange-rates),
+  [reconciling invoices in other currencies when the rate changes](https://help.holded.com/es/articles/9413261-conciliar-facturas-en-otras-divisas-cuando-varia-el-tipo-de-cambio)
+  (the 668 / 768 procedure, web app only).
+- **Live calls** on one company's account, 2026-10-12: every claim marked
+  "verified". Reads, 62 same-amount reconciliations, one v1 PUT correcting a
+  foreign-currency purchase and one reconciliation of a mismatched pair.
+- **ECB reference rates** through `https://api.frankfurter.app/<date>?from=EUR&to=USD`
+  (follow redirects): used to judge whether Holded's stored rate fits the
+  invoice date. On the one date checked they were 0.26 % apart.
+- **The integration's code and notes** (H2A-Accountant, `backend/core/holded.py`,
+  `docs/holded_api.md`): v1 behaviour, the body shape, the POST-then-PUT bug.
+- **A second opinion from Codex** on the accounting treatment of
+  foreign-currency reconciliation; the Spanish rules it cited (PGC valuation
+  rule 11, VAT Act article 79) were not checked and are for the accountant.
 
 ## Who verified what
 
