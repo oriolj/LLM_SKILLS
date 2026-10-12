@@ -65,7 +65,10 @@ c.get("/api/v2.0/system/info")
   are already 404 (`update/get_trains`, `zfs/snapshot`,
   `pool/dataset/attachments`). The replacement is JSON-RPC over
   `wss://<host>/api/current` (`auth.login_with_api_key`), not used yet
-  here (needs a websocket client).
+  here (needs a websocket client). **The box's own `RESTAPIUsage` alert
+  says REST "will be removed in version 26.04"**: hq's
+  `truenas-rsync-task.py` and every call in this skill are REST, so the
+  NAS is not upgraded to 26.04 before they are ported.
 - A method that takes one argument is a `POST` with that argument as the
   JSON body: `POST /app/config` body `"syncthing"`, `POST /filesystem/stat`
   body `"/mnt/tank/x"`, `POST /filesystem/listdir` body `{"path": …}`,
@@ -376,6 +379,18 @@ those as `candidates:` in the registry and ask.
   false` with every update (2026-10-12, enabling the pilot's schedule).
   Create it disabled, run it once by hand (`POST
   /rsynctask/id/<n>/run` → job id), check, then enable.
+- **An exclude added after a copy leaves the copied files in the
+  mirror.** rsync protects excluded paths on the receiver and the task
+  has no `--delete-excluded`, so the exclude only stops updates; the
+  space comes back only by a deliberate deletion on the NAS, and the
+  snapshots keep the files until they age out. Settle excludes before
+  the first run, and never promise that an exclude "frees" anything.
+- **Reinstalled, repurposed or retired source: disable its task before
+  the wipe.** With `delete: true` a task pointed at a fresh install
+  mirrors the empty system; the old content is then only in snapshots.
+  Last pull → disable → the dataset is the archive (deleting it is
+  Oriol's call) → the reinstalled box is a new machine (new host key,
+  key installed again, new analysis, own dataset). hq backups.md §14.
 - A path with spaces in an exclude: write `?` for each space
   (`Application?Support`), so the list survives any quoting.
 - `--inplace` is why a snapshot of a big database file keeps only its
