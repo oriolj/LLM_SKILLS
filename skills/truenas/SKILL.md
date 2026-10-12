@@ -414,9 +414,9 @@ those as `candidates:` in the registry and ask.
   and the copy with it does not: a missing exclude then fails the task
   and mails instead of landing terabytes on the pool. Set it again from
   the first copy.
-- **Slot after the source's own dump job**, so the night's dump is
-  complete when the pull reads it (v5: Coolify's 00:00 UTC MariaDB dump,
-  pull at 02:30 Madrid).
+- **Slot after the source's own dump job**: the two then do not read
+  the disks at once, and a dump that is copied is complete when the pull
+  reads it (v5: Coolify's 00:00 UTC MariaDB dump, pull at 02:30 Madrid).
 - A path with spaces in an exclude: write `?` for each space
   (`Application?Support`), so the list survives any quoting.
 - `--inplace` is why a snapshot of a big database file keeps only its
