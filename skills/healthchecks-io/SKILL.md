@@ -35,8 +35,11 @@ ping, FAILURE → `/fail`), plus `h2a-accountant-db-backup` (2026-09-06, 1 d /
 6 h grace, tags `h2a-accountant oriolj backup` — pinged by the compose
 backup sidecar after a size-verified R2 upload, env
 `HEALTHCHECKS_PING_URL_DB_BACKUP` as a BUILD-TIME row on the data resource
-because the compose buildpack interpolates it). Total in the oriolj
-project: 16.
+because the compose buildpack interpolates it), and since 2026-10-12
+`h2a-accountant-bank-review-weekly` (cron `0 7 * * 1` UTC, grace 6 h, the
+weekly bank review; created with `schedule` + `tz`, answered 201 with
+`channels: ""` because the project has none; `new` until its ping URL is
+on the worker app). Total in the oriolj project: 17.
 
 🔴 **The oriolj project has ZERO notification channels (found 2026-09-04
 via `GET /api/v3/channels/`)** — every check there (LeadHunter's six, the
