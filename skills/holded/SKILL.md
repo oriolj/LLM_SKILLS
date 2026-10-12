@@ -268,6 +268,17 @@ Cases that are not one-to-one:
   The rate itself is **not in the v2 purchases list** (its items have no
   `currency_change`); it is on the single-document `GET /purchases/{id}` and
   on the v1 list (`currencyChange`), where one call covers a whole date range.
+  To change it (spec, not called): `POST /purchases` takes `currency` and
+  `currency_change`, but `PUT /purchases/{id}` takes only `number`, `date`,
+  `due_date` and `items`, and replaces everything it is not given. So the
+  rate of an existing purchase cannot be corrected in v2; its euro amount can
+  only be changed through the line prices, or by creating the document again.
+- **Reconciling a foreign-currency purchase** needs the document's euro
+  amount to equal the bank charge first. Sent as it is, the charge is smaller
+  or larger than the stored total and a remainder is left (how Holded shows
+  it is untested). Decide with the accountant whether the document should
+  hold the euros actually charged, or the invoice-date rate plus an
+  exchange-difference entry.
 - **Drafts.** v1 lists show `draft: null` for everything; v2 shows a real
   `draft` boolean and takes `approval_status=draft|approved` as a filter.
   Purchases created through v1 with `approveDoc: false` showed `draft: false`
