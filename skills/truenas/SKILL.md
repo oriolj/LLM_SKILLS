@@ -369,7 +369,11 @@ those as `candidates:` in the registry and ask.
   (`minute hour dom month dow`, in the box's timezone), `enabled`.
   **`validate_rpath: false`**: the default runs a shell test over ssh,
   which a forced-command key refuses. `validate_rpath` and `ssh_keyscan`
-  are write-only (a GET does not return them, so do not diff on them).
+  are write-only (a GET does not return them, so do not diff on them)
+  **and default to true again on every `PUT`**: an update of only
+  `{"enabled": true}` answers `422 … Connection to Remote Host was
+  successful but failed to verify Remote Path`. Send `validate_rpath:
+  false` with every update (2026-10-12, enabling the pilot's schedule).
   Create it disabled, run it once by hand (`POST
   /rsynctask/id/<n>/run` → job id), check, then enable.
 - A path with spaces in an exclude: write `?` for each space
@@ -430,7 +434,10 @@ restriction.
   false`, so no snapshot appears while nothing changed.
 - Timing seen: a first copy of 273 GiB and about a million files over
   the LAN took 2 h on the Gen8 (ZSTD, encrypted dataset, `compress:
-  false` on the wire).
+  false` on the wire). An unchanged second run the same day: 17 min,
+  45 MiB more in snapshots, empty log.
+- A success after a failure clears `RsyncFailed`, shows `RsyncSuccess`
+  (INFO) and sends a mail in the same second.
 
 **Alerts.** A fresh TrueNAS mails nobody: no SMTP server and no address
 on any admin user, while its *E-Mail* alert service sits enabled. Make
