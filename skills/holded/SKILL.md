@@ -142,7 +142,7 @@ bookings, time tracking and more).
 | Banking accounts | `GET /treasury/accounts` (`type`, `archived`) | `accounting:banks.read` | verified |
 | Bank statement lines | `GET /treasury/accounts/{id}/bank-movements` (`start_date`, `end_date`, `status`, `limit`) | `accounting:banks.read` | verified |
 | Cash-account lines | `GET /treasury/accounts/{id}/cash-movements` | `accounting:banks.read` | spec |
-| Reconcile a movement | `POST /treasury/accounts/{accountId}/bank-movements/{movementId}/reconcile` | `accounting:banks.write` | spec |
+| Reconcile a movement | `POST /treasury/accounts/{accountId}/bank-movements/{movementId}/reconcile` | `accounting:banks.write` | verified (one document, same amount) |
 | Payments | `GET /payments` (`start_date`, `end_date`, `document_id`, `document_type`, `banking_account_id`) | `accounting:payments.read` | verified (list) |
 | Sales invoices, credit notes | `GET /invoices`, `GET /credit-notes` (`start_date`, `end_date`, `status`, `approval_status`, `contact_id`) | `sales:invoices.read` | verified (list) |
 | Find a sales invoice by number | `GET /invoices/find-by-number` | `sales:invoices.read` | spec |
@@ -180,7 +180,7 @@ All paths are under `/api/v2`. `status` on a document is one of `pending`,
 - Movements come ordered by value date, newest first. Cash accounts return
   nothing here; use `cash-movements`.
 
-### Reconciling (spec, not called yet)
+### Reconciling (verified once, 2026-10-12)
 
 `POST …/bank-movements/{movementId}/reconcile` with
 `{"documents": [{"document_id": "…", "document_type": "purchase"}]}`.
@@ -189,13 +189,28 @@ All paths are under `/api/v2`. `status` on a document is one of `pending`,
 `collection`, `receipt`, `entry`. One document closes the movement; several
 split it. An empty body marks the movement reconciled against nothing.
 
+What one real call did (a euro card charge against an unpaid euro purchase of
+the same amount, verified): the POST answered **200 with the body `null`**.
+The movement went from `pending` to `reconciled` with `reconciled_amount`
+equal to its amount. The purchase went from `pending` to `completed`, with
+`payments_pending` at zero and a new entry in `payments_detail` dated on the
+movement's value date and carrying the banking account id. That payment is
+also listed by `GET /payments?document_id=…&document_type=purchase`, with
+`reconciliation_status: "reconciled"`. So a reconciliation **creates a
+payment**; nothing has to be created beforehand. Read the movement and the
+document before and after every first call of a batch. Splitting across
+several documents, the empty body, partial amounts and foreign-currency
+documents are still spec only.
+
 What makes it dangerous:
 
 - **Not idempotent.** The same movement and document twice answers 422.
   Check the movement's `status` and the document's pending amount before each
   call, and record what was sent.
 - **No undo in the API.** The spec has no endpoint that removes a
-  reconciliation. A wrong one is fixed by hand in Holded.
+  reconciliation. A wrong one is fixed by hand in Holded. The payment a
+  reconciliation creates has an id and the spec has `DELETE /payments/{id}`;
+  whether deleting it also frees the movement has not been tried.
 - **423** means another update holds the lock: wait and re-read, do not hammer.
 - The empty-body form hides a movement from the pending list with no document
   behind it. That is the opposite of finding the missing invoice; use it only
@@ -285,9 +300,8 @@ questions if the owner connects it (Analyst first).
 
 2026-10-12: the first pass, by the session that wrote this skill, and a second
 set of reads by the session building bank review into H2A-Accountant (list
-fields, page sizes, the missing `currency_change`). The reconcile POST is
-still unverified by anyone: the first real call is planned on one movement
-chosen by the owner.
+fields, page sizes, the missing `currency_change`). The reconcile POST was
+called once that evening, on one movement the owner approved.
 
 ## Keeping this current
 
