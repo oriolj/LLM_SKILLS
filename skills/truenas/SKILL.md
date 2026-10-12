@@ -297,7 +297,7 @@ The estate's rule (Oriol, 2026-10-12): truenas-enantena pulls the whole
 with Vorta. Policy, reasons and the state per machine: hq
 `shared/docs/backups.md` §14. **The tools do the work** (hq
 `homelab/tools/`): `truenas-rsync-task.py` (`status`, `plan`, `apply`,
-`run`, `log`) from the registry `truenas-rsync-sources.yml`,
+`run`, `log [--full]`) from the registry `truenas-rsync-sources.yml`,
 `truenas-rsync-sizes.sh` (space analysis on the source),
 `truenas-rsync-authorize.sh` (the key on a machine outside ansible). Use
 them; the mechanics below are what they do and what was learned.
@@ -316,6 +316,14 @@ Read it in this order:
    copied anyway (mergerfs, overlay, squashfs, a bind mount) or another
    machine's disk (nfs, cifs, sshfs: above all the NAS's own shares) is
    excluded; a local data disk is copied.
+   **A mount that cannot be read is settled before the first run** (the
+   script's "UNREADABLE MOUNTS" block). A USB disk unplugged while
+   mounted stays in the mount table, `df` keeps printing its size from
+   memory, `du -x` never enters it, and every read is `Input/output
+   error`. rsync then exits 23 every night. The pilot's first analysis
+   called four such mounts "empty disks" (nuc8i7, 2026-10-12: the
+   enclosures had been gone four weeks). Fix on the machine (unmount) or
+   an exclude decided by Oriol; never an exclude on the agent's own.
 2. *Big folders and files over 1 GiB.* A candidate is big AND rebuilt by
    a program. Everything else is copied.
 3. *Docker.* Volumes and database directories are never excluded.
@@ -378,10 +386,42 @@ It needs `/usr/bin/rrsync` there (rsync ≥ 3.2.4 ships it; Ubuntu 20.04's
 `nas_rsync_sources`; always-on dev machines: `homelab/ansible`
 `nas_rsync_source_hostnames` (root's key, with sshd on `PermitRootLogin
 forced-commands-only`); others: the authorize script. macOS cannot (no
-root ssh, openrsync, no rrsync). **Not yet verified (no pull had run on
-2026-10-12)**: that TrueNAS's rsync command line passes rrsync as is. If a
-run fails with an `rrsync` line, one option was refused: drop that option
-for the machine, keep the restriction.
+root ssh, openrsync, no rrsync). **Verified 2026-10-12** (nuc8i7's first
+pull, NAS rsync 3.2.7 against 3.1.3): TrueNAS's rsync command line passes
+`rrsync -ro /` as is, with `-a -X --delete --numeric-ids --hard-links
+--acls --inplace` and the excludes. If a run ever fails with an `rrsync`
+line, one option was refused: drop that option for the machine, keep the
+restriction.
+
+**Reading a run.** The job state is not the result:
+
+- **Any rsync exit but 0 is a FAILED job and a `RsyncFailed` alert**,
+  exit 23 ("some files/attrs were not transferred") included. A run can
+  be FAILED with everything copied except one unreadable directory. And
+  on an I/O error rsync prints `IO error encountered -- skipping file
+  deletion`: the whole `--delete` pass is skipped, so the mirror keeps
+  files deleted on the source until the error is gone.
+- **Read the whole log**: `truenas-rsync-task.py log <host> --full`. The
+  job's `logs_excerpt` is only the tail. Over REST: `POST
+  /core/job_download_logs {"id": <job>, "filename": "<job>.log"}` returns
+  a path with a one-use token; `GET` it without the Bearer header and
+  never print the URL. Each path rsync could not copy is one line.
+- **Size check**: the dataset's `used` × `compressratio` against the
+  source's used space (the pilot: 157.8 GiB × 1.73 ≈ 273 GiB for 271 GiB
+  on `/`). `GET /pool/dataset/id/<name>` has no `logicalused`.
+- **Paths**: `POST /filesystem/listdir {"path": …}` (the body takes
+  nothing else on 25.10: `query-filters` is a 400; sort client-side).
+  Look for the Docker volumes and a database directory with its numeric
+  owner (uid 999 for Postgres proves `--numeric-ids`).
+- **Was the alert mailed**: `GET /core/get_jobs?method=mail.send`, a job
+  with subject "Alerts" in the same second as the failure. Sent is not
+  arrived; only Oriol sees the inbox.
+- Snapshots of a dataset: `GET /pool/snapshot?dataset=<name>`
+  (`/zfs/snapshot` is a 404). The hourly task takes none while nothing
+  changed.
+- Timing seen: a first copy of 273 GiB and about a million files over
+  the LAN took 2 h on the Gen8 (ZSTD, encrypted dataset, `compress:
+  false` on the wire).
 
 **Alerts.** A fresh TrueNAS mails nobody: no SMTP server and no address
 on any admin user, while its *E-Mail* alert service sits enabled. Make
