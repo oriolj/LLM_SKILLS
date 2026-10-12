@@ -156,28 +156,22 @@ for hreflang-related errors.
 
 ## A section that skips a language (Astro, BikeCRM 2026-10-11)
 
-A site in en/es/fr added a section that exists in en and es only. Two places
+A site in en/es/fr added a section that exists in en and es only. One place
 kept declaring a French version that was a 404:
 
 - **The layout's own hreflang loop** (`LANGS.map(...)`), and with it
   `og:locale:alternate` and the language menu. Give the layout a `locales`
   prop (default: all languages) and pass the page's real list; point
   `x-default` at a language in that list.
-- **`@astrojs/sitemap` with the `i18n` option**: it writes an
-  `xhtml:link` alternate for every configured locale on every URL without
-  checking that the page exists. Strip them in `serialize()`:
 
-  ```js
-  sitemap({
-    i18n: { defaultLocale: 'en', locales: { en: 'en', es: 'es', fr: 'fr' } },
-    serialize(item) {
-      if (/\/(tests|blog)(\/|$)/.test(new URL(item.url).pathname) && item.links) {
-        item.links = item.links.filter((l) => l.lang !== 'fr');
-      }
-      return item;
-    },
-  })
-  ```
+**`@astrojs/sitemap` needs nothing** (corrected 2026-10-12; the first version of
+this section said to strip the alternates in `serialize()`, which was wrong).
+With the `i18n` option it builds the `xhtml:link` alternates only from the URLs
+that exist in the build (3.7.3, `dist/generate-sitemap.js`), so a section with
+no French pages gets no French alternate, and a post written in one language
+gets none at all. Proof: the sitemap was byte-identical with and without the
+hook. A `serialize()` filter by path and language is dead code that later
+strips real alternates the day the missing language is added.
 
 Verify in the built files, not in the code: the section's entries in
 `sitemap-0.xml` carry no alternate for the missing language, the page's
