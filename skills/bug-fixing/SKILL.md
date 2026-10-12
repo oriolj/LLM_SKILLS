@@ -611,3 +611,21 @@ keep the alarm so unresolved cases stay visible.
 - Walk: ramen against the local backend + Mailpit, Playwright reads the mail through Mailpit's API
   (`/api/v1/messages`), then reload, reuse, and a second link in the same tab (`location.hash = …`, same-document
   navigation) — each found a real bug. `/src/icons` SVG components render as objects under Turbopack: reuse inline SVGs.
+
+### "It feels half-baked" in a data-entry UI: reproduce with latency, read the database (2026-10-12, BikeCRM inline editing)
+
+- A dev API that answers in ~100 ms hides every race a real connection exposes: an editor destroyed
+  when a new row's create answered (the table tracked rows by an id that changed draft → uuid), a
+  second create sent while the first was in flight (duplicate line), an older answer overwriting newer
+  typing. Hold write requests 1.5–5 s in the browser (an init-script wrapper on
+  `XMLHttpRequest.prototype.send`, or Playwright `page.route` with a delay), log focus events and
+  request bodies with timestamps, and type with real keystrokes and no waits between them.
+- The screen can lie in both directions: read the rows back from the API or the database after every
+  path (a cell showed «01 %» while 0 was stored; a "deleted" line came back from the server's answer).
+- When the owner says "we can't lose data input", list the contract explicitly — what the cell
+  displays (the model, never unsaved text), one writer per row, what happens on no answer (keep the
+  value, mark it unsaved, offer retry, warn before leaving), never re-sending a create on your own —
+  and make the regression spec fail on the old build before trusting it.
+- Ask for independent reviews after the first fix round: an adversarial agent and an outside model
+  each found real data-loss paths the first round had introduced or missed (a synchronous focus that
+  turned "45" + typing 60 into 4560; a product pick that also created a phantom line).
