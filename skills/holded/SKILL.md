@@ -273,12 +273,19 @@ Cases that are not one-to-one:
   `due_date` and `items`, and replaces everything it is not given. So the
   rate of an existing purchase cannot be corrected in v2; its euro amount can
   only be changed through the line prices, or by creating the document again.
-- **Reconciling a foreign-currency purchase** needs the document's euro
-  amount to equal the bank charge first. Sent as it is, the charge is smaller
-  or larger than the stored total and a remainder is left (how Holded shows
-  it is untested). Decide with the accountant whether the document should
-  hold the euros actually charged, or the invoice-date rate plus an
-  exchange-difference entry.
+- **Reconciling a foreign-currency purchase: do not edit the document to
+  equal the bank charge.** The charge fixes what left the bank, not the
+  purchase's value or its VAT at the invoice date; the gap is an exchange
+  difference. Holded documents the way to do it in the web app
+  ([help article](https://help.holded.com/es/articles/9413261-conciliar-facturas-en-otras-divisas-cuando-varia-el-tipo-de-cambio),
+  read 2026-10-12): when the payment is higher, reconcile the invoice, then
+  on the same movement Transferir → Asiento → account 668000000 →
+  Transferir y conciliar; when it is lower, a manually added payment gateway
+  linked to 768000000 pays the remaining balance of the invoice. Whether the
+  public API reproduces either step is unknown: the `entry` document type,
+  partial payments and `accounting_amount` exist in the spec, none was
+  tried. Before any of it, the document must hold the right euro value at
+  its own date, which is the accountant's call to confirm.
 - **Drafts.** v1 lists show `draft: null` for everything; v2 shows a real
   `draft` boolean and takes `approval_status=draft|approved` as a filter.
   Purchases created through v1 with `approveDoc: false` showed `draft: false`
