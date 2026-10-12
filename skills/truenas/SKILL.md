@@ -308,6 +308,10 @@ them; the mechanics below are what they do and what was learned.
 **Adding a machine** (only when Oriol names it): space analysis → he
 decides the exclude candidates → registry entry → the key on the machine
 → `plan`, `apply` → `run` and check the result → `apply --enable`.
+Each of `run` and `--enable` is its own word from him: "run X" starts one
+copy and leaves the schedule off, and a long first copy from a
+production box starts at the hour he gives. `run` follows the job until
+it ends (start it as a background command for anything over a minute).
 
 **The space analysis**, read-only, on the source as root:
 `ssh -p <port> root@<host> 'bash -s' < homelab/tools/truenas-rsync-sizes.sh`.
@@ -329,6 +333,10 @@ Read it in this order:
    an exclude decided by Oriol; never an exclude on the agent's own.
 2. *Big folders and files over 1 GiB.* A candidate is big AND rebuilt by
    a program. Everything else is copied.
+   On a production box the script is safe to run (it sets itself to the
+   lowest CPU and disk priority) but walks the disk several times: on
+   multi-TB it takes a while, and its "inside the volumes" block is what
+   shows which folder of a big volume holds the size.
 3. *Docker.* Volumes and database directories are never excluded.
    `overlay2` is copied too: next to the image layers it holds each
    container's writable layer (the `docker ps -as` column), which is where
@@ -391,6 +399,24 @@ those as `candidates:` in the registry and ask.
   Last pull → disable → the dataset is the archive (deleting it is
   Oriol's call) → the reinstalled box is a new machine (new host key,
   key installed again, new analysis, own dataset). hq backups.md §14.
+- **A file that is new every night costs a year of snapshots.** The
+  house scheme keeps a daily snapshot one year, so a rotating dump (a
+  box that stages 7 nightly database dumps of 19 GB) leaves every
+  night's file in the mirror's history: about 365 × its size a year
+  before compression. `--inplace` only helps a file that keeps its name.
+  That can be wanted (a year of daily database history) or not: put the
+  number in front of Oriol with the exclude candidates, before the first
+  copy (v5, 2026-10-12).
+- **Machine not measured yet, or an exclude question still open: a
+  provisional cap below the size of the doubtful part.** The dataset can
+  exist before the analysis (the host key scan is the reachability
+  test), with a refquota that the copy without the doubtful folder fits
+  and the copy with it does not: a missing exclude then fails the task
+  and mails instead of landing terabytes on the pool. Set it again from
+  the first copy.
+- **Slot after the source's own dump job**, so the night's dump is
+  complete when the pull reads it (v5: Coolify's 00:00 UTC MariaDB dump,
+  pull at 02:30 Madrid).
 - A path with spaces in an exclude: write `?` for each space
   (`Application?Support`), so the list survives any quoting.
 - `--inplace` is why a snapshot of a big database file keeps only its
@@ -451,6 +477,19 @@ restriction.
   the LAN took 2 h on the Gen8 (ZSTD, encrypted dataset, `compress:
   false` on the wire). An unchanged second run the same day: 17 min,
   45 MiB more in snapshots, empty log.
+  A small server over the tailnet (Hetzner → home, direct path): 9.5 GiB
+  and 73,000 files in 14 min, about 11 MiB/s, small files setting the
+  pace. Estimate a first copy at 15 to 35 MiB/s and say so as a range.
+- A first run that succeeds sends no mail: `RsyncSuccess` appears as an
+  INFO alert only. Mail goes out on a failure and on the success that
+  clears it.
+- vfat mounts (`/boot/efi`) copy without a log line despite `--acls` and
+  `-X`.
+- **The analysis is also the check of the exclude patterns**: before the
+  first run, find each decided pattern's folder in the script's output
+  (the "inside the volumes" block for a path in a Docker volume). A
+  pattern that matches nothing excludes nothing, and the copy says
+  nothing about it.
 - A success after a failure clears `RsyncFailed`, shows `RsyncSuccess`
   (INFO) and sends a mail in the same second.
 
