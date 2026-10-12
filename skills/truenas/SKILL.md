@@ -68,7 +68,13 @@ c.get("/api/v2.0/system/info")
   here (needs a websocket client). **The box's own `RESTAPIUsage` alert
   says REST "will be removed in version 26.04"**: hq's
   `truenas-rsync-task.py` and every call in this skill are REST, so the
-  NAS is not upgraded to 26.04 before they are ported.
+  NAS is not upgraded to that release before they are ported. **That
+  release is TrueNAS 27: there is no TrueNAS 26.** iXsystems renamed it
+  at RC.1 on 2026-10-06 (the number now follows the year most people
+  deploy it; one major release a year, dot releases counted, no more
+  `YY.MM`); 27.0 is expected in early December 2026. Older texts, the
+  box's own alert, Jira tickets and PR tags (`26.0.0-BETA.1`) still say
+  26 or 26.04: read them as 27.
 - A method that takes one argument is a `POST` with that argument as the
   JSON body: `POST /app/config` body `"syncthing"`, `POST /filesystem/stat`
   body `"/mnt/tank/x"`, `POST /filesystem/listdir` body `{"path": …}`,
@@ -402,7 +408,8 @@ those as `candidates:` in the registry and ask.
     Host key not found in /root/.ssh/known_hosts`, whatever
     `ssh_keyscan` says. On port 22 it passes.
   So a task on port 1922 with a read-only key cannot be enabled either
-  way. Upstream: NAS-139773; PR 18235 (26.0.0-BETA.1) changes the probe
+  way. Upstream: NAS-139773; PR 18235 (tagged 26.0.0-BETA.1, shipping as
+  TrueNAS 27) changes the probe
   to `ls <path>` and is not known to fix the port. What forum users do:
   run rsync from a cron job, or a key in the user's home with a
   port-less `known_hosts` line, or another tool.
