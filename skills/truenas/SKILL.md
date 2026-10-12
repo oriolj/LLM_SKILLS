@@ -414,7 +414,8 @@ those as `candidates:` in the registry and ask.
   run rsync from a cron job, or a key in the user's home with a
   port-less `known_hosts` line, or another tool.
   **Our answer (Oriol's choice, 2026-10-12): the key's forced command
-  answers the probe.** See "The key on the source". It is a WORKAROUND:
+  answers the probe.** Proved on the NAS the same day: internal-1's
+  enable, refused with the plain rrsync line, was accepted with it. See "The key on the source". It is a WORKAROUND:
   hq backups.md §14 has the table of workarounds and the test that tells
   when one can go; run it after every TrueNAS upgrade (Oriol: "note for
   future ref that we should remove them if a future truenas fixes
