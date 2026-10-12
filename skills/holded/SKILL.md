@@ -145,11 +145,11 @@ bookings, time tracking and more).
 | Payments | `GET /payments` (`start_date`, `end_date`, `document_id`, `document_type`, `banking_account_id`) | `accounting:payments.read` | verified (list) |
 | Sales invoices, credit notes | `GET /invoices`, `GET /credit-notes` (`start_date`, `end_date`, `status`, `approval_status`, `contact_id`) | `sales:invoices.read` | verified (list) |
 | Find a sales invoice by number | `GET /invoices/find-by-number` | `sales:invoices.read` | spec |
-| Purchases | `GET /purchases` (same filters), `GET /purchases/{id}` | `accounting:purchases.read` | verified |
+| Purchases | `GET /purchases` (same filters), `GET /purchases/{id}` | `accounting:purchases.read` | verified, `approval_status` and dates included |
 | Approve a document | `POST /invoices/{id}/approve`, `POST /purchases/{id}/approve`, `POST /invoices/bulk/approve` | `sales:invoices.write`, `accounting:purchases.write` | spec |
 | Ledger | `GET /ledger-entries` (`start_date`*, `end_date`*, `account`) | `accounting:daily-ledger.read` | verified (400 without dates) |
 | Chart of accounts | `GET /accounting-accounts` | `accounting:chart-of-accounts.read` | spec |
-| Payslips | `GET /payslips` (`start_date`, `end_date`, `employee_id`, `kind`, `is_draft`) | `accounting:payrolls.read` | verified (list) |
+| Payslips | `GET /payslips` (`start_date`, `end_date`, `employee_id`, `kind`, `is_draft`) | `accounting:payrolls.read` | verified (list, empty) |
 | Contacts | `GET /contacts` (`code`, `email`…), `GET /contacts/search` | `contacts:contacts.read` | verified (list) |
 | Incoming documents (OCR inbox) | `GET /inbox`, `POST /inbox`, `POST /inbox/{id}/export` | `inbox:inbox.*` | spec |
 | Usage | `GET /usage` | `developers:usage.read` | verified |
@@ -198,8 +198,11 @@ How to run a reconciliation safely:
 
 1. Read once: the movements of the period (`status=pending`), and the
    purchases, invoices and credit notes of a wider period. Save the JSON.
-2. Match offline. Purchases are the one-to-one case: same absolute amount,
-   date within a few days, vendor name inside the bank description. Keep the
+2. Match offline. Purchases are the one-to-one case: vendor name inside the
+   bank description, same absolute amount, and the document dated at most
+   about 40 days before the charge or 10 after it. A wider window pairs a
+   monthly charge with the previous month's invoice and hides the missing
+   one (it did, on the first try). Use each document once. Keep the
    ambiguous ones (two candidates, amount off by cents) apart.
 3. Movements with no candidate are the result that matters most: each is a
    charge with no document in the books, the missing-invoice list.
@@ -214,7 +217,11 @@ Cases that are not one-to-one:
   practice (often a clearing account).
 - **Foreign-currency invoices**: the bank charge is in the account currency
   and includes the bank's rate, so it will not equal the invoice total. Match
-  on vendor and date with a tolerance, and see the next section.
+  on vendor and date with a tolerance (total ÷ rate within 4 % worked), and
+  see the next section. The bank charge is the real cost in euros.
+- **Movements that need no document**: transfers between the company's own
+  accounts, loan repayments, tax payments. Classify them first so they do
+  not land in the missing-invoice list.
 - **Card statements** settled as one monthly movement.
 
 ## v1 and v2 disagree
@@ -229,10 +236,11 @@ Cases that are not one-to-one:
   off by the exchange rate, compare the ledger entry with the real invoice.
 - **Drafts.** v1 lists show `draft: null` for everything; v2 shows a real
   `draft` boolean and takes `approval_status=draft|approved` as a filter.
-  A purchase created through v1 with `approveDoc: false` showed `draft: false`
-  and `approved_at: null` in v2 (verified) and has a ledger entry, so
-  "`approved_at` is empty" does not mean "not booked". Whether Holded's own
-  tax reports count such a purchase has to be read in the web app.
+  Purchases created through v1 with `approveDoc: false` showed `draft: false`
+  and an empty `approved_at` in v2, came back under
+  `approval_status=approved` and not under `draft` (verified on a quarter of
+  53), and have ledger entries. So an empty `approved_at` does not mean
+  "draft" or "not booked"; ask `approval_status` instead.
 - **Pagination.** v1 document lists return a whole date range in one response;
   v1 `dailyledger` returns 250 lines a page and `contacts` 500, both with
   `?page=N` until an empty page. v2 is cursor-based everywhere.
