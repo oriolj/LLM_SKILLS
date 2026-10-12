@@ -277,11 +277,14 @@ Cases that are not one-to-one:
   (or re-sends it with a v1 `PUT`) books dollars as euros. When figures look
   off by the exchange rate, compare the ledger entry with the real invoice.
   A document that kept Holded's own conversion is closer, not proven right:
-  when the create call sends no rate, Holded applies its own, and its help is
-  not clear whether that is the rate of the invoice date or of the day the
-  document was registered
-  ([currencies and exchange rates](https://help.holded.com/en/articles/6985003-currencies-and-exchange-rates)).
-  For an invoice uploaded weeks late, check the rate against its date.
+  **when the create call sends no rate, Holded stores the rate of the day
+  the document is registered, not of the document's date** (verified: an
+  invoice dated 17 September and created on 12 October got that day's rate,
+  2.4 % away from the ECB rate of its date; documents created within days of
+  their date were within 0.5 %). Holded's
+  [help](https://help.holded.com/en/articles/6985003-currencies-and-exchange-rates)
+  is ambiguous on this. For an invoice uploaded late, send the rate
+  explicitly, or check the stored one against the ECB rate of its date.
   The rate itself is **not in the v2 purchases list** (its items have no
   `currency_change`); it is on the single-document `GET /purchases/{id}` and
   on the v1 list (`currencyChange`), where one call covers a whole date range.
@@ -303,6 +306,15 @@ Cases that are not one-to-one:
   rounding drift on one line so the total is the rounded total. It uses the
   rate Holded stored; whether that is the rate the accountant wants is a
   separate question (check it against the ECB reference rate of the date).
+  Repeated on 14 more documents the same day, all verified: multi-line
+  documents, zero-price lines, units other than 1, a 21 % tax key (Holded
+  recomputes the tax per line, so the total can land a cent from the
+  target) and tags all survived. Guards used: only documents in a period not
+  yet filed; the true foreign amount taken from the integration's own row,
+  to tell "holds the foreign number" (edit) from "already converted" (do not
+  edit) from "neither" (skip); stored rate within 1 % of the ECB rate of the
+  date, else skip; re-read after each PUT (stored total, rate unchanged, v2
+  total equal to the source amount) and stop the batch on any miss.
 - **Reconciling a foreign-currency purchase: do not edit the document to
   equal the bank charge.** The charge fixes what left the bank, not the
   purchase's value or its VAT at the invoice date; the gap is an exchange
@@ -319,7 +331,11 @@ Cases that are not one-to-one:
   leaving 0.40. The ledger got the payment entry (supplier account against
   the bank account) for 9.82. Sending the remainder to 668 through the API
   was not tried (the `entry` document type exists in the spec); it was left
-  for the owner to do in the web app. Before any of it, the document must
+  for the owner to do in the web app. Eighteen more such pairs behaved the
+  same (one with no difference came out `reconciled`). Only the direction
+  "charge at or above the document" was done; a charge below the document's
+  value would leave a balance on the invoice and is untested. Before any of
+  it, the document must
   hold the right euro value at its own date, which is the accountant's call
   to confirm. A gap of several per cent with no bank FX fee line next to it
   can be the vendor's payment processor charging in euros at its own rate,
@@ -382,8 +398,9 @@ Where each kind of claim comes from, so it can be re-checked:
   [reconciling invoices in other currencies when the rate changes](https://help.holded.com/es/articles/9413261-conciliar-facturas-en-otras-divisas-cuando-varia-el-tipo-de-cambio)
   (the 668 / 768 procedure, web app only).
 - **Live calls** on one company's account, 2026-10-12: every claim marked
-  "verified". Reads, 62 same-amount reconciliations, one v1 PUT correcting a
-  foreign-currency purchase and one reconciliation of a mismatched pair.
+  "verified". Reads, 62 same-amount reconciliations, 15 v1 PUTs correcting
+  foreign-currency purchases and 19 reconciliations of pairs whose amounts
+  differ.
 - **ECB reference rates** through `https://api.frankfurter.app/<date>?from=EUR&to=USD`
   (follow redirects): used to judge whether Holded's stored rate fits the
   invoice date. On the one date checked they were 0.26 % apart.
