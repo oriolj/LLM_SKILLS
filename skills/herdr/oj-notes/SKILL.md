@@ -95,9 +95,10 @@ oj-notes close             # close the side pane (the note stays on disk)
   lists every note, and `oj-notes new <title>` (run by the user; it opens an
   editor) makes a plain note for the current folder. Offer to keep the notes
   in a file of the project instead.
-- Neovim missing on the machine: the note still opens in the side pane, but
-  the editor cannot be reached, so `sync`, `open` and `close` do nothing.
-  Edit the file as usual and tell the user to reload it.
+- Neovim missing on the machine: `oj-notes wall` and `open` exit 4 and the
+  side pane does not open. `oj-notes path --create` still gives you a note
+  file to write in; tell the user it will show beside them once Neovim is
+  installed.
 
 ## What not to put in the note
 
