@@ -38,6 +38,17 @@ repo's `SUBSCRIPTION.md` "Stripe access"; this skill holds only the mechanics.
   `STRIPE_SECRET_KEY`. Probe its reach read-only first (`GET` products,
   prices, customers, subscriptions, checkout/sessions, webhook_endpoints,
   billing_portal/configurations → 200).
+- **One key reads one account; two products on two accounts need two keys**
+  (2026-10-13, SmartupSoft: BikeCRM and FichaChat). The only single-key route
+  is a Stripe Organization key (`sk_org_…`), and every request with it must
+  name the account in a `Stripe-Context` header and send `Stripe-Version`
+  ([Stripe docs](https://docs.stripe.com/keys/organization-api-keys)); code
+  that sends neither cannot use one. Reference for the two-key route: the
+  accountant's `StripeCollector` (humans2agents `agents/accountant/docs/collectors/stripe.md`,
+  «Several Stripe accounts in one company»). It asks each account for an id
+  it has not listed and moves on only on a 404; that Stripe answers 404
+  `resource_missing` for another account's id comes from third-party
+  write-ups, **not yet verified live** here.
 
 Credentials follow the estate rules (`secrets-in-git` skill): the key goes in
 the scope's secrets store, never in the project repo; local dev gets it in the
