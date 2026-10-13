@@ -526,6 +526,18 @@ restriction.
   A small server over the tailnet (Hetzner → home, direct path): 9.5 GiB
   and 73,000 files in 14 min, about 11 MiB/s, small files setting the
   pace. Estimate a first copy at 15 to 35 MiB/s and say so as a range.
+  A big production box over the tailnet (OVH → home, v5, 2026-10-13):
+  361 GiB in the first 13 h, 7.7 MiB/s on average and 5 MiB/s inside
+  folders of small images. Over the tailnet, estimate 5 to 10 MiB/s: a
+  750 GiB first copy is more than a day.
+  The first scheduled night after the first copies: 32 s for the small
+  server, 15 min for the 273 GiB one, both clean while that long copy
+  was still running on the two-thread NAS. A long first copy does not
+  need the other slots kept free.
+- `filesystem/listdir` returns every entry of the folder: on a media
+  folder with tens of thousands of files one call takes over a minute.
+  While a copy runs, list the parent and the few folders you need, with
+  a 120 s timeout, in a background command.
 - A first run that succeeds sends no mail: `RsyncSuccess` appears as an
   INFO alert only. Mail goes out on a failure and on the success that
   clears it.
