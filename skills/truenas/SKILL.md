@@ -320,7 +320,8 @@ the schedule without asking again** (Oriol, 2026-10-12: "when we add a
 server and it successfully backs up we schedule and enable it"); a
 FAILED copy or a shortfall is reported, not scheduled. `run` follows the
 job until it ends (start it as a background command for anything over a
-minute).
+minute; the tool flushes each line, so the output file shows `started
+job N` at once).
 
 **The space analysis**, read-only, on the source as root:
 `ssh -p <port> root@<host> 'bash -s' < homelab/tools/truenas-rsync-sizes.sh`.
@@ -509,6 +510,13 @@ restriction.
   273 GiB for 263 GiB expected). A little over is normal: without
   `--sparse`, sparse files are written out in full. Look for a
   shortfall. `GET /pool/dataset/id/<name>` has no `logicalused`.
+  How far over depends on the box: 4 % on the pilot, 12 % on
+  internal-1, 26 % on a droplet made of small files (24.6 GiB for
+  19.6 GiB expected; half its size is Docker image layers). The cause of
+  the larger figure was not measured, so the check is one-sided: over
+  proves nothing, and the listing of the paths that matter is what
+  shows the copy is whole. Use `usedbydataset`, not `used`: an hourly
+  snapshot that falls inside a first copy already holds space.
 - **Paths**: `POST /filesystem/listdir {"path": …}` (the body takes
   nothing else on 25.10: `query-filters` is a 400; sort client-side).
   Look for the Docker volumes and a database directory with its numeric
@@ -530,6 +538,10 @@ restriction.
   361 GiB in the first 13 h, 7.7 MiB/s on average and 5 MiB/s inside
   folders of small images. Over the tailnet, estimate 5 to 10 MiB/s: a
   750 GiB first copy is more than a day.
+  A 22 GB droplet of small files over the tailnet (DigitalOcean → home,
+  bikecrm-prod-2, 2026-10-13): 537,000 inodes, about 20 GiB, in 63 min
+  (about 5 MiB/s) while v5's copy was still running. Count on the file
+  count as much as on the size.
   The first scheduled night after the first copies: 32 s for the small
   server, 15 min for the 273 GiB one, both clean while that long copy
   was still running on the two-thread NAS. A long first copy does not
