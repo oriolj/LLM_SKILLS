@@ -320,8 +320,8 @@ the schedule without asking again** (Oriol, 2026-10-12: "when we add a
 server and it successfully backs up we schedule and enable it"); a
 FAILED copy or a shortfall is reported, not scheduled. `run` follows the
 job until it ends (start it as a background command for anything over a
-minute; the tool flushes each line, so the output file shows `started
-job N` at once).
+minute; the tool flushes each line since 2026-10-13 so that the output
+file shows `started job N` at once, not yet seen on a backgrounded run).
 
 **The space analysis**, read-only, on the source as root:
 `ssh -p <port> root@<host> 'bash -s' < homelab/tools/truenas-rsync-sizes.sh`.
@@ -511,8 +511,8 @@ restriction.
   `--sparse`, sparse files are written out in full. Look for a
   shortfall. `GET /pool/dataset/id/<name>` has no `logicalused`.
   How far over depends on the box: 4 % on the pilot, 12 % on
-  internal-1, 26 % on a droplet made of small files (24.6 GiB for
-  19.6 GiB expected; half its size is Docker image layers). The cause of
+  internal-1, 29 % on a droplet made of small files (24.6 GiB for
+  19.1 GiB expected; half its size is Docker image layers). The cause of
   the larger figure was not measured, so the check is one-sided: over
   proves nothing, and the listing of the paths that matter is what
   shows the copy is whole. Use `usedbydataset`, not `used`: an hourly
