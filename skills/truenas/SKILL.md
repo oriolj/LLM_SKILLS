@@ -513,9 +513,13 @@ restriction.
   How far over depends on the box: 4 % on the pilot, 12 % on
   internal-1, 29 % on a droplet made of small files (24.6 GiB for
   19.1 GiB expected; half its size is Docker image layers). The cause of
-  the larger figure was not measured, so the check is one-sided: over
-  proves nothing, and the listing of the paths that matter is what
-  shows the copy is whole. When it is well over, rule out a view copied
+  the larger figure was not measured. Treat the figure as a rough
+  signal, never as proof either way: `du` on the source counts
+  allocated blocks, `compressratio` also covers snapshots, and REST
+  exposes neither `referenced`, `refcompressratio` nor
+  `logicalreferenced`. A copy is whole because rsync exited 0 with an
+  empty log and the excludes match only what was decided; the listing
+  of the paths that matter confirms it. When it is well over, rule out a view copied
   twice: list every `overlay2/<layer>/merged` on the NAS (one `listdir`
   per layer; on that droplet 10 of 231 layers had the folder, all
   empty) and `/proc`, `/run`, `/snap`, `/tmp`. Use `usedbydataset`, not `used`: an hourly
