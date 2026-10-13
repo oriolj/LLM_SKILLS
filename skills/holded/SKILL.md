@@ -91,6 +91,9 @@ introduction. Never commit the spec file to a repo.
 - **Page size** differs per endpoint: the guide says default 25, maximum 100;
   bank movements and purchases default to 50 with a maximum of 200 in the
   spec (verified: 200 accepted on movements, 100 on purchases).
+- **An empty filter is still a filter** (verified 2026-10-13): `GET /invoices?…&contact_id=`
+  with an empty value answered 200 with no items, where the same call without
+  the parameter returned 174. Leave a filter out; never send it empty.
 - **Dates** are ISO strings (`"2026-07-01"`, bank movements carry full
   timestamps). Date filters are `start_date` / `end_date`, inclusive.
   `ledger-entries` requires both and answers 400 without them (verified).
