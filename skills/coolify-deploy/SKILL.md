@@ -253,6 +253,15 @@ API notes learned on the way:
 - **`/deploy` is a POST now** (`GET /deploy?uuid=…` answers 405 "This
   endpoint has changed to a POST request", 2026-09-02). Same query
   string (`uuid`, `force=true`).
+- **One app of a multi-app push can fail before it builds** (H2A
+  Accountant, 2026-10-13): three apps on one push, worker and beat
+  `finished`, the web's webhook deployment `failed` in under 20 s with
+  `cURL error 28 … for https://api.github.com/zen` (Coolify's own
+  10 s check against GitHub timed out). The old container keeps
+  serving, so health stays green while web runs the previous commit
+  next to a new worker. Poll EVERY app for a terminal row on the
+  pushed SHA, read `GET /deployments/{deployment_uuid}` `logs` on a
+  failure, and for this one just `POST /deploy?uuid=<app>` again.
 - **Dockerfile-app container names are not uniform** (EnaCast 24H,
   2026-09-03): the stop→start apps (worker, beat) run as the app name
   (`enacast24h-worker`), while the rolling web AND a port-less recorder
