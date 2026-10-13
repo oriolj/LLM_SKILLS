@@ -198,9 +198,19 @@ movement's value date and carrying the banking account id. That payment is
 also listed by `GET /payments?document_id=…&document_type=purchase`, with
 `reconciliation_status: "reconciled"`. So a reconciliation **creates a
 payment**; nothing has to be created beforehand. Read the movement and the
-document before and after every first call of a batch. Splitting across
-several documents, the empty body, partial amounts and foreign-currency
-documents are still spec only.
+document before and after every first call of a batch. Splitting one
+movement across several documents and the empty body are still spec only.
+
+**Several movements against one document** (verified 2026-10-13, a bank's
+monthly invoice that covers a fee and many small card fees): one POST per
+movement, each naming the same purchase. A movement smaller than what the
+document still owes answers 200 `null`, becomes `reconciled` in full, and
+the purchase becomes `partial`, with `payments_total` grown by the
+movement's amount and one more `payments_detail` entry dated on that
+movement. When the movements add up to the total the purchase ends
+`completed`; when some are missing from the bank feed it stays `partial`
+with the rest in `payments_pending`. Sum the movements and compare with
+the document before the first call, so the last one cannot overpay.
 
 A batch of 61 more followed (one POST per movement, 0.8 s apart, each
 answering 200) and a re-read confirmed every movement `reconciled` in full
@@ -333,8 +343,10 @@ Cases that are not one-to-one:
   was not tried (the `entry` document type exists in the spec); it was left
   for the owner to do in the web app. Eighteen more such pairs behaved the
   same (one with no difference came out `reconciled`). Only the direction
-  "charge at or above the document" was done; a charge below the document's
-  value would leave a balance on the invoice and is untested. Before any of
+  "charge at or above the document" was done for foreign-currency
+  documents; a charge below the document's value leaves the purchase
+  `partial` (seen on euro documents, see "Several movements against one
+  document"). Before any of
   it, the document must
   hold the right euro value at its own date, which is the accountant's call
   to confirm. A gap of several per cent with no bank FX fee line next to it
@@ -416,6 +428,8 @@ Where each kind of claim comes from, so it can be re-checked:
 set of reads by the session building bank review into H2A-Accountant (list
 fields, page sizes, the missing `currency_change`). The reconcile POST was
 called that evening on one movement the owner approved, then on 61 more.
+2026-10-13: several movements against one purchase, 16 POSTs on two monthly
+invoices, one of them alone first.
 
 ## Keeping this current
 
