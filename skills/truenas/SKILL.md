@@ -515,7 +515,10 @@ restriction.
   19.1 GiB expected; half its size is Docker image layers). The cause of
   the larger figure was not measured, so the check is one-sided: over
   proves nothing, and the listing of the paths that matter is what
-  shows the copy is whole. Use `usedbydataset`, not `used`: an hourly
+  shows the copy is whole. When it is well over, rule out a view copied
+  twice: list every `overlay2/<layer>/merged` on the NAS (one `listdir`
+  per layer; on that droplet 10 of 231 layers had the folder, all
+  empty) and `/proc`, `/run`, `/snap`, `/tmp`. Use `usedbydataset`, not `used`: an hourly
   snapshot that falls inside a first copy already holds space.
 - **Paths**: `POST /filesystem/listdir {"path": …}` (the body takes
   nothing else on 25.10: `query-filters` is a 400; sort client-side).
