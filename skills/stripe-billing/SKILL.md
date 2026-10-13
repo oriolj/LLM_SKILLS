@@ -46,9 +46,10 @@ repo's `SUBSCRIPTION.md` "Stripe access"; this skill holds only the mechanics.
   that sends neither cannot use one. Reference for the two-key route: the
   accountant's `StripeCollector` (humans2agents `agents/accountant/docs/collectors/stripe.md`,
   «Several Stripe accounts in one company»). It asks each account for an id
-  it has not listed and moves on only on a 404; that Stripe answers 404
-  `resource_missing` for another account's id comes from third-party
-  write-ups, **not yet verified live** here.
+  it has not listed. Stripe answers **404 `resource_missing`** for an id
+  that belongs to another account (verified live 2026-10-13, both ways,
+  between the BikeCRM and FichaChat accounts), so a 404 means "not this
+  account" and any other status is a real error.
 
 Credentials follow the estate rules (`secrets-in-git` skill): the key goes in
 the scope's secrets store, never in the project repo; local dev gets it in the
