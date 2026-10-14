@@ -570,6 +570,12 @@ restriction.
   361 GiB in the first 13 h, 7.7 MiB/s on average and 5 MiB/s inside
   folders of small images. Over the tailnet, estimate 5 to 10 MiB/s: a
   750 GiB first copy is more than a day.
+  That copy (v5) ran 20-25 GiB an hour for 29 h, then stalled; the rerun
+  after the abort walked the whole tree (2.2 million inodes, 685 GiB
+  already there) and finished in 57 min, SUCCESS: a resumed first copy
+  costs about one file-list walk plus what is missing. Its log: rsync's
+  code 24 ("some files vanished") for pid files and a WAL segment,
+  which TrueNAS records as SUCCESS.
   A 22 GB droplet of small files over the tailnet (DigitalOcean → home,
   bikecrm-prod-2, 2026-10-13): 537,000 inodes, about 20 GiB, in 63 min
   (about 5 MiB/s) while v5's copy was still running. Count on the file
