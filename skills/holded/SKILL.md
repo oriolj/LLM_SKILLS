@@ -150,6 +150,7 @@ bookings, time tracking and more).
 | Sales invoices, credit notes | `GET /invoices`, `GET /credit-notes` (`start_date`, `end_date`, `status`, `approval_status`, `contact_id`) | `sales:invoices.read` | verified (list) |
 | Find a sales invoice by number | `GET /invoices/find-by-number` | `sales:invoices.read` | spec |
 | Purchases | `GET /purchases` (same filters), `GET /purchases/{id}` | `accounting:purchases.read` | verified, `approval_status` and dates included |
+| Accounting date of a purchase («Fecha contable») | `deduction_date` on `GET /purchases` items and `GET /purchases/{id}` (the detail also has `accounting_date`) | `accounting:purchases.read` | verified read (2026-10-14); **no v2 request body takes it** (spec): `POST /purchases` has `date` + `due_date`, `PUT /purchases/{id}` replaces all but `number`, `date`, `due_date`, `items` |
 | Approve a document | `POST /invoices/{id}/approve`, `POST /purchases/{id}/approve`, `POST /invoices/bulk/approve` | `sales:invoices.write`, `accounting:purchases.write` | spec |
 | Ledger | `GET /ledger-entries` (`start_date`*, `end_date`*, `account`) | `accounting:daily-ledger.read` | verified (400 without dates) |
 | Chart of accounts | `GET /accounting-accounts` | `accounting:chart-of-accounts.read` | spec |
@@ -280,6 +281,8 @@ Cases that are not one-to-one:
 - **Card statements** settled as one monthly movement.
 
 ## v1 and v2 disagree
+
+- **The v1 reference is gone** (2026-10-14): `developers.holded.com/reference/create-document-1` and `update-document-1` now serve the v2 site, so nothing documents the v1 document body any more. Whether v1 can set a purchase's accounting date (`deduction_date`) is unknown; only a live write would tell, and a v1 full-replacement `PUT` of a purchase whose Fecha contable was moved in the web app may reset it (not verified: read `deduction_date` in v2 before and after the first such PUT).
 
 - **Foreign-currency documents.** Holded keeps a document's amounts in the
   company currency. v1 returns those stored figures while labelling them with
