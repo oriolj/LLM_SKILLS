@@ -143,6 +143,16 @@ undo, and no record history.
   Never assume the host you want is still free: `getDnsRecords`
   immediately before the write.
 
+## Field note 2026-10-14 — never look a new name up before its record exists
+
+A `dig studio.enacast.com` run while planning, before the record was created, made the home UCG (192.168.7.1,
+which Tailscale MagicDNS forwards to) cache **NXDOMAIN for the zone's SOA minimum, 3600 s** for `enacast.com`.
+Public resolvers answered the new CNAME within seconds of the create, but every machine behind that router saw
+"Name or service not known" for up to an hour: curl, Talaia's local test run, `make deploy-prod`'s alias check, and
+Oriol's own browser. Rules: create the record first, then look it up; to test before caches agree, use
+`curl --resolve <host>:443:<ip>` and `dig @1.1.1.1`, never the local resolver; and when a deploy tool reports
+"answered 000" for a just-created host, check `dig @1.1.1.1` before suspecting the deploy.
+
 ## Field note 2026-10-06 — an edit can take the OLD TTL to reach every CDmon nameserver
 
 Apex A edits of `radioibi.com` and `laplanaradio.cat` (TTL 900 → 300, wwwizer → nori): for

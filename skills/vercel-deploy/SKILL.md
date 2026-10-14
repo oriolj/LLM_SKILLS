@@ -174,6 +174,19 @@ after. A resolver that looked the host up before the record existed keeps
 answering NXDOMAIN for the zone's negative TTL — prove the deploy with
 `curl --resolve <host>:443:<ip>` instead of waiting — take the IP from `dig +short cname.vercel-dns.com @1.1.1.1` (it moves: 76.76.21.21 in 2026-09, 76.76.21.61 on 2026-10-01, when the old one no longer answered for a new project).
 
+## Renaming a project's host: a domain redirect, temporary first (EnaCast Studio, 2026-10-14)
+
+`ramen.enacast.com` → `studio.enacast.com` on project `enacast-ramen`, all by API with the CLI login token:
+add the new host (`POST /v10/projects/<p>/domains {"name":"<new>"}` → `verified: true` for a subdomain of a zone
+the team already serves; the CNAME target is the one the old host uses, `GET /v6/domains/<new>/config` →
+`recommendedCNAME`), create the CNAME, wait for TLS, then turn the OLD host into a redirect on the same project:
+`PATCH /v9/projects/<p>/domains/<old> {"redirect":"<new>","redirectStatusCode":302}`. Verified: path and query
+kept (`/kitchen/dashboard?x=1` → `https://<new>/kitchen/dashboard?x=1`), `cache-control: public, max-age=0,
+must-revalidate`, POSTs answered 302 too. **Start with 302**: removing it (`"redirect": null`) is a full rollback;
+a 308 is cached by browsers, so promote only after a few quiet days, and never add a reverse redirect after that.
+Before flipping it, move every monitor that probes the old host (Talaia, Gatus) to the new one and DEPLOY them:
+Talaia's old suite saw the 302 three minutes after the flip and paged «DOWN» (2026-10-14 11:19 UTC).
+
 ## Static Astro sites on Vercel (2026-09-26)
 
 - **With the Astro Vercel adapter (Build Output API) `vercel.json` `headers`
