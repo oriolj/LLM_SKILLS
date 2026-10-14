@@ -552,9 +552,13 @@ restriction.
   the graphs and identifiers). The source's journal in Loki
   (`{host="<host>"}`, unit `ssh.service`) tells whether the session was
   closed. The remedy for a stuck job is `core/job_abort` and a new run
-  (rsync skips what is there); the prevention is `--timeout=<s>` in the
-  task's extra args, which makes a silent run exit 30 and mail. Both
-  change the NAS: Oriol's call.
+  (rsync skips what is there; `POST /core/job_abort` with the job id as
+  the body, ABORTED within seconds). The prevention: `--timeout=600` in
+  the task's extra args, which makes a silent run exit 30 (FAILED, mailed)
+  and makes rsync send keep-alives in quiet stretches of a healthy run.
+  hq's registry carries it in `rsync_options` for every task since
+  2026-10-14 (Oriol: "do both"); `rrsync -ro` accepted it (manual runs on
+  internal-1 and bikecrm-prod-2, SUCCESS).
 - Timing seen: a first copy of 273 GiB and about a million files over
   the LAN took 2 h on the Gen8 (ZSTD, encrypted dataset, `compress:
   false` on the wire). An unchanged second run the same day: 17 min,
