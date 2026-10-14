@@ -89,8 +89,11 @@ c.get("/api/v2.0/system/info")
 - `filesystem/stat` and `filesystem/listdir` answer for any path;
   `filesystem/statfs` only under `/mnt/`.
 - Every REST call authenticates again, and TrueNAS raises a
-  `RESTAPIUsage` warning that counts them (81 in 24 hours on 2026-10-12):
-  batch reads in one script instead of many small ones.
+  `RESTAPIUsage` warning that counts them (81 in 24 hours on 2026-10-12;
+  7,485 on 2026-10-14 after a day of first-copy checks, while the `run`
+  follower polls only once a minute: per-folder `listdir` sweeps over
+  hundreds of overlay2 layers add up): batch reads in one script instead
+  of many small ones.
 - Long operations return a **job id**; poll
   `GET /core/get_jobs?id=<n>` until `state` is `SUCCESS` or `FAILED`.
 
@@ -607,6 +610,15 @@ restriction.
   55.5 GiB of enacast-ai in 1 h 43 min, about 13 GiB of whalehet-01 in
   the same time. Parallel first copies do not add up; run the one that
   matters most alone.
+  **A copy that runs slow and dead flat on its own is a path, not a
+  disk**: whalehet-01 alone held exactly 27 Mbit/s for five hours
+  (2026-10-14), and it was the one source Tailscale reached only through
+  a DERP relay (`tailscale ping -c 15 <host>` from a LAN peer of the NAS
+  ends `via DERP(…)`, `tailscale status` says `relay "nue"`; every other
+  source went direct). The NAS's own path cannot be read through the
+  API, so check from another home machine. Fix on the source: inbound
+  UDP 41641 open (the baseline role's rule); a running copy speeds up
+  when the path turns direct, no restart.
   The first scheduled night after the first copies: 32 s for the small
   server, 15 min for the 273 GiB one, both clean while that long copy
   was still running on the two-thread NAS. A long first copy does not
