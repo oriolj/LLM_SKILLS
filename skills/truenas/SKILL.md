@@ -145,6 +145,16 @@ exist even though the list does not show them.
   the same box open. Seen 2026-10-11 on truenas-personal for
   `not-important` and `Docs` after a morning reboot: it fits datasets
   left locked, but that cause was not read (no credential on that box).
+- **Encryption costs CPU on a box without AES-NI, and only ZFS uses
+  AES.** TrueNAS's dataset encryption is AES-256-GCM by default (ZFS
+  offers only AES modes, fixed per encryption root at creation); on a
+  CPU without AES-NI (truenas-enantena's Celeron G1610T) it runs in
+  software. The Tailscale app does not: WireGuard has one cipher,
+  ChaCha20-Poly1305, nothing to configure, and `userspace: false` in the
+  app's config only means a TUN device. Read the CPU while a transfer
+  runs before blaming one layer: `POST /reporting/netdata_get_data`
+  graph `cpu` (and `load`) next to `interface`; the API has no
+  per-process view.
 - Record size is inherited (128K). For large video files set 1M before
   the data lands; it only applies to files written afterwards.
 - `statfs` on a ZFS dataset reports that dataset's own bytes, so a pool's
