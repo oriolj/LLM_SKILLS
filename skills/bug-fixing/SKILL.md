@@ -26,6 +26,13 @@ skill; this file is the method.
   serializer, a model `__init__`, a middleware) often hides the real failure underneath.
   After fixing the crash, run the flow again and look at what fails *next* — the real
   bug may have been there for months.
+- **"It says it already did it" / "only some items were processed"**: before reading the
+  pipeline, check whether the item's identifier was **reissued**. A per-tenant sequence
+  number (`<tenant>_episode_<n>` = last + 1) comes back after the newest rows are deleted
+  (holiday clean-ups), and a downstream service that keys on it treats the new item as the
+  old one; a nightly re-sync can then write the old item's results onto the new one. Compare
+  the content fingerprint (source file, date) on both sides, not just the id (EnaCast,
+  2026-10-14).
 - Check whether **sibling code** shares the pattern (three models with copy-pasted
   methods, three handlers with the same tracker). Fix them all or you'll be back.
 - **Classify the bug before designing the fix** — the fix is different for each class:
