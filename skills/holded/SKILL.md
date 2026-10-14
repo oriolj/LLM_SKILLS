@@ -368,6 +368,20 @@ Cases that are not one-to-one:
 - **Dates.** v1 uses unix seconds (`starttmp`, `endtmp`, `date`); cut a period
   in the company's timezone, because an invoice of 1 July is 30 June 22:00
   UTC. v2 uses ISO dates.
+- **Two dates on a purchase.** `date` is the supplier's issue date;
+  `deduction_date` is Holded's "Fecha contable", which places the VAT
+  deduction in a period (v2 `GET /purchases` and `/purchases/{id}`; the
+  spec's `accounting_date` is also listed). On a real account every
+  purchase carried `deduction_date` equal to `date` (2026-10-14, one company,
+  173 documents), not null as the spec says. **No API write sets it**: per
+  the OpenAPI spec (2026-10-14) v2 `POST /purchases` and `PUT /purchases/{id}`
+  accept `date` and `due_date` only, and `PUT` replaces every mutable field.
+  v1 was not verified (its docs no longer load). So moving a late purchase's
+  deduction to a later quarter, keeping the issue date, is a web-app edit.
+  Never rewrite `date` to get that effect without the owner choosing it.
+- **Creation time.** No document field gives it, but a v2 id is a Mongo
+  ObjectId: its first 8 hex digits are the creation time in unix seconds.
+  That is how to find documents added after a quarter was filed.
 - **Custom tax keys.** An account can define its own taxes, listed next to
   Holded's built-in ones (`s_iva_21`, `p_iva_21`…). Match a tax on its exact
   rate and prefer the built-in key; a custom "21.01 %" key once took every
