@@ -481,7 +481,11 @@ Three copies of the string (both playbooks, the authorize script), kept
 equal by `homelab/ansible/playbooks/test-nas-rsync-key.yml`;
 `ansible.posix.authorized_key` writes it unchanged and idempotently.
 It needs `/usr/bin/rrsync` there (rsync ≥ 3.2.4 ships it; Ubuntu 20.04's
-3.1.3 has it as a symlink). Servers: hq `shared/ansible` group
+3.1.3 has it as a symlink). Debian 9's rsync 3.1.2 has it only as
+`/usr/share/doc/rsync/scripts/rrsync.gz` (the older perl version; seen
+on whalehet-01, 2026-10-14): `zcat` it to `/usr/bin/rrsync`, `chmod
+755`, and the authorize script then accepts the box. Whether that perl
+rrsync accepts every option TrueNAS sends is not verified yet. Servers: hq `shared/ansible` group
 `nas_rsync_sources`; always-on dev machines: `homelab/ansible`
 `nas_rsync_source_hostnames` (root's key, with sshd on `PermitRootLogin
 forced-commands-only`); others: the authorize script. macOS cannot (no
