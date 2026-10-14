@@ -531,7 +531,12 @@ restriction.
 - **Paths**: `POST /filesystem/listdir {"path": …}` (the body takes
   nothing else on 25.10: `query-filters` is a 400; sort client-side).
   Look for the Docker volumes and a database directory with its numeric
-  owner (uid 999 for Postgres proves `--numeric-ids`).
+  owner (uid 999 for Postgres proves `--numeric-ids`). Do not call that
+  directory crash-consistent: rsync copied its files at different
+  moments over the whole run (1 h 43 min for enacast-ai's 43 GiB
+  Postgres) with no WAL archive, so a restore from it may need
+  `pg_resetwal` or may not start. The consistent copy of a database is
+  its dump; say which one exists when you report a pull.
 - **Was the alert mailed**: `GET /core/get_jobs?method=mail.send`, a job
   with subject "Alerts" in the same second as the failure. Sent is not
   arrived; only Oriol sees the inbox.
@@ -584,6 +589,12 @@ restriction.
   bikecrm-prod-2, 2026-10-13): 537,000 inodes, about 20 GiB, in 63 min
   (about 5 MiB/s) while v5's copy was still running. Count on the file
   count as much as on the size.
+  Two first copies at once over the tailnet (Hetzner → home,
+  2026-10-14, enacast-ai-fsn1-1 and whalehet-01): the NAS's `ens1`
+  received 95-110 Mbit/s together (12-14 MiB/s), and they split it:
+  55.5 GiB of enacast-ai in 1 h 43 min, about 13 GiB of whalehet-01 in
+  the same time. Parallel first copies do not add up; run the one that
+  matters most alone.
   The first scheduled night after the first copies: 32 s for the small
   server, 15 min for the 273 GiB one, both clean while that long copy
   was still running on the two-thread NAS. A long first copy does not
