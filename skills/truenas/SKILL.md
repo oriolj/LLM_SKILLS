@@ -515,9 +515,9 @@ restriction.
   19.1 GiB expected; half its size is Docker image layers). The cause of
   the larger figure was not measured. Treat the figure as a rough
   signal, never as proof either way: `du` on the source counts
-  allocated blocks, `compressratio` also covers snapshots, and REST
-  exposes neither `referenced`, `refcompressratio` nor
-  `logicalreferenced`. A copy is whole because rsync exited 0 with an
+  allocated blocks, `compressratio` also covers snapshots, and the
+  dataset endpoint exposes neither `referenced`, `refcompressratio` nor
+  `logicalreferenced` (snapshots do give `referenced`, below). A copy is whole because rsync exited 0 with an
   empty log and the excludes match only what was decided; the listing
   of the paths that matter confirms it. When it is well over, rule out a view copied
   twice: list every `overlay2/<layer>/merged` on the NAS (one `listdir`
@@ -533,7 +533,28 @@ restriction.
   arrived; only Oriol sees the inbox.
 - Snapshots of a dataset: `GET /pool/snapshot?dataset=<name>`
   (`/zfs/snapshot` is a 404). The house tasks have `allow_empty:
-  false`, so no snapshot appears while nothing changed.
+  false`, so no snapshot appears while nothing changed. Add
+  `extra.properties=referenced,used` to get each snapshot's size: the
+  hourly snapshots' `referenced` is the growth curve of a running copy
+  (names are in the NAS's timezone, Madrid).
+- **A run can stall forever without failing.** TrueNAS's tasks carry no
+  rsync `--timeout` unless you add one, so when the connection or the
+  sender goes quiet the receiver waits indefinitely: the job stays
+  `RUNNING`, never ends FAILED, never mails. Seen 2026-10-14 on v5's
+  first copy: 20-25 GiB an hour, then nothing from 02:26 UTC on, the
+  source's sshd still showing the session open. Signs from outside: the
+  dataset's size flat across minutes, hourly snapshots no longer
+  appearing, and the NAS's receive rate at noise:
+  `POST /reporting/netdata_get_data` with `{"graphs": [{"name":
+  "interface", "identifier": "ens1"}], "query": {"start": <epoch>,
+  "end": <epoch>, "aggregate": false}}` (legend `time, received,
+  sent`, kilobits per second, UTC epochs; `GET /reporting/graphs` lists
+  the graphs and identifiers). The source's journal in Loki
+  (`{host="<host>"}`, unit `ssh.service`) tells whether the session was
+  closed. The remedy for a stuck job is `core/job_abort` and a new run
+  (rsync skips what is there); the prevention is `--timeout=<s>` in the
+  task's extra args, which makes a silent run exit 30 and mail. Both
+  change the NAS: Oriol's call.
 - Timing seen: a first copy of 273 GiB and about a million files over
   the LAN took 2 h on the Gen8 (ZSTD, encrypted dataset, `compress:
   false` on the wire). An unchanged second run the same day: 17 min,
