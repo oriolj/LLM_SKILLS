@@ -149,7 +149,9 @@ exist even though the list does not show them.
   AES.** TrueNAS's dataset encryption is AES-256-GCM by default (ZFS
   offers only AES modes, fixed per encryption root at creation); on a
   CPU without AES-NI (truenas-enantena's Celeron G1610T) it runs in
-  software. The Tailscale app does not: WireGuard has one cipher,
+  software. No ChaCha20 option exists: the box's own `openapi.json`
+  lists only AES-128/192/256-CCM/GCM, and OpenZFS's ChaCha20-Poly1305
+  (PR #14249) was still an open draft on 2026-10-14. The Tailscale app does not: WireGuard has one cipher,
   ChaCha20-Poly1305, nothing to configure, and `userspace: false` in the
   app's config only means a TUN device. Read the CPU while a transfer
   runs before blaming one layer: `POST /reporting/netdata_get_data`
