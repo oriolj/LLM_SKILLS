@@ -521,6 +521,9 @@ Ubuntu in the three LXC containers (CT 100 pep, 102 enzo, 101 bruno).
 ## Rules
 
 - Update one VM, verify, then the others.
-- Back up `~/.hermes` before any migration or update (`umask 077`, exclude
-  `hermes-agent/venv` and `node_modules`; `.env` and `auth.json` are inside).
+- Back up `~/.hermes` before any migration or update (`umask 077`; exclude
+  the rebuildable `hermes-agent/venv`, `hermes-agent/node_modules`,
+  `tools/` (~1 GB of managed runtimes) and `backups/` (the updater's own zips);
+  `.env` and `auth.json` are inside, so the archive is a secret). `hermes update`
+  also writes its own `~/.hermes/backups/pre-update-*.zip`.
 - Verified per-box facts go to the hq server file the same turn; mechanics here.
