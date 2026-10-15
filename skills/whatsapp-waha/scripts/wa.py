@@ -11,6 +11,7 @@ base URL from $WAHA_URL (default http://localhost:3010).
   wa.py read CHAT [--limit N]          last messages of a chat (oldest first)
   wa.py send TO TEXT|@file [--file PATH] [--persona pep|enzo|bruno|oriol|enric] [--approved] [--yes]
                                        dry run unless --yes; TEXT must name the persona
+                                       (default: bruno on the bikecrm session, pep otherwise)
   wa.py media CHAT MSG_ID [--out DIR]  download a message's attachment
   wa.py transcribe CHAT [--id MSG_ID | --last N]
                                        voice notes -> text via oj-transcribe (local whisper)
@@ -30,6 +31,8 @@ PERSONAS = {"pep": "Pep", "enzo": "Enzo", "bruno": "Bruno", "oriol": "Oriol", "e
 # Signing as a human (Oriol/Enric) is for people OUTSIDE the team, and only
 # with a text Oriol approved word for word (Oriol, 2026-09-28) -> --approved.
 HUMAN = {"oriol", "enric"}
+# The assistant that signs on each session when --persona is not given (SKILL.md rule 1).
+SESSION_PERSONA = {"bikecrm": "bruno"}
 
 
 def api_key():
@@ -137,6 +140,7 @@ def cmd_read(a):
 def cmd_send(a):
     chat = resolve(a.to)
     text = Path(a.text[1:]).read_text() if a.text.startswith("@") else a.text
+    a.persona = a.persona or SESSION_PERSONA.get(SESSION, "pep")
     persona = PERSONAS[a.persona]
     if not re.search(rf"\b{re.escape(persona)}\b", text, re.IGNORECASE):  # whole word: "Pep" must not match "pepper"
         sys.exit(f"refused: the message must identify the sender as {persona} "
@@ -229,7 +233,7 @@ def main():
     s = sp.add_parser("chats"); s.add_argument("--limit", type=int, default=20); s.set_defaults(f=cmd_chats)
     s = sp.add_parser("read"); s.add_argument("chat"); s.add_argument("--limit", type=int, default=20); s.set_defaults(f=cmd_read)
     s = sp.add_parser("send"); s.add_argument("to"); s.add_argument("text")
-    s.add_argument("--persona", choices=PERSONAS, default="pep"); s.add_argument("--yes", action="store_true"); s.add_argument("--approved", action="store_true")
+    s.add_argument("--persona", choices=PERSONAS); s.add_argument("--yes", action="store_true"); s.add_argument("--approved", action="store_true")
     s.add_argument("--file", help="attach a video/image/file; TEXT becomes its caption")
     s.add_argument("--document", action="store_true", help="send --file as a document (needed for mp4 on the Chromium WEBJS image)")
     s.set_defaults(f=cmd_send)

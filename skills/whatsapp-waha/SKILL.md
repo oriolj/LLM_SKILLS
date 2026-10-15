@@ -120,8 +120,9 @@ $W transcribe 34600111222 --last 2   # newest 2 voice notes -> oj-transcribe --s
 $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloads/
 ```
 
-- `send` refuses text that does not contain the persona name, and is a dry
-  run without `--yes`. Do the dry run, check TO and TEXT, then `--yes`.
+- `send` refuses text that does not contain the persona name (as a whole
+  word), and is a dry run without `--yes`. Without `--persona` it signs as
+  the session's assistant: Bruno on `bikecrm`, Pep otherwise. Do the dry run, check TO and TEXT, then `--yes`.
   It shows a typing indicator for a few seconds first (WAHA's own guidance:
   start-typing → wait → stop-typing → send), then logs UTC time, chat id,
   persona, text and message id to `~/.local/share/waha/sent.jsonl`.
