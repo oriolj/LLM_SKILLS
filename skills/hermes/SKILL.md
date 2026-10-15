@@ -269,15 +269,24 @@ hq `shared/docs/agents.md` § Voice notes and audio. Mechanics:
 
 ## From a dev machine: CLI wrappers and Hermes Desktop
 
-Setup: hq `homelab/ansible/roles/development/tasks/hermes-desktop.yml`
-(`--tags hermes-desktop`) and `shared/docs/agents.md`. Traps:
+Setup: hq `homelab/ansible/roles/development/tasks/hermes-desktop.yml`, run
+with the no-sudo `ansible-playbook playbooks/hermes-desktop.yml -l <host>`
+(`-c local` on the controller; `--tags hermes-desktop` in site.yml does the
+same but asks the sudo password), and `shared/docs/agents.md`. Traps:
 
 - **`hermes-pep` / `hermes-enzo` / `hermes-bruno`** (hq dotfiles
   `local-bin/hermes-claw`): `ssh [-t|-T] <host> '~/.local/bin/hermes <args>'`
   as oriol, `-t` only when stdin AND stdout are ttys, so `hermes-pep chat -Q
   -q "…"` is clean in scripts. Use them instead of hand-rolled ssh quoting.
 - **Hermes Desktop on Linux is a source install** (`scripts/install.sh
-  --include-desktop`; no Linux package is released). Without `--branch
+  --include-desktop`; no Linux package is released: the platform-support doc
+  says Linux desktop packaging is disabled in the release workflow).
+  **On Arch, use it, not the AUR** (Oriol, 2026-10-15, "official way"): the
+  AUR `hermes-agent` / `hermes-agent-desktop` are community builds (single-digit
+  votes, an anonymous Desktop packager) that patch the runtime, install as
+  root into `/opt`, disable Hermes's own updater and lag a release; the
+  `-bin` variants are one person's CI artifacts. The pinned official
+  installer trusts only Nous, runs as the user and self-updates on `stable`. Without `--branch
   release/X.Y.Z --commit vX.Y.Z` it clones **`main`** (canary) yet labels the
   install `stable`, and `hermes update --channel stable` then refuses the
   "rollback"; the tag commit is not on `main` (`--commit` alone fails
@@ -290,6 +299,11 @@ Setup: hq `homelab/ansible/roles/development/tasks/hermes-desktop.yml`
   --skip-browser --skip-computer-use` (no wizard, no gateway service, no
   Chromium). The installer edits `config.fish` only when no `fish_add_path
   …/.local/bin` line is there.
+- **The app-menu entry is written by `hermes desktop`, not by the installer's
+  desktop stage** (`hermes_cli/linux_desktop_entry.py`; fw13pro 2026-10-15:
+  built, no entry). `hermes desktop --build-only` on a built app checks the
+  content stamp, writes `com.nousresearch.hermes.desktop` + the hicolor icon
+  and does not launch; the play runs it (`creates:` the entry).
 - Launching from a shell needs the session's `DISPLAY` / `WAYLAND_DISPLAY`
   (else Electron exits "Missing X server"); the menu entry runs `hermes
   desktop --skip-build`. Log: `~/.hermes/logs/desktop.log`.
