@@ -462,6 +462,13 @@ those as `candidates:` in the registry and ask.
   Last pull → disable → the dataset is the archive (deleting it is
   Oriol's call) → the reinstalled box is a new machine (new host key,
   key installed again, new analysis, own dataset). hq backups.md §14.
+  **An in-place release upgrade is not a reinstall**: the task, dataset
+  and SSH connection stay. Check the host key is the one the NAS stored
+  (`ssh-keyscan -t ed25519 <ip> | ssh-keygen -lf -`, compare with the
+  fingerprint recorded when the connection was made) and re-run the
+  space analysis if the first copy has not run yet: the three Hermes
+  containers grew 6-9 GB each going 25.04 → 26.04.1 with the
+  pre-update tarballs (2026-10-15).
 - **A file that is new every night costs a year of snapshots.** The
   house scheme keeps a daily snapshot one year, so a rotating dump (a
   box that stages 7 nightly database dumps of 19 GB) leaves every
