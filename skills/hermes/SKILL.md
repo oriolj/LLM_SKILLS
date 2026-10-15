@@ -197,6 +197,12 @@ OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
   `hermes-dashboard`; check `GET /api/dashboard/plugins`; bundles are served at
   `/dashboard-plugins/<name>/dist/index.js`. Ours: `claw-name` (agent name in
   `header-left` + tab title), source hq `homelab/tools/hermes-dashboard-claw-name/`.
+- **CLI/TUI look = skins**, separate from dashboard themes: `display.skin` in
+  `config.yaml` (`/skin x` = this session only); custom `~/.hermes/skins/<name>.yaml`
+  overrides `colors` and `branding.agent_name/welcome/response_label/prompt_symbol`
+  and inherits the rest from `default` (the gold one). Ours: pep/enzo/bruno,
+  source hq `homelab/tools/hermes-skins/`. Check: `skin_engine.init_skin_from_config({"display":{"skin":"pep"}})`
+  then `get_active_skin()` in the runtime.
 - **Web dashboard**: `hermes dashboard` (default `127.0.0.1:9119`; `--host`,
   `--port`, `--no-open`); a non-loopback bind always requires an auth
   provider (password or OAuth). Its Chat tab runs the real TUI over a pty.
