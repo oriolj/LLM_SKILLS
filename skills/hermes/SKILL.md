@@ -191,6 +191,28 @@ OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
   `model=gpt-6.1-sol provider=openai-codex`. Fallback left at
   `gpt-5.6-luna`.
 
+## Speech-to-text (voice notes, audio) — NaN Whisper
+
+- Built-in providers: `local` (faster-whisper), `groq`, `openai`, `mistral`,
+  `xai`, `elevenlabs`, `deepinfra`; `stt.providers.<name>: {type: command,
+  command: "… {input_path} {output_path}", format: txt, timeout: N}` adds
+  your own. A command provider runs with Hermes's secrets scrubbed from its
+  env (`env_passthrough: [VAR]` to pass one) and gets `{language}` defaulting
+  to `en`: do not put it in the command if you want auto-detect.
+- Hermes cuts long audio only by size (25 MB for `openai`) and by a
+  per-model duration table (`whisper-1` 600 s, `gpt-4o*-transcribe` 450 s);
+  an unknown model id gets no duration cap. `stt.openai.timeout` defaults to
+  60 s. So `openai` + `STT_OPENAI_BASE_URL` pointed at a slow
+  OpenAI-compatible server (NaN: ~1x realtime, 524 past ~2 min) fails on
+  long voice notes.
+- Ours (2026-10-15, all three): `stt.provider: nan` → command provider
+  `~/.local/libexec/nan-stt {input_path} {output_path}` (source hq
+  `homelab/tools/nan-stt.py`): ≤ 90 s Opus pieces, `model=whisper`, never a
+  language, 6.5 s between requests, retries; key in `~/.config/nan/stt.env`.
+  Test through Hermes itself:
+  `cd ~/.hermes/hermes-agent && HERMES_HOME=~/.hermes venv/bin/python -c 'from tools.transcription_tools import transcribe_audio as t; print(t("/tmp/x.mp3"))'`
+  → `provider: nan`. Detail: hq `docs/nan-builders.md`.
+
 ## Liveness and boot
 
 - User timer `assistant-healthcheck@hermes.timer` runs
