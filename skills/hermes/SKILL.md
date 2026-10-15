@@ -421,7 +421,13 @@ time.
    that tolerates a failed ssh (`until ssh -o ConnectTimeout=5 … 2>/dev/null`),
    never treat one refusal as a dead box. Two containers upgrading at once on
    the 2-core host roughly doubles this hop (11 min on enzo).
-6. **Hop 2, the supported route**: `sed -i 's/^Prompt=.*/Prompt=normal/' /etc/update-manager/release-upgrades`
+6. **Hop 2, the supported route** (bruno, 2026-10-15: started 2 s after the
+   reboot it printed "No new release found" and exited 1 — the meta-release
+   fetch ran before the container's network was up; so begin hop 2's script
+   with `until curl -fsS -o /dev/null https://changelogs.ubuntu.com/meta-release; do sleep 5; done`.
+   Also start each hop's tmux in its own command, not right after a
+   `tmux kill-session` of the last session in the same line: the dying
+   server swallowed bruno's hop-3 `tmux new`): `sed -i 's/^Prompt=.*/Prompt=normal/' /etc/update-manager/release-upgrades`
    (needed only from an interim release), then
    `do-release-upgrade -f DistUpgradeViewNonInteractive` (~9 min, rc 0; it says
    "Your Ubuntu release is not supported anymore" and carries on). It purges
