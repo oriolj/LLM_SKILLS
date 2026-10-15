@@ -279,6 +279,25 @@ Cases that are not one-to-one:
 - **Marketplace orders** (Amazon): the charge names the marketplace and the
   invoice names the seller, so match on amount and date, not on vendor.
 - **Card statements** settled as one monthly movement.
+- **Prepaid top-ups** (telephony and messaging APIs and the like): the card is
+  charged a fixed top-up whenever the balance runs low, while the invoice is
+  one month's usage. No top-up ever equals an invoice and no amount tolerance
+  fixes that. Sum each month's top-ups against that month's invoice and show
+  the gap; how to book it (prepayment, a balance carried over) is the
+  accountant's call, and "several movements against one foreign-currency
+  invoice, with a gap" is a kind of write that needs its own approval.
+- **The bank text of a vendor can change mid-year** (seen: an ads platform
+  whose charges read "<Brand> Ads" until one month and plain "<Brand>"
+  after). A charge that suddenly has "no document" while the vendor's
+  invoices keep arriving is this; match it on amount and day of month.
+
+After every batch of uploads, re-read and list the documents **created since
+the last read** (the creation time is in the id, see "Creation time"), then
+test only those against the pending movements. It is cheap (one v1 list for
+the year plus one v2 movements read) and it catches the duplicates: the same
+supplier number uploaded twice comes back as two documents with ids created
+seconds apart, identical lines, one of which a reconciliation would leave
+unpaid forever. Group documents by contact + number + total to find them.
 
 ## v1 and v2 disagree
 
@@ -382,6 +401,12 @@ Cases that are not one-to-one:
   v1 was not verified (its docs no longer load). So moving a late purchase's
   deduction to a later quarter, keeping the issue date, is a web-app edit.
   Never rewrite `date` to get that effect without the owner choosing it.
+  To hand the owner such a list, give one web link per document:
+  `https://app.holded.com/expenses/list#open:purchase-<id>` for a purchase,
+  `https://app.holded.com/sales/list#open:invoice-<id>` for a sales invoice
+  (the pattern an integration builds its links with; not opened in a browser
+  by an agent yet). Read `deduction_date` back in v2 after each edit: the web
+  app is the only writer, so the read is the only proof.
 - **Creation time.** No document field gives it, but a v2 id is a Mongo
   ObjectId: its first 8 hex digits are the creation time in unix seconds.
   That is how to find documents added after a quarter was filed.
@@ -450,6 +475,10 @@ fields, page sizes, the missing `currency_change`). The reconcile POST was
 called that evening on one movement the owner approved, then on 61 more.
 2026-10-13: several movements against one purchase, 16 POSTs on two monthly
 invoices, one of them alone first.
+2026-10-14: 20 more same-amount reconciliations in two batches (each first
+call alone), including documents of an already filed quarter (the
+payment is dated on the movement, the document is untouched); prepaid top-ups,
+changed bank texts and same-number duplicates met while matching uploads.
 
 ## Keeping this current
 
