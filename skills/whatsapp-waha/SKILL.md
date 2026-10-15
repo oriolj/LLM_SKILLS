@@ -1,6 +1,6 @@
 ---
 name: whatsapp-waha
-description: Send and read WhatsApp messages from Oriol's own account through the local WAHA instance (WhatsApp HTTP API, WEBJS engine — headless WhatsApp Web holding one Linked-devices slot) on minisforum-um880, and transcribe voice notes locally. Use when Oriol asks to "send X a WhatsApp", "remind X on WhatsApp", "tell X that…", "what did X say", "read my WhatsApp with X", "transcribe the audio X sent me", "is X on WhatsApp", or mentions WAHA, whatsapp-web.js, the WhatsApp API, the pairing QR, or Petra/Emma/Blake writing on WhatsApp. Covers the signing rule (to the team: Petra on the personal session, Blake on bikecrm; to anyone outside the team: as Oriol or Enric, only with a text Oriol approved), the send-only-when-asked and confirm-the-recipient rules, the bundled `scripts/wa.py` client (status, qr, find, chats, read, send with a persona guard and a dry run, media, transcribe via oj-transcribe), the API surface learned from the live Swagger (auth, chat-id formats, messages, media download, sessions, the built-in MCP endpoint), ban-risk limits of an unofficial client, and the install/firewall facts.
+description: Send and read WhatsApp messages from Oriol's own account through the local WAHA instance (WhatsApp HTTP API, WEBJS engine — headless WhatsApp Web holding one Linked-devices slot) on minisforum-um880, and transcribe voice notes locally. Use when Oriol asks to "send X a WhatsApp", "remind X on WhatsApp", "tell X that…", "what did X say", "read my WhatsApp with X", "transcribe the audio X sent me", "is X on WhatsApp", or mentions WAHA, whatsapp-web.js, the WhatsApp API, the pairing QR, or Pep/Enzo/Bru writing on WhatsApp. Covers the signing rule (to the team: Pep on the personal session, Bru on bikecrm; to anyone outside the team: as Oriol or Enric, only with a text Oriol approved), the send-only-when-asked and confirm-the-recipient rules, the bundled `scripts/wa.py` client (status, qr, find, chats, read, send with a persona guard and a dry run, media, transcribe via oj-transcribe), the API surface learned from the live Swagger (auth, chat-id formats, messages, media download, sessions, the built-in MCP endpoint), ban-risk limits of an unofficial client, and the install/firewall facts.
 ---
 
 # WhatsApp via the local WAHA (sessions personal + bikecrm)
@@ -10,16 +10,16 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
 
 ## Rules (Oriol, 2026-09-26)
 
-1. **Who signs depends on who reads it** (Oriol, 2026-09-28, which replaces the "always Petra" rule of 2026-09-26):
+1. **Who signs depends on who reads it** (Oriol, 2026-09-28, which replaces the "always Petra" rule of 2026-09-26; the signatures are Pep / Bru / Enzo since 2026-10-15, before that Petra / Blake / Emma):
    - **To the team (Oriol, Enric, a project CLAUDE.md's named team):** the
-     assistant signs by session. On `personal` it is Petra, e.g. Catalan
-     `Hola Anna! Sóc la Petra, l'assistent d'IA de l'Oriol. …`. On `bikecrm`
-     it is Blake. Emma is the EnaCast assistant. Always pass
+     assistant signs by session. On `personal` it is Pep, e.g. Catalan
+     `Hola Anna! Sóc en Pep, l'assistent d'IA de l'Oriol. …`. On `bikecrm`
+     it is Bru. Enzo is the EnaCast assistant. Always pass
      `WAHA_SESSION=personal|bikecrm`: with two WORKING sessions, wa.py
      refuses to guess.
    - **To anyone outside the team (customers, leads, suppliers):** write as
-     **Oriol** (default) or **Enric** (when Oriol says so). No AI, no Petra
-     or Blake: these are messages the two of them validate word for word
+     **Oriol** (default) or **Enric** (when Oriol says so). No AI, no Pep
+     or Bru: these are messages the two of them validate word for word
      before they go out (rule 2). Use `--persona oriol|enric --approved`.
      wa.py refuses a human-signed send without `--approved`, and the text
      must carry the name, e.g. a closing `Oriol (BikeCRM)`.
@@ -113,7 +113,7 @@ $W status                      # personal: WORKING = linked; SCAN_QR_CODE = not 
 $W find anna                   # contacts + groups, accent/case-insensitive
 $W chats --limit 20            # newest first, with last message
 $W read 34600111222 --limit 30 # a phone number or a chat id
-$W send 34600111222 "Hola! Sóc la Petra, l'assistent d'IA de l'Oriol. …"   # dry run
+$W send 34600111222 "Hola! Sóc en Pep, l'assistent d'IA de l'Oriol. …"   # dry run
 $W send 34600111222 @/path/msg.txt --yes                                    # sends
 $W send 34600111222 @caption.txt --file video.mp4 --document --yes          # a file; TEXT = caption
 $W transcribe 34600111222 --last 2   # newest 2 voice notes -> oj-transcribe --stdout
@@ -167,7 +167,7 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 - **MCP**: WAHA serves an MCP endpoint at `POST /mcp` (streamable HTTP,
   same `X-Api-Key`), ~150 tools (`send-text`, `chats-get-messages`,
   `contacts-check-exists`, …). NOT registered in Claude Code on purpose: the
-  Petra guard and the send log live in wa.py; use the script for sends.
+  Pep guard and the send log live in wa.py; use the script for sends.
 - Core vs Plus: the tier is `CORE` (`/api/server/version`). Which endpoints
   are Plus-only is not marked in the spec. **Sending media, verified
   2026-09-27:** `sendVideo` answers **422 "Use devlikeapro/waha:chrome docker
@@ -195,11 +195,11 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
   self-chat, plus `WHATSAPP_ALLOWED_USERS` and group allowlists. It has no
   external-bridge or WAHA option. The only webhook variant is Meta's Cloud API
   ([docs](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/whatsapp)).
-- So "connect Petra to WhatsApp" is a choice between three options, and the
+- So "connect Pep to WhatsApp" is a choice between three options, and the
   choice is Oriol's:
-  1. **A dedicated number for Petra** with the claw's own Baileys channel
+  1. **A dedicated number for Pep** with the claw's own Baileys channel
      (allowlist = Oriol, family if wanted). This is the cleanest option: the
-     identity is honest by construction, and a ban hits Petra's number, not
+     identity is honest by construction, and a ban hits Pep's number, not
      Oriol's.
   2. **The claw links Oriol's own number** as a second Linked-devices slot,
      next to WAHA, with `selfChatMode` and `dmPolicy: allowlist`. It works,

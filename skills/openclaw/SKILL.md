@@ -1,16 +1,21 @@
 ---
 name: openclaw
-description: Operate the estate's OpenClaw agent VMs (petraclaw = personal, emmaclaw = Enantena, blakeclaw = SmartupSoft/BikeCRM — self-hosted personal-AI-agent gateways on the home LAN) — how they are installed (nvm Node, npm global, user systemd unit), the safe update procedure and the trap where `openclaw update` leaves the gateway DOWN on a pending state-DB migration, plugin version pins, the systemd unit reinstall, adding a Slack workspace (socket mode, manifest, tokens, allowlists), adding Telegram/other channels, reading the config without leaking secrets, and the verification that proves an update or a channel actually works. Use when the user mentions OpenClaw, petraclaw/emmaclaw/blakeclaw, "the claw", updating an agent VM, connecting an agent to Slack/Telegram/WhatsApp, `openclaw doctor`, a gateway that will not start, plugin drift warnings. OpenClaw was stopped on all three VMs on 2026-10-15 and is being retired in favour of Hermes (the `hermes` skill); use this one to bring a gateway back, read its state, or recover data from `~/.openclaw`.
+description: Operate the estate's OpenClaw agent VMs (pep = personal, enzo = Enantena, bruno = SmartupSoft/BikeCRM — self-hosted personal-AI-agent gateways on the home LAN) — how they are installed (nvm Node, npm global, user systemd unit), the safe update procedure and the trap where `openclaw update` leaves the gateway DOWN on a pending state-DB migration, plugin version pins, the systemd unit reinstall, adding a Slack workspace (socket mode, manifest, tokens, allowlists), adding Telegram/other channels, reading the config without leaking secrets, and the verification that proves an update or a channel actually works. Use when the user mentions OpenClaw, pep/enzo/bruno, "the claw", updating an agent VM, connecting an agent to Slack/Telegram/WhatsApp, `openclaw doctor`, a gateway that will not start, plugin drift warnings. OpenClaw was stopped on all three VMs on 2026-10-15 and is being retired in favour of Hermes (the `hermes` skill); use this one to bring a gateway back, read its state, or recover data from `~/.openclaw`.
 ---
 
 # OpenClaw — the three agent VMs
 
+> **Hosts renamed 2026-10-15**: petraclaw → `pep`, emmaclaw → `enzo`,
+> blakeclaw → `bruno` (agents Petra/Emma/Blake → Pep/Enzo/Bru). They are LXC
+> containers (CT 100/102/101), not VMs. OpenClaw is stopped and disabled on all
+> three; the runtime is Hermes (`hermes` skill).
+
 **What OpenClaw is, the risks and the estate state live in hq
 [`shared/docs/openclaw.md`](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/openclaw.md)**;
 per-box facts in `hq/docs/servers/<name>.md`
-([petraclaw](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/petraclaw.md),
-[emmaclaw](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/emmaclaw.md),
-[blakeclaw](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/blakeclaw.md)).
+([pep](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/pep.md),
+[enzo](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/enzo.md),
+[bruno](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/bruno.md)).
 This skill is the *mechanics*. Verified on all three 2026-09-17
 (2026.7.1-2 → 2026.9.4); update the notes here the same turn a step
 behaves differently.
@@ -19,9 +24,9 @@ behaves differently.
 
 | VM | Scope | LAN IP | Channels (2026-09-17) |
 |---|---|---|---|
-| petraclaw | personal (oriolj) | `192.168.7.73` | Telegram **only** — no personal Slack exists, decision 2026-09-17; never stage Slack here |
-| emmaclaw | Enantena / EnaCast | `192.168.7.217` | Telegram + Enantena Slack (8 channels, one is an invoices-inbox → Holded purchase-draft flow) |
-| blakeclaw | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram + SmartupSoft Slack (app Blake; DMs Oriol + Enric, `#seaotter2026` no-mention, `#general` on mention) |
+| pep | personal (oriolj) | `192.168.7.73` | Telegram **only** — no personal Slack exists, decision 2026-09-17; never stage Slack here |
+| enzo | Enantena / EnaCast | `192.168.7.217` | Telegram + Enantena Slack (8 channels, one is an invoices-inbox → Holded purchase-draft flow) |
+| bruno | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram + SmartupSoft Slack (app Blake; DMs Oriol + Enric, `#seaotter2026` no-mention, `#general` on mention) |
 
 Current versions, models and login state per box live in hq
 [shared/docs/openclaw.md](../../../../../Syncthing/Syncthing-mobile-docs/hq/shared/docs/openclaw.md#what-is-actually-on-our-boxes-verified-2026-09-17-updated-2026-10-03)
@@ -29,7 +34,7 @@ and the server files (read them before acting; this skill is mechanics).
 Each VM ALSO runs **Hermes Agent** (Nous Research, `~/.hermes/`, user unit
 `hermes-gateway.service`) with its OWN Codex login; see § Hermes and hq
 [shared/docs/hermes.md](../../../../../Syncthing/Syncthing-mobile-docs/hq/shared/docs/hermes.md).
-emmaclaw is the only one that
+enzo is the only one that
 also loads secrets from a unit drop-in (`openclaw-gateway.service.d/
 override.conf` → `EnvironmentFile=~/.openclaw/secrets/openclaw.env`:
 Slack bot token, Trello, Ramen creds) — `gateway install --force` keeps
@@ -67,7 +72,7 @@ copy a token from one claw to another.
   and 9.6+ reclaims abandoned copies itself. **Why the TMPDIR**: 2026.9.5
   stages a ~341 MB `openclaw-plugin-build-*` copy under `$TMPDIR` on every
   gateway start AND every CLI call that loads plugins, and never deletes
-  it; `/tmp` on these VMs is **tmpfs (RAM)**, so on petraclaw 24 leftovers
+  it; `/tmp` on these VMs is **tmpfs (RAM)**, so on pep 24 leftovers
   = 5.1 GB on a 4 GB VM → swap full, gateway OOM-killed three times, ssh
   timing out at the banner. `gateway install --force` keeps the drop-in.
   Export the same `TMPDIR` in any shell where you run `openclaw` by hand,
@@ -107,7 +112,7 @@ file (comment-stripped) as above, on the box, and never print it.
 
 0. **Pre-flight the model, not just the channels**: `journalctl --user -u
    openclaw-gateway --since "2 days ago" | grep -c OAuthRefreshFailureError`
-   and `openclaw models status`. emmaclaw had answered nothing for 27 h
+   and `openclaw models status`. enzo had answered nothing for 27 h
    (Codex OAuth refresh 401, `model-fallback … auth_permanent next=none`)
    while `health` and `channels status` were green. Also `chmod 600
    ~/.config/systemd/user/openclaw-gateway.service` (and delete any
@@ -123,11 +128,11 @@ file (comment-stripped) as above, on the box, and never print it.
 2. **Backup on the box**: `tar --exclude=npm --exclude='*.sqlite-wal' -czf
    ~/backups/openclaw-pre-<ver>-$(date -u +%Y%m%dT%H%M%SZ).tgz -C ~ .openclaw`
    and `cp -a ~/.openclaw/openclaw.json ~/backups/openclaw.json.pre-<ver>`.
-   64 MB on blakeclaw, 475–576 MB on the other two (workspace `media/`);
+   64 MB on bruno, 475–576 MB on the other two (workspace `media/`);
    `~/.openclaw` is 2–5 GB, mostly `npm/` cache and media.
 3. `openclaw update --dry-run`, then `openclaw update 2>&1 | tee
    ~/backups/openclaw-update-<ver>.log`.
-   **2026.9.5 (atomic updater) failed on petraclaw** after passing every
+   **2026.9.5 (atomic updater) failed on pep** after passing every
    candidate check: `Failed: global install swap … tree changed
    Installation recovery is unverified`, 9.4 left running (harmless), and
    `openclaw update repair` then refused ("The update parent owns Gateway
@@ -149,7 +154,7 @@ file (comment-stripped) as above, on the box, and never print it.
    — fine, the plugins had already converged (check `plugins list`).
    **9.6 → 9.8 (2026-10-03)**, same path. Lessons: (a) **never stop the
    gateway until it has logged `[gateway] ready`** — a stop sent the same
-   second blakeclaw became ready hung 5½ min until systemd's shutdown
+   second bruno became ready hung 5½ min until systemd's shutdown
    deadline (`abandoning unfinished cleanup`, SIGKILL); (b) `update repair`
    can refuse with `Doctor could not enter maintenance … Service inspection
    deadline expired` — do what it says: stop, `doctor --fix --yes`, start,
@@ -164,14 +169,14 @@ file (comment-stripped) as above, on the box, and never print it.
    `update status` line "Plugin codex data/settings upgrade is unfinished"
    persists although doctor reports the deferred migration completed —
    turns work; left as is.
-4. **THE TRAP (not deterministic)** — on blakeclaw and emmaclaw the
+4. **THE TRAP (not deterministic)** — on bruno and enzo the
    updater's own doctor step failed (`Doctor could not enter maintenance…
    Gateway service ownership or shutdown could not be verified`), it
    reported `Update Result: ERROR`, yet the package WAS swapped and the
    service WAS restarted — **on the new version, which refuses to
    start**: `Gateway failed to start: OpenClaw state database schema
    migration required (audit-events-v2)`, unit `failed`, `status=78/CONFIG`.
-   On petraclaw (same shape) the same command reported `Update Result:
+   On pep (same shape) the same command reported `Update Result:
    OK`, ran the migrations itself and the gateway came up — with two
    cosmetic tails: `Gateway install blocked: … [unsafe-permissions]` (the
    664 unit, see step 0) and `Doctor failed: ERR_MODULE_NOT_FOUND …
@@ -189,7 +194,7 @@ file (comment-stripped) as above, on the box, and never print it.
    → `memory.search`, `imageGenerationModel` → `mediaModels.image`,
    `gateway.tailscale.resetOnExit` removed, legacy model map →
    `agents.defaults.modelPolicy.allow`), **auth profiles → SQLite** (this
-   is what revived emmaclaw's expired-looking Codex auth), channel
+   is what revived enzo's expired-looking Codex auth), channel
    `allowFrom` entries and pairing requests → SQLite (they also stay in
    the file), device pairings (`devices/*.json` → `.migrated`, imported at
    the next gateway start), cron store → SQLite (`cron/jobs.json` →
@@ -198,7 +203,7 @@ file (comment-stripped) as above, on the box, and never print it.
    `AGENTS.md`, exec approvals, config audit log, provider catalogs. It
    refreshes the `codex` plugin itself, disables unusable skills
    (`model-usage` everywhere), prunes orphaned Codex session bindings
-   (182 on petraclaw) and writes `openclaw.json.bak` (older ones rotate to
+   (182 on pep) and writes `openclaw.json.bak` (older ones rotate to
    `.bak.1…`). If the updater already migrated, a second doctor prints no
    `Auto-migrated` lines — that is fine. The session store moves from
    `sessions.json` to `agents/main/agent/openclaw-agent.sqlite`. **The
@@ -231,7 +236,7 @@ file (comment-stripped) as above, on the box, and never print it.
    - `journalctl --user -u openclaw-gateway --since "2 min ago"` shows
      `[gateway] http server listening (N plugins: …)` and `[gateway] ready`
      with the expected plugin list (17–18 entries on 2026.9.4 incl.
-     brave, slack where installed; blakeclaw's first boots listed only 6
+     brave, slack where installed; bruno's first boots listed only 6
      and still worked — the count is not a pass/fail signal, the named
      channel plugins are).
    - `openclaw health` (channels `configured`, event loop `ok`; a
@@ -261,7 +266,7 @@ file (comment-stripped) as above, on the box, and never print it.
      `admin-capable`); commands still work — a renamed field, not a loss.
    - For a Slack claw, dump the redacted `channels.slack` before and after
      and diff: channel ids, `allowFrom`, every `systemPrompt` must be
-     byte-identical (they were on emmaclaw).
+     byte-identical (they were on enzo).
 8. Record: hq changelog line, the server file's Services row (version,
    date), and anything new here.
 
@@ -286,7 +291,7 @@ migration is one-way), `gateway install --force`, restart. Untested.
 2. **Oriol creates the app** (a workspace admin, in the *scope's*
    workspace): <https://api.slack.com/apps/new> → *From a manifest* →
    paste the manifest (template: hq
-   `smartupsoft/docs/blakeclaw-slack-manifest.json` — bot user, `/blake`
+   `smartupsoft/docs/bruno-slack-manifest.json` — bot user, `/blake`
    slash command, 23 bot scopes, `socket_mode_enabled`, 16 bot events;
    rename display/command per claw). Then *Basic Information → App-Level
    Tokens → Generate* with `connections:write` → `xapp-…`; *Install App →
@@ -318,7 +323,7 @@ migration is one-way), `gateway install --force`, restart. Untested.
    per channel (JSON5 literal is accepted; `config get
    channels.slack.channels` shows the map) and restart the gateway;
    `requireMention:false` + a `systemPrompt` turns a channel into an inbox
-   flow (emmaclaw's FACTURES REBUDES channel is the model: extract invoice
+   flow (enzo's FACTURES REBUDES channel is the model: extract invoice
    data, one allowed write — a Holded purchase DRAFT). Same-named
    channels from earlier years exist (`seaotter2025` vs `seaotter2026`) —
    match the exact name.
@@ -363,7 +368,7 @@ below was the client-side model catalog, not a backend version floor:
 once the catalog knows the model, it works. Switch with a gateway
 **restart** after `models set`, not just the hot reload — the first
 post-switch turn otherwise hits the "session policy handoff" wedge; and
-re-check `models status` after `models set` (on blakeclaw it silently did
+re-check `models status` after `models set` (on bruno it silently did
 not stick the first time).
 
 **A model the catalog lacks can be registered by hand** —
@@ -385,7 +390,7 @@ Hermes Agent runs on the same three VMs and is the runtime going forward
 (Oriol, 2026-10-15). Its mechanics are the **`hermes` skill**
 (`skills/hermes/SKILL.md`); the estate page is hq `shared/docs/agents.md`.
 
-## Pre-flight: a stranded Codex login (emmaclaw, since 2026-09-25)
+## Pre-flight: a stranded Codex login (enzo, since 2026-09-25)
 
 `health`, `channels status --probe` and the healthchecks.io probe all
 stay green while the agent cannot answer at all. Symptom: every turn →
@@ -434,7 +439,7 @@ Two kinds, and the difference decides whether a reminder reaches anyone:
 - `sessionTarget: isolated` + `agentTurn` payload + `delivery: {mode:
   announce, channel, to}` — the runner delivers the final text to a fixed
   destination (`openclaw cron edit <id> --announce --channel telegram --to
-  <chat id> --best-effort-deliver`). Deterministic. petraclaw's jobs are
+  <chat id> --best-effort-deliver`). Deterministic. pep's jobs are
   built this way (`announce telegram:5095664`).
 - `sessionTarget: main` + `systemEvent` payload — the event is injected into
   the main session at the next heartbeat and **the model decides whether
@@ -443,7 +448,7 @@ Two kinds, and the difference decides whether a reminder reaches anyone:
   sessionTarget="isolated"`). Emma's *Ampliació de capital* and Blake's
   three BikeCRM checks are this kind.
 
-**Trap (emmaclaw, 2026-09-18, first run after the update)**: with no
+**Trap (enzo, 2026-09-18, first run after the update)**: with no
 destination in the payload the model passed `telegram` as the target and
 2026.9.4's message tool resolved it as the username **`@telegram` =
 "Telegram News", chat `-1001005640892`** → `403 Forbidden: bot is not a
@@ -480,7 +485,7 @@ openclaw security audit --deep   (run before exposing anything)
 - Accounts follow the scope: a claw's Slack/Telegram/model keys are that
   scope's; catalogue new ones in hq `homelab/secrets/` per the
   `secrets-in-git` skill when they exist outside the box.
-- Update one claw, verify, then the others (emmaclaw: re-verify Slack
+- Update one claw, verify, then the others (enzo: re-verify Slack
   after any update — it is the production invoice inbox).
 - Everything verified on a box goes to its hq server file the same turn;
   new mechanics go here.

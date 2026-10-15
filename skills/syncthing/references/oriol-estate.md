@@ -123,10 +123,10 @@ So retiring a device means removing it, and keeping it removed:
   touch them.
 
 Applied 2026-10-07: 14 retired devices removed and ignored on minisforum,
-fw13pro, the mac mini, petraclaw, emmaclaw and blakeclaw. minisforum and
+fw13pro, the mac mini, pep (was petraclaw), enzo and bruno. minisforum and
 fw13pro were also checked against `devices` / `remoteIgnoredDevices`, and a
 second run changed nothing on any of the six. Stray introducers found: Fold7
-on all of them, and truenas-personal on petraclaw.
+on all of them, and truenas-personal on pep.
 
 Applied again 2026-10-11 (`truenas-personal-old`, the NAS app before a
 reinstall): the playbook reached six hosts, seven were offline.
