@@ -24,52 +24,82 @@ oj-notes path --create   # create the file without opening anything
 oj-notes list            # every note of this folder; * marks this pane's or session's
 ```
 
-The first time you use the note, `oj-notes` writes your session id into its
-front matter, so a resumed conversation finds the same note from another
-pane.
+The first time you use the note from a pane, `oj-notes` records your session
+id and that pane in its front matter, so a resumed conversation finds the
+same note from another pane, and the user's `prefix+m` there opens the same
+one.
 
 If you only see a note on screen (for example after `herdr pane read`), its
 front matter names the file: `path:` is where it lives, `file:` its name,
 `session:` and `herdr_pane:` who it belongs to. Go to the file; do not work
 from the screen text.
 
-## Read and edit it
+## Read and change it: only through `oj-notes`
 
-The note is a normal file. Use your own Read and Edit tools on the path.
-Bracket the work with `oj-notes sync`:
+**Never write the note's file yourself** (no Write, no Edit tool, no `sed`,
+no `>` redirection). The user may have typed and auto-saved a line a second
+after you read the file: a write from your copy would undo it, and the
+editor would reload the result without a word. `oj-notes` hands your change
+to the editor, which applies it to the text the user is typing in, between
+two keystrokes; when the note is not open, it changes the file under a lock.
 
 ```bash
-oj-notes sync    # 1. the editor writes what the user just typed
-# 2. Read the file, then Edit it
-oj-notes sync    # 3. the editor shows your change at once
+oj-notes read                              # the note as the user sees it now (unsaved typing included)
+oj-notes append '- [ ] call the supplier'  # add a line at the end
+oj-notes append <<'EOF'                    # several lines, any characters
+## Friday
+- [ ] deploy the fix
+EOF
+oj-notes replace -- '- [ ] call the supplier' '- [x] call the supplier'   # tick it
+oj-notes replace -- $'- [ ] stale item\n' ''                               # remove a whole line
+oj-notes replace --json <<'EOF'                                           # awkward text
+{"old": "text with 'quotes'", "new": "the new text"}
+EOF
 ```
+
+`replace` has the contract of an Edit tool: OLD must appear **exactly once**
+in the current note. If it is not there (the user changed it meanwhile) or
+appears twice, nothing changes and the exit code is 7: `oj-notes read`
+again, then retry with the current text (more context if it was ambiguous).
+Put `--` before OLD and NEW: a todo line starts with `-`. To remove a line,
+include its newline in OLD (bash `$'...\n'`).
+
+`--file FILE` makes `read`, `append` and `replace` work on another file, for
+example a TODO you showed with `oj-notes open`: the same rule applies to
+every file the side editor shows.
 
 Rules that keep it a shared space:
 
-- **Read right before you edit, and make small edits.** The user may be
-  typing in the note this very second. Change the lines you mean to change
-  with Edit; never rewrite the whole file with Write.
+- **Small changes, from a fresh read.** Read right before you change
+  something, change the lines you mean, never the whole note.
 - **Never touch the front matter** (the block between the first two `---`).
   It is how the note is found again.
 - **Do not reformat or reorder the user's text.** Add, tick, remove or amend
   what was asked. Their wording stays theirs.
 - **Todos are Markdown checkboxes**: `- [ ] open`, `- [x] done`. Tick an
   item by changing its box, do not delete it unless asked to.
-- **Say what you changed** in one line in the chat, since the edit appears
+- **Say what you changed** in one line in the chat, since the change appears
   beside the user without any other signal.
-- When both of you change the note at the same moment, the editor merges the
-  two versions and keeps both sides' lines. If the same line was edited on
-  both sides you will see both versions one after the other: tidy that up
-  only if the user asks.
 
-`oj-notes sync` exit codes: `0` done (also when the note is not open in an
-editor: then the file is all there is, which is fine); `5` the editor holds
-unsaved edits it could not merge, so tell the user to choose in the editor
-(`:e!` takes the disk version, `:w!` keeps theirs) and do not edit until
-then; `6` the editor is waiting on a prompt the user has to dismiss, or on a
-command line they are typing (it could not write their last keystrokes: the
-file may be a second behind), and the file on disk is still safe to read and
-edit.
+Exit codes of `read`, `append`, `replace` and `sync`:
+
+| code | meaning | what to do |
+| --- | --- | --- |
+| 0 | done | |
+| 3 | this pane has no note yet (`read`, `replace`) | `append` creates it, or `oj-notes path --create` |
+| 4 | the editor failed, or runs without its config | tell the user the message |
+| 5 | the user must act in the editor: a conflict (`:e!` takes the disk version, `:w!` keeps theirs), or text it cannot write (auto-save switched off, a failed save) | tell the user, change nothing until then |
+| 6 | the editor cannot answer now: a prompt, a command line they are typing, or still starting | retry in a few seconds; do not fall back to writing the file |
+| 7 | `replace` refused: OLD not in the note, or not once | `read` again and retry |
+
+`oj-notes sync` makes the editor write what the user typed and pick up the
+disk. `read` and `replace` already do that; use `sync` before reading the
+file with other tools (a `grep` over the notes folder) or before handing it
+to something else.
+
+When the user changes the same lines you changed at the same moment, the
+editor keeps both versions one after the other: tidy that up only if the
+user asks.
 
 ## Open and close things for the user
 
@@ -82,7 +112,9 @@ oj-notes close             # close the side pane (the note stays on disk)
 
 - Use `open` when you created or changed a file the user should keep an eye
   on (a TODO, a plan, a checklist). It opens the side pane first if needed.
-  Markdown and text files there save themselves; other files do not.
+  Markdown and text files there save themselves; other files do not. Write
+  such a file with your own tools BEFORE you open it; once it is open,
+  change it only with `oj-notes append/replace --file <file>`.
 - **Always pass `--no-focus` to `wall`**, and never call `herdr agent focus`,
   `tab focus` or `workspace focus`: the user runs several herdr windows, and
   a focus call drags the one they are typing in. `open`, `close` and `sync`
@@ -97,10 +129,10 @@ oj-notes close             # close the side pane (the note stays on disk)
   lists every note, and `oj-notes new <title>` (run by the user; it opens an
   editor) makes a plain note for the current folder. Offer to keep the notes
   in a file of the project instead.
-- Neovim missing on the machine: `oj-notes wall` and `open` exit 4 and the
-  side pane does not open. `oj-notes path --create` still gives you a note
-  file to write in; tell the user it will show beside them once Neovim is
-  installed.
+- Neovim missing or older than 0.10, or its config not deployed: `oj-notes
+  wall` and `open` exit 4 and the side pane does not open (or closes again).
+  `oj-notes append` still works on the file; tell the user it will show
+  beside them once Neovim and the dotfiles are installed.
 
 ## What not to put in the note
 
