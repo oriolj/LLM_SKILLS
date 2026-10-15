@@ -139,16 +139,38 @@ green) — an outage during an update will page.
   `~/.hermes/memories/MEMORY.md` (cap `memory.memory_char_limit`, 2200 on our
   boxes) and `USER.md` (`user_char_limit`, 1375), entries separated by `§`.
   `memory.write_approval: true` on our boxes. Persona is `~/.hermes/SOUL.md`.
+- The file format is entries joined by `"\n§\n"` (`ENTRY_DELIMITER` in
+  `tools/memory_tool_store.py`). `write_approval` gates only the agent's own
+  memory tool: editing the files directly (as the 2026-10-15 import did) is
+  not blocked, and it is safe while the gateway runs, because every tool
+  write rereads the file under a `.lock` and refuses on drift.
+- Every entry passes `_scan_memory_content` (injection/exfil patterns) at
+  write AND at load; a flagged entry is dropped from the prompt with a
+  warning. Run it on curated text before installing it:
+  `venv/bin/python -c 'from tools.memory_tool_store import _scan_memory_content as s; print(s(open("x").read()))'`
+  from `~/.hermes/hermes-agent`.
+- Leave headroom under the caps (we installed ~1.2 KB of 2.2 KB): the agent
+  adds its own entries and an over-cap file blocks every further addition.
 - An external memory provider can sit beside it (only one at a time;
   `hermes memory status`). Ours have **`mnemosyne`** configured (plugin
   `hermes-mnemosyne` 0.4.0 under `~/.hermes/plugins/`, data
-  `~/.hermes/mnemosyne/`, local SQLite + embeddings) since 2026-07-23.
-  Third-party and unvetted against the >1k-star rule: do not make it the only
-  home of anything.
+  `~/.hermes/mnemosyne/`, local SQLite + embeddings, multilingual MiniLM)
+  since 2026-07-23. Upstream is `mnemosyne-oss/mnemosyne` (3,420 GitHub stars
+  on 2026-10-15, passes the >1k rule; the Hermes provider is by its author,
+  GitHub AxDSan). Still: it recalls by similarity, so durable facts the
+  agent must always apply belong in MEMORY.md or a file skill, not only
+  there.
 - Anything that does not fit the caps goes into a **file skill**
   (`~/.hermes/skills/<category>/<name>/SKILL.md`), loaded on demand. Imported
-  OpenClaw skills land in `~/.hermes/skills/openclaw-imports/`. New skills and
-  memory take effect in a NEW session; no gateway restart needed.
+  OpenClaw skills land in `~/.hermes/skills/openclaw-imports/`. A category is
+  just a folder with a one-line `DESCRIPTION.md`; `hermes skills list` shows
+  a new skill immediately (scan by directory mtime), and new skills and
+  memory take effect in a NEW session; no gateway restart needed. Check a
+  hand-written skill with the built-in scanner (verdict SAFE → allowed):
+  `venv/bin/python -c 'from tools.skills_guard import scan_skill, format_scan_report; from pathlib import Path; print(format_scan_report(scan_skill(Path("<dir>"))))'`.
+- Our three agents each have `~/.hermes/skills/knowledge/agent-knowledge/`
+  (since 2026-10-15): the long tail of what OpenClaw learned, grouped by
+  topic. Keep it current there, not in the overflow files.
 
 ## Importing from OpenClaw
 
@@ -163,8 +185,24 @@ reliable source; web write-ups are third-party). Traps:
   (ids listed by `--help`; without `--execute` it is a dry run).
 - **Memory merges are truncated at the char caps**: the rest goes to
   `~/.hermes/migration/openclaw/<ts>/overflow/*.txt`, which the agent never
-  reads (the 2026-07-23 run on petraclaw spilled ~11 KB there). Curate
-  MEMORY.md by hand and put the rest in a knowledge skill instead.
+  reads (the 2026-07-23 run spilled ~11 KB on petraclaw, mostly emmaclaw's
+  repeated daily reminders there). It also imports entries verbatim and
+  with duplicates (`2026-02-02: …` lines, the template's "Learn about the
+  person…" prose, misspelt names such as "Petrah-inbox"). On 2026-10-15 we
+  did NOT re-run it: we read every source (MEMORY, USER, IDENTITY, AGENTS,
+  `memory/*.md`, DREAMS, channel notes, the per-channel `systemPrompt`s in
+  `openclaw.json`), replaced MEMORY.md/USER.md with hand-curated entries and
+  put the rest in a knowledge skill. Verify with a fresh-session turn that
+  only the moved facts can answer.
+- OpenClaw knowledge also hides outside the workspace: per-channel
+  `systemPrompt`s in `openclaw.json` (`channels.slack.channels.<id>`; Enzo's
+  invoice-inbox → Holded purchase-draft rules lived only there) and
+  `workspace/memory/channel-*.md`. `DREAMS.md` is narrative "dream diary"
+  text with nothing durable on our boxes.
+- Daily notes keep firing stale reminders as facts: check them against
+  later notes before importing (Enzo's capital-increase reminder kept
+  running after the increase was cancelled; Bru's Daniela follow-up after
+  the hand-off was done).
 - `AGENTS.md` only moves with `--workspace-target`, and OpenClaw's is mostly
   OpenClaw mechanics (heartbeats, `memory/` daily files): translate the
   durable rules, do not copy it. `IDENTITY.md` is archived, merge it into
