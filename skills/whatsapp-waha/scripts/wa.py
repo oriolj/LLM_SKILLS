@@ -9,7 +9,7 @@ base URL from $WAHA_URL (default http://localhost:3010).
   wa.py find QUERY                     contacts + groups matching a name/number
   wa.py chats [--limit N]              recent chats, newest first
   wa.py read CHAT [--limit N]          last messages of a chat (oldest first)
-  wa.py send TO TEXT|@file [--file PATH] [--persona pep|enzo|bru|oriol|enric] [--approved] [--yes]
+  wa.py send TO TEXT|@file [--file PATH] [--persona pep|enzo|bruno|oriol|enric] [--approved] [--yes]
                                        dry run unless --yes; TEXT must name the persona
   wa.py media CHAT MSG_ID [--out DIR]  download a message's attachment
   wa.py transcribe CHAT [--id MSG_ID | --last N]
@@ -26,7 +26,7 @@ URL = os.environ.get("WAHA_URL", "http://localhost:3010").rstrip("/")
 SESSION = os.environ.get("WAHA_SESSION")  # unset = the one WORKING session (Oriol's is "personal")
 DATA = Path.home() / ".local/share/waha"
 SENT_LOG = DATA / "sent.jsonl"
-PERSONAS = {"pep": "Pep", "enzo": "Enzo", "bru": "Bru", "oriol": "Oriol", "enric": "Enric"}  # Pep/Enzo/Bru were Petra/Emma/Blake until 2026-10-15
+PERSONAS = {"pep": "Pep", "enzo": "Enzo", "bruno": "Bruno", "oriol": "Oriol", "enric": "Enric"}  # Pep/Enzo/Bruno were Petra/Emma/Blake until 2026-10-15
 # Signing as a human (Oriol/Enric) is for people OUTSIDE the team, and only
 # with a text Oriol approved word for word (Oriol, 2026-09-28) -> --approved.
 HUMAN = {"oriol", "enric"}

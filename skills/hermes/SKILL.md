@@ -1,6 +1,6 @@
 ---
 name: hermes
-description: Operate Hermes Agent (Nous Research) on the estate's agent VMs ("claw agents" — the personal, EnaCast and BikeCRM/SmartupSoft agents on the home Proxmox host, formerly petraclaw/emmaclaw/blakeclaw) — install shape, the CLI per user (not root), the tag-pinned update with its post-checkout driver and rollback, model and fallback switch, built-in memory limits (MEMORY.md/USER.md char caps) and where larger knowledge goes, importing from OpenClaw (`hermes claw migrate` and the underlying script with --include, the overflow trap, cron jobs it cannot see), Discord, Sign in with ChatGPT, healthchecks. Use when the user mentions Hermes, `hermes-gateway`, `hermes claw migrate`, the agents' memory or skills, Pep/Enzo/Bru (or the old Petra/Emma/Blake), a claw agent VM, or connecting an agent to Discord/Telegram/Slack/email through Hermes.
+description: Operate Hermes Agent (Nous Research) on the estate's agent VMs ("claw agents" — the personal, EnaCast and BikeCRM/SmartupSoft agents on the home Proxmox host, formerly petraclaw/emmaclaw/blakeclaw) — install shape, the CLI per user (not root), the tag-pinned update with its post-checkout driver and rollback, model and fallback switch, built-in memory limits (MEMORY.md/USER.md char caps) and where larger knowledge goes, importing from OpenClaw (`hermes claw migrate` and the underlying script with --include, the overflow trap, cron jobs it cannot see), Discord, Sign in with ChatGPT, healthchecks. Use when the user mentions Hermes, `hermes-gateway`, `hermes claw migrate`, the agents' memory or skills, Pep/Enzo/Bruno (or the old Petra/Emma/Blake), a claw agent VM, or connecting an agent to Discord/Telegram/Slack/email through Hermes.
 ---
 
 # Hermes — the agent runtime on the claw agents
@@ -129,9 +129,27 @@ full tool/terminal access — allowlist Oriol only. Source:
 OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
 `shared/docs/openclaw.md` § Sign in with ChatGPT (not yet; device code stays).
 
-Both runtimes are watched by user timers `assistant-healthcheck@{openclaw,hermes}`
-→ healthchecks.io (service active + HTTP only — a dead model login stays
-green) — an outage during an update will page.
+## Liveness and boot
+
+- User timer `assistant-healthcheck@hermes.timer` runs
+  `~/.local/libexec/assistant-healthcheck hermes`, which pings the
+  healthchecks.io URL in `~/.config/assistant-monitoring/hermes.url` (or
+  `/fail`). Since 2026-10-15 the probe requires BOTH `hermes-gateway.service`
+  active AND `~/.hermes/gateway_state.json` saying `"gateway_state": "running"`
+  with `pid` equal to the unit's `MainPID` (an active unit whose gateway gave
+  up no longer passes). Still blind to a dead model login: only a real turn
+  proves that. An outage during an update pages.
+- The script is hand-installed on each box (no repo deploys it); a backup of
+  the previous version is `~/backups/assistant-healthcheck.pre-2026-10-15`.
+- Boot: `hermes-gateway.service` and the hermes timer are enabled user units
+  with linger on. **OpenClaw cannot start**: its unit file and drop-in were
+  moved to `~/backups/openclaw-retired-units/` and `openclaw-gateway.service`
+  plus `assistant-healthcheck@openclaw.{timer,service}` are **masked**
+  (2026-10-15). To bring it back: `systemctl --user unmask …`, move the files
+  back to `~/.config/systemd/user/`, `daemon-reload`, `enable --now`.
+- `~/.bashrc` still sources OpenClaw's bash completion from `~/.openclaw/`;
+  harmless, but it errors if `~/.openclaw` is ever renamed (`hermes claw
+  cleanup`): drop that line then.
 
 ## Memory: what Hermes keeps and where bigger knowledge goes
 
@@ -201,7 +219,7 @@ reliable source; web write-ups are third-party). Traps:
   text with nothing durable on our boxes.
 - Daily notes keep firing stale reminders as facts: check them against
   later notes before importing (Enzo's capital-increase reminder kept
-  running after the increase was cancelled; Bru's Daniela follow-up after
+  running after the increase was cancelled; Bruno's Daniela follow-up after
   the hand-off was done).
 - `AGENTS.md` only moves with `--workspace-target`, and OpenClaw's is mostly
   OpenClaw mechanics (heartbeats, `memory/` daily files): translate the

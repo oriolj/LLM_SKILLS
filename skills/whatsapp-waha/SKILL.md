@@ -1,6 +1,6 @@
 ---
 name: whatsapp-waha
-description: Send and read WhatsApp messages from Oriol's own account through the local WAHA instance (WhatsApp HTTP API, WEBJS engine — headless WhatsApp Web holding one Linked-devices slot) on minisforum-um880, and transcribe voice notes locally. Use when Oriol asks to "send X a WhatsApp", "remind X on WhatsApp", "tell X that…", "what did X say", "read my WhatsApp with X", "transcribe the audio X sent me", "is X on WhatsApp", or mentions WAHA, whatsapp-web.js, the WhatsApp API, the pairing QR, or Pep/Enzo/Bru writing on WhatsApp. Covers the signing rule (to the team: Pep on the personal session, Bru on bikecrm; to anyone outside the team: as Oriol or Enric, only with a text Oriol approved), the send-only-when-asked and confirm-the-recipient rules, the bundled `scripts/wa.py` client (status, qr, find, chats, read, send with a persona guard and a dry run, media, transcribe via oj-transcribe), the API surface learned from the live Swagger (auth, chat-id formats, messages, media download, sessions, the built-in MCP endpoint), ban-risk limits of an unofficial client, and the install/firewall facts.
+description: Send and read WhatsApp messages from Oriol's own account through the local WAHA instance (WhatsApp HTTP API, WEBJS engine — headless WhatsApp Web holding one Linked-devices slot) on minisforum-um880, and transcribe voice notes locally. Use when Oriol asks to "send X a WhatsApp", "remind X on WhatsApp", "tell X that…", "what did X say", "read my WhatsApp with X", "transcribe the audio X sent me", "is X on WhatsApp", or mentions WAHA, whatsapp-web.js, the WhatsApp API, the pairing QR, or Pep/Enzo/Bruno writing on WhatsApp. Covers the signing rule (to the team: Pep on the personal session, Bruno on bikecrm; to anyone outside the team: as Oriol or Enric, only with a text Oriol approved), the send-only-when-asked and confirm-the-recipient rules, the bundled `scripts/wa.py` client (status, qr, find, chats, read, send with a persona guard and a dry run, media, transcribe via oj-transcribe), the API surface learned from the live Swagger (auth, chat-id formats, messages, media download, sessions, the built-in MCP endpoint), ban-risk limits of an unofficial client, and the install/firewall facts.
 ---
 
 # WhatsApp via the local WAHA (sessions personal + bikecrm)
@@ -10,16 +10,16 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
 
 ## Rules (Oriol, 2026-09-26)
 
-1. **Who signs depends on who reads it** (Oriol, 2026-09-28, which replaces the "always Petra" rule of 2026-09-26; the signatures are Pep / Bru / Enzo since 2026-10-15, before that Petra / Blake / Emma):
+1. **Who signs depends on who reads it** (Oriol, 2026-09-28, which replaces the "always Petra" rule of 2026-09-26; the signatures are Pep / Bruno / Enzo since 2026-10-15, before that Petra / Blake / Emma):
    - **To the team (Oriol, Enric, a project CLAUDE.md's named team):** the
      assistant signs by session. On `personal` it is Pep, e.g. Catalan
      `Hola Anna! Sóc en Pep, l'assistent d'IA de l'Oriol. …`. On `bikecrm`
-     it is Bru. Enzo is the EnaCast assistant. Always pass
+     it is Bruno. Enzo is the EnaCast assistant. Always pass
      `WAHA_SESSION=personal|bikecrm`: with two WORKING sessions, wa.py
      refuses to guess.
    - **To anyone outside the team (customers, leads, suppliers):** write as
      **Oriol** (default) or **Enric** (when Oriol says so). No AI, no Pep
-     or Bru: these are messages the two of them validate word for word
+     or Bruno: these are messages the two of them validate word for word
      before they go out (rule 2). Use `--persona oriol|enric --approved`.
      wa.py refuses a human-signed send without `--approved`, and the text
      must carry the name, e.g. a closing `Oriol (BikeCRM)`.

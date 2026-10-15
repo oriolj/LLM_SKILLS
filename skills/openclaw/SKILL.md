@@ -6,7 +6,7 @@ description: Operate the estate's OpenClaw agent VMs (pep = personal, enzo = Ena
 # OpenClaw — the three agent VMs
 
 > **Hosts renamed 2026-10-15**: petraclaw → `pep`, emmaclaw → `enzo`,
-> blakeclaw → `bruno` (agents Petra/Emma/Blake → Pep/Enzo/Bru). They are LXC
+> blakeclaw → `bruno` (agents Petra/Emma/Blake → Pep/Enzo/Bruno). They are LXC
 > containers (CT 100/102/101), not VMs. OpenClaw is stopped and disabled on all
 > three; the runtime is Hermes (`hermes` skill).
 
