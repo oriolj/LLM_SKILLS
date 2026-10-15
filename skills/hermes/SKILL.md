@@ -416,6 +416,11 @@ time.
    `apt-get update && full-upgrade` on plucky, `sed -i 's/\bplucky\b/questing/g' /etc/apt/sources.list.d/ubuntu.sources`
    (keep a copy), `apt-get update && full-upgrade && autoremove --purge`
    (~6 min). `pct reboot <ct>` from the host.
+   On enzo (2026-10-15) **sshd refused connections for a few minutes** in this
+   hop, while openssh was upgraded; the tmux job carried on. Poll with a loop
+   that tolerates a failed ssh (`until ssh -o ConnectTimeout=5 … 2>/dev/null`),
+   never treat one refusal as a dead box. Two containers upgrading at once on
+   the 2-core host roughly doubles this hop (11 min on enzo).
 6. **Hop 2, the supported route**: `sed -i 's/^Prompt=.*/Prompt=normal/' /etc/update-manager/release-upgrades`
    (needed only from an interim release), then
    `do-release-upgrade -f DistUpgradeViewNonInteractive` (~9 min, rc 0; it says
