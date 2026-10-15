@@ -17,10 +17,16 @@ update it the same turn a step behaves differently.
 ## Official sources first (Oriol, 2026-10-15)
 
 When a mechanic is not in this skill, or behaves differently, **check the
-official Hermes docs before guessing or searching the web**:
+official Hermes docs before guessing**, BOTH online and installed (Oriol,
+2026-10-15: "web search also on hermes official docs"): fetch the page, or
+web-search restricted to `hermes-agent.nousresearch.com`, because the site
+can be newer than our pin; then read the same page in the installed tree. If
+they differ, the installed copy describes what runs and the site what an
+update would bring. Online:
 <https://hermes-agent.nousresearch.com/docs/> (skills:
 <https://hermes-agent.nousresearch.com/docs/user-guide/skills/>). The same
-docs ship in the installed tree, matching the running version:
+docs ship in the installed tree, matching the running version (verified
+2026-10-15: the skins page online matched v0.22.2's copy):
 `~/.hermes/hermes-agent/website/docs/` on any claw (e.g. `user-guide/
 configuring-models.md`, `features/voice-mode.md`, `features/web-dashboard.md`,
 `guides/migrate-from-openclaw.md`), and the source is next to them. Third-party
