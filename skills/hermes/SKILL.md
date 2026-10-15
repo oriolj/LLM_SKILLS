@@ -191,6 +191,12 @@ OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
   `whatsapp_cloud.py` for Meta's official Cloud API (Business account + a
   public webhook). Pairing a number WAHA already holds just adds a second
   linked device.
+- **Dashboard plugins** (user): `~/.hermes/plugins/<name>/` needs a
+  `plugin.yaml` (name/version/description) AND `hermes plugins enable <name>`;
+  a folder with only `dashboard/manifest.json` is silently ignored. Restart
+  `hermes-dashboard`; check `GET /api/dashboard/plugins`; bundles are served at
+  `/dashboard-plugins/<name>/dist/index.js`. Ours: `claw-name` (agent name in
+  `header-left` + tab title), source hq `homelab/tools/hermes-dashboard-claw-name/`.
 - **Web dashboard**: `hermes dashboard` (default `127.0.0.1:9119`; `--host`,
   `--port`, `--no-open`); a non-loopback bind always requires an auth
   provider (password or OAuth). Its Chat tab runs the real TUI over a pty.
