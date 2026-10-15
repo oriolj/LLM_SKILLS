@@ -1,120 +1,132 @@
 ---
 name: hermes
-description: Operate Hermes Agent (Nous Research) on the estate's agent VMs ("claw agents" — the personal, EnaCast and BikeCRM/SmartupSoft agents on the home Proxmox host, formerly petraclaw/emmaclaw/blakeclaw) — install shape, the CLI per user (not root), the tag-pinned update with its post-checkout driver and rollback, model and fallback switch, built-in memory limits (MEMORY.md/USER.md char caps) and where larger knowledge goes, importing from OpenClaw (`hermes claw migrate` and the underlying script with --include, the overflow trap, cron jobs it cannot see), Discord, Sign in with ChatGPT, healthchecks. Use when the user mentions Hermes, `hermes-gateway`, `hermes claw migrate`, the agents' memory or skills, Pep/Enzo/Bruno (or the old Petra/Emma/Blake), a claw agent VM, or connecting an agent to Discord/Telegram/Slack/email through Hermes.
+description: Operate Hermes Agent (Nous Research) on the estate's agent containers ("claw agents" — the personal, EnaCast and BikeCRM/SmartupSoft agents on the home Proxmox host, formerly petraclaw/emmaclaw/blakeclaw) — install shape, the CLI per user (not root), updating on the v0.22 stable channel (first-run dependency build, launcher rewrite), model and fallback switch, voice (NaN Whisper STT with a local fallback, TTS), built-in memory limits (MEMORY.md/USER.md char caps) and where larger knowledge goes, importing from OpenClaw (`hermes claw migrate` and the underlying script with --include, the overflow trap, cron jobs it cannot see), Discord and WhatsApp, the dashboard and Hermes Desktop, OS upgrades of the containers, Sign in with ChatGPT, healthchecks. Use when the user mentions Hermes, `hermes-gateway`, `hermes update`, `hermes claw migrate`, the agents' memory or skills, Pep/Enzo/Bruno (or the old Petra/Emma/Blake), a claw agent container, or connecting an agent to Discord/Telegram/Slack/email through Hermes.
 ---
 
 # Hermes — the agent runtime on the claw agents
 
-**Direction (Oriol, 2026-10-15): Hermes is THE runtime; OpenClaw was stopped
-and disabled on all three VMs that day** and is being retired (its mechanics,
-kept for reference and rollback, are the `openclaw` skill). Estate state lives
-in hq: start page
+**Hermes is THE runtime** (Oriol, 2026-10-15); OpenClaw was stopped and
+disabled on all three boxes that day (its mechanics, kept for reference and
+rollback: the `openclaw` skill). Estate state lives in hq: start page
 [`shared/docs/agents.md`](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/agents.md),
 runtime state [`shared/docs/hermes.md`](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/hermes.md),
-per-box facts in `hq/docs/servers/<vm>.md`. This skill is the *mechanics*;
+per-box facts in `hq/docs/servers/<box>.md`. This skill is the *mechanics*;
 update it the same turn a step behaves differently.
 
-## Official sources first (Oriol, 2026-10-15)
+## Official sources first
 
-When a mechanic is not in this skill, or behaves differently, **check the
-official Hermes docs before guessing**, BOTH online and installed (Oriol,
-2026-10-15: "web search also on hermes official docs"): fetch the page, or
-web-search restricted to `hermes-agent.nousresearch.com`, because the site
-can be newer than our pin; then read the same page in the installed tree. If
-they differ, the installed copy describes what runs and the site what an
-update would bring. Online:
-<https://hermes-agent.nousresearch.com/docs/> (skills:
-<https://hermes-agent.nousresearch.com/docs/user-guide/skills/>). The same
-docs ship in the installed tree, matching the running version (verified
-2026-10-15: the skins page online matched v0.22.2's copy):
-`~/.hermes/hermes-agent/website/docs/` on any claw (e.g. `user-guide/
-configuring-models.md`, `features/voice-mode.md`, `features/web-dashboard.md`,
-`guides/migrate-from-openclaw.md`), and the source is next to them. Third-party
-write-ups are often stale: v0.22 changed the updater, STT and dashboard auth.
+When a mechanic is not here or behaves differently, read the official docs
+before guessing, both copies: online <https://hermes-agent.nousresearch.com/docs/>
+(web search restricted to `hermes-agent.nousresearch.com`), and the installed
+tree `~/.hermes/hermes-agent/website/docs/` on any claw (source next to it).
+The installed copy describes what runs; the site describes what an update would
+bring. Third-party write-ups are often stale (v0.22 changed the updater, STT
+and dashboard auth).
 
 ## Access
 
-- One VM per scope on the home Proxmox host (`192.168.7.179`), LAN only.
-  `ssh oriol@<vm>` by name from the workstations. Each VM holds only its
-  scope's keys; never copy a token between them.
+- Three Ubuntu LXC containers on the home Proxmox host (`192.168.7.179`),
+  one per scope: CT 100 **pep** (personal), CT 102 **enzo** (Enantena/EnaCast),
+  CT 101 **bruno** (SmartupSoft/BikeCRM). LAN only; `ssh oriol@<box>` by name
+  from the workstations. Each box holds only its scope's keys; never copy a
+  token between them.
 - Hermes is installed **per user (`oriol`)**. As root `hermes` is "command
   not found", and running it as root would start an empty `/root/.hermes`:
-  always `ssh oriol@<vm>` (or `su - oriol`). Non-interactive ssh does not
+  always `ssh oriol@<box>` (or `su - oriol`). Non-interactive ssh does not
   read `~/.profile`: call `~/.local/bin/hermes` by full path in scripts.
 
-## Install shape and day-to-day
+## Install shape (v0.22)
 
+- `~/.hermes/hermes-agent` is a **shallow git checkout** (`.install_method` =
+  git) on the **`stable` channel**. `~/.local/bin/hermes` is a 2-line sh
+  launcher written by v0.22 (`exec ~/.hermes/hermes-agent/.hermes/bin/hermes "$@"`),
+  which runs Hermes on its own managed **Python 3.14** at
+  `~/.hermes/tools/python-3.*/bin/python3 -I`. The old `./venv` (Python 3.11)
+  is still on disk from before v0.22 but is not what runs.
+- Config `~/.hermes/config.yaml`; secrets `~/.hermes/.env` and `auth.json`
+  (its own Codex login — never print); logs `~/.hermes/logs/`; persona
+  `~/.hermes/SOUL.md`; user units `hermes-gateway.service` and
+  `hermes-dashboard.service`; provider `openai-codex`.
+- **Running Hermes's own Python code** (scanners, tool tests): the runtime
+  Python plus `hermes_bootstrap`, absolute path (with `-I`, `~` is not
+  expanded inside the string):
 
-State: hq `shared/docs/hermes.md`. `~/.hermes/hermes-agent` is a **shallow
-git checkout** (`.install_method` = git), venv `./venv`, `uv` at
-`~/.hermes/bin/uv`, CLI `~/.hermes/hermes-agent/venv/bin/hermes`, linked as
-`~/.local/bin/hermes` (on PATH for user `oriol` in a login shell since
-2026-10-15), config `~/.hermes/config.yaml`, secrets `~/.hermes/.env` and
-`auth.json` (its own Codex login — never print), user unit
-`hermes-gateway.service`, provider `openai-codex`.
+  ```bash
+  ~/.hermes/tools/python-3.*/bin/python3 -I -c 'import sys; sys.path.insert(0, "/home/oriol/.hermes/hermes-agent"); import hermes_bootstrap; <code>'
+  ```
 
-**Updating — pin a release tag, never a bare `hermes update`** (it tracks
-`main`, which is canary; `hermes --version`'s "+N carried commits" / "N
-commits behind" is a shallow-clone artifact, not local work). Releases:
-`gh release list -R NousResearch/hermes-agent` (tag = `v<date>`, name =
-`vX.Y.Z`). Procedure that worked 2026-10-03 (v0.19.0 → v0.21.5, all three):
+  Verified on pep 2026-10-15 (`tools.memory_tool_store`,
+  `tools.transcription_tools`, `tools.tts_tool`, `tools.skills_guard` import).
+  Below, `RT <code>` means this command.
 
-The release's own post-update steps (lazy backends, npm workspaces with
-system Node, web UI build, bundled-skill sync, config migration) run
-through [scripts/hermes_post_checkout.py](scripts/hermes_post_checkout.py),
-which calls `hermes update`'s private tail functions. It mirrors
-`hermes_cli.update_cmd._finish_pulled_update` **as of `v2026.9.24`**: for a
-newer tag, compare it with that function in the target tag first (a
-renamed helper fails the run with the gateway down). Copy it to the box,
-then run the update as a script (`ssh oriol@<vm> 'bash -s' < update.sh`),
-not pasted line by line: `set -e` is what stops it at the first failed
-step.
+## Updating (v0.22+, stable channel)
+
+v0.22.0 (2026-10-14) rebuilt the updater: SemVer releases (`v0.22.2`),
+source checkouts track the **`stable` channel** (latest `vX.Y.Z`) instead of
+`main`; `hermes update --channel stable|canary|main`, `--set-channel`
+persists, `--plan` previews (changed nothing). `hermes --version`'s
+"N commits behind" on a shallow clone is not local work.
+
+Procedure (pep v0.22.1 → v0.22.2, 2026-10-15), one box at a time:
+
+1. Optional for a big jump: Proxmox snapshot of the CT on the host
+   (`pct snapshot <ct> pre_hermes_<ver>`).
+2. `systemctl --user stop hermes-gateway.service`.
+3. **In a fresh shell, in the foreground**: `~/.local/bin/hermes update --yes`.
+   It makes its own zip backup (`~/.hermes/backups/pre-update-*.zip`), pulls,
+   rebuilds Python deps, Node deps, the TUI and the web UI, syncs bundled
+   skills, migrates the config, and ends with "Update complete".
+4. `systemctl --user start hermes-gateway.service` (and restart
+   `hermes-dashboard.service`).
+5. Verify: `hermes --version`; a real turn; `~/.hermes/logs/agent.log` shows
+   `model=gpt-6.1-sol provider=openai-codex`; `assistant-healthcheck@hermes`
+   result success (the update costs one failed ping per box);
+   `systemctl --user is-active hermes-gateway` at the very end.
+
+Traps:
+
+- **The first run of a new revision builds dependencies** ("completes
+  source-update dependencies": Python deps, Node deps, TUI and web UI build,
+  ~1.8 GB peak). After ANY revision change the first run must be a foreground
+  CLI call, never the unit start: started from systemd (`Type=notify`) the
+  build blows the default 90 s start timeout, systemd kills it,
+  `Restart=always` restarts it, and the build starts over in a loop.
+  `hermes update --yes` in the foreground is that call. Config migration and
+  skills sync then run once per revision on their own.
+- **`hermes update --check` is not read-only**: it installed the "default
+  tools" `agent-browser` and `cua-driver` (opt out:
+  `hermes pm install --without <tool>`). Use `--plan` to look.
+- Rollback: the updater's `pre-update-*.zip` and the Proxmox snapshot exist;
+  neither restore has been exercised.
+- The v46 → v50 config migration warns that platform `homeassistant`
+  references unknown toolset `hermes-homeassistant` (Home Assistant moved to
+  a catalog plugin in v0.22). Harmless while unused; `hermes tools`
+  reconfigures it.
+
+**Pre-0.22 boxes (legacy, none left on 2026-10-15).** A v0.19–v0.21.5 box
+compares against `main` ("13012 commits behind"): never a bare `hermes
+update` there. Stop the gateway, back up `~/.hermes`, `git fetch --no-tags
+origin tag <tag> && git checkout <tag>`, `VIRTUAL_ENV=$PWD/venv
+~/.hermes/bin/uv pip install -e ".[all]"`. Up to v0.21.5 the post-update
+steps came from [scripts/hermes_post_checkout.py](scripts/hermes_post_checkout.py)
+(it calls `_finish_pulled_update`, gone in v0.22); to land on v0.22 skip it and
+make the first run a foreground `hermes --version` (trap above). That first
+v0.22 run **rewrites `~/.local/bin/hermes`** (our old symlink) into the sh
+launcher, and the NEXT `hermes` call in the SAME script died with
+`SyntaxError`, which under `set -e` left enzo and bruno with the gateway down
+for ~10 min (2026-10-15). End the script after that call and continue from a
+new ssh session. Rollback on that line was `git checkout <old tag>`, the same
+`uv pip install`, and the config copy.
+
+## Model switch
+
+Default `gpt-6.1-sol` via `openai-codex`, fallback `gpt-5.6-luna` (Oriol,
+2026-10-15):
 
 ```bash
-# from the LLM_SKILLS checkout:
-ssh oriol@<vm> 'mkdir -p ~/backups' && scp skills/hermes/scripts/hermes_post_checkout.py oriol@<vm>:backups/
-```
-
-```bash
-set -euo pipefail
-umask 077                     # the backup holds .env + auth.json
-TAG=<tag>
-H=~/.hermes/hermes-agent; cd "$H"
-test -f ~/backups/hermes_post_checkout.py
-test -z "$(git status --porcelain | grep -v '^?? .install_method$')"   # only .install_method may be untracked
-PRE_SHA=$(git rev-parse HEAD)   # driver args; the version (from pyproject, as `hermes update` reads it) only feeds its report line
-PRE_VERSION=$(venv/bin/python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-systemctl --user stop hermes-gateway.service      # BEFORE the backup: tar fails "file changed" while it runs
-BACKUP=~/backups/hermes-pre-$TAG-$(date -u +%Y%m%dT%H%M%SZ).tgz; echo "backup: $BACKUP"
-tar czf "$BACKUP" -C ~ \
-  --exclude=.hermes/hermes-agent/venv --exclude=.hermes/hermes-agent/node_modules .hermes
-cp -a ~/.hermes/config.yaml ~/backups/hermes-config.yaml.pre-$TAG
-git fetch --no-tags origin tag "$TAG" && git checkout "$TAG"
-VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[all]"
-venv/bin/python ~/backups/hermes_post_checkout.py "$PRE_SHA" "$PRE_VERSION" | tee ~/backups/hermes-post-checkout-$TAG.log
-systemctl --user start hermes-gateway.service   # reached only when the driver exits 0 (update_complete=True)
-```
-
-If it stops early, the gateway stays down (and pages). Before the
-`git checkout`, nothing changed: fix the cause, then re-run or start it.
-After it, the tree and maybe `~/.hermes` are half-updated; put both back
-(planned, not yet exercised):
-`cd ~/.hermes/hermes-agent && git checkout <PRE_SHA> && tar xzf <BACKUP> -C ~ && VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[all]" && systemctl --user start hermes-gateway.service`
-(the sha and tarball path are in the run's output; the tarball excludes
-`venv` and `node_modules`, which the install and the old tag's own
-`node_modules` cover).
-
-Verify: `hermes --version`, a real turn, `~/.hermes/logs/agent.log` →
-`model=gpt-6-luna provider=openai-codex`, `assistant-healthcheck@hermes`
-exit 0. The update pings one failure to healthchecks.io per box. Rollback:
-`git checkout <old tag>`, the same `uv pip install`, restore the config copy.
-
-Model switch:
-
-```bash
-H=~/.hermes/hermes-agent/venv/bin/hermes
-$H chat -Q --provider openai-codex -m gpt-6-luna -q "Reply with exactly: HERMES OK"   # test first
-$H config set model.default gpt-6-luna
+H=~/.local/bin/hermes
+$H chat -Q --provider openai-codex -m gpt-6.1-sol -q "Reply with exactly: HERMES OK"   # test first
+$H config set model.default gpt-6.1-sol
 # fallback: top-level list; `hermes fallback add` is interactive only, and
 # `fallback_model:` (still in its docs) is NOT a recognised key
 grep -q '^fallback_providers:' ~/.hermes/config.yaml ||   # appending twice = duplicate top-level key
@@ -122,104 +134,7 @@ grep -q '^fallback_providers:' ~/.hermes/config.yaml ||   # appending twice = du
 $H fallback list; systemctl --user restart hermes-gateway.service
 ```
 
-**Discord (v0.21.5; researched 2026-10-03, not yet enabled anywhere)** —
-outbound websocket only, so LAN-only is fine. One Discord application per
-VM in that scope's account (a token can run in only one gateway). Oriol,
-in the Developer Portal: Bot → **Public Bot off**, **Message Content intent
-on** (Server Members only for username/role allowlists), reset token,
-invite with `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot+applications.commands&permissions=274878286912`;
-he writes the token on the box himself:
-`ssh -t oriol@<vm> 'read -rsp "token: " T; printf "DISCORD_BOT_TOKEN=%s\n" "$T" >> ~/.hermes/.env; chmod 600 ~/.hermes/.env'`
-and hands over the app id + his numeric user id. Agent then:
-`cd ~/.hermes/hermes-agent && VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[messaging]"`
-(else the gateway lazy-installs `discord.py[voice]`), appends
-`DISCORD_ALLOWED_USERS=<id>` (numeric — no allowlist = everyone denied) to
-`.env` without printing it, sets top-level `unauthorized_dm_behavior: ignore`
-(default `pair` answers strangers with a pairing code), restarts. Defaults:
-`DISCORD_REQUIRE_MENTION=true` (DMs exempt), `DISCORD_AUTO_THREAD=true`,
-`DISCORD_ALLOW_BOTS=none`. Verify: journal `[discord] Connected as …`, no
-`PrivilegedIntentsRequired` / `token rejected` / `No Discord access policy`,
-a DM gets 👀 → ✅ + reply, a second account gets silence. Allowed users get
-full tool/terminal access — allowlist Oriol only. Source:
-`website/docs/user-guide/messaging/discord.md` in the tag.
-
-**Sign in with ChatGPT**: Hermes support is open PR #128926, not released;
-OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
-`shared/docs/openclaw.md` § Sign in with ChatGPT (not yet; device code stays).
-
-## Updating to v0.22+ (stable channel) — what changed
-
-- **v0.22.0 (2026-10-14) rebuilt the updater**: SemVer releases (`v0.22.1`),
-  and official source checkouts track the **`stable` channel** (latest
-  `vX.Y.Z`) instead of `main`; `hermes update --channel stable|canary|main`,
-  `--set-channel` persists, `--plan` previews, `--check` checks.
-  `_finish_pulled_update` is gone, so `scripts/hermes_post_checkout.py` only
-  applies to the v0.19–v0.21.5 line. A v0.21.5 box still compares against
-  `main` ("13012 commits behind"): never `hermes update` there.
-- **Path that worked 0.21.5 → 0.22.1 (pep, 2026-10-15)**: Proxmox snapshot
-  of the CT first (`pct snapshot <id> pre_hermes_<ver>`), stop the gateway,
-  back up `~/.hermes`, `git fetch --no-tags origin tag v0.22.1 && git
-  checkout v0.22.1`, `uv pip install -e ".[all]"` into the venv (Python 3.11
-  is fine: `>=3.11,<3.15`), then **run one CLI call in the foreground BEFORE
-  starting the gateway** (`hermes --version`): the first run of a new
-  revision "completes source-update dependencies" (Python deps again, Node
-  deps, TUI build, web UI build, ~1.8 GB peak). Started straight from
-  systemd, that build blows the unit's default 90 s start timeout
-  (`Type=notify`): systemd kills it, `Restart=always` restarts it, and the
-  build starts over in a loop. Boot maintenance (config migration, skills
-  sync) then runs per revision on its own. The first run also moved Hermes
-  onto its own managed **Python 3.14** runtime (`hermes --version`).
-- **Once on v0.22.x, use the official updater**: gateway stopped, then
-  `hermes update --yes` in the foreground (pep, v0.22.1 → v0.22.2,
-  2026-10-15: own zip backup in `~/.hermes/backups/pre-update-*.zip`, Node +
-  TUI + web UI rebuilt, skills and config checked, "Update complete"), then
-  start the gateway. enzo and bruno went 0.21.5 → v0.22.2 directly with the
-  manual tag checkout above.
-- **The first v0.22 run rewrites `~/.local/bin/hermes`** into a 2-line sh
-  launcher (`exec ~/.hermes/hermes-agent/.hermes/bin/hermes "$@"`), replacing
-  our symlink. The NEXT `hermes` call in the SAME script then died with
-  `SyntaxError` (a Python trampoline `runpy`-ing the sh launcher), which
-  under `set -e` left enzo and bruno with the gateway stopped (2026-10-15).
-  The same command from a fresh ssh shell worked. So end the script after
-  the first-run call and continue in a new session, and always check
-  `systemctl --user is-active hermes-gateway` at the end.
-- **Messaging platforms need the `messaging` extra**: without it a pairing
-  QR prints "QR code unavailable … run: hermes pm install --extra
-  messaging". Install it (`hermes pm install --extra messaging`), then
-  restart the gateway. Installed on all three 2026-10-15.
-- After the v46 → v50 config migration enzo and bruno warn that platform
-  `homeassistant` references unknown toolset `hermes-homeassistant`: Home
-  Assistant moved to a catalog plugin in v0.22. Harmless while that platform
-  is unused; `hermes tools` reconfigures it.
-- **WhatsApp in Hermes is its own code**, not WAHA: a built-in Node bridge on
-  `@whiskeysockets/baileys` (`scripts/whatsapp-bridge/`, QR pairing as a
-  linked device, unofficial, ban risk, docs say use a dedicated number), or
-  `whatsapp_cloud.py` for Meta's official Cloud API (Business account + a
-  public webhook). Pairing a number WAHA already holds just adds a second
-  linked device.
-- **Dashboard plugins** (user): `~/.hermes/plugins/<name>/` needs a
-  `plugin.yaml` (name/version/description) AND `hermes plugins enable <name>`;
-  a folder with only `dashboard/manifest.json` is silently ignored. Restart
-  `hermes-dashboard`; check `GET /api/dashboard/plugins`; bundles are served at
-  `/dashboard-plugins/<name>/dist/index.js`. Ours: `claw-name` (agent name in
-  `header-left` + tab title), source hq `homelab/tools/hermes-dashboard-claw-name/`.
-- **CLI/TUI look = skins**, separate from dashboard themes: `display.skin` in
-  `config.yaml` (`/skin x` = this session only); custom `~/.hermes/skins/<name>.yaml`
-  overrides `colors` and `branding.agent_name/welcome/response_label/prompt_symbol`
-  and inherits the rest from `default` (the gold one). Ours: pep/enzo/bruno,
-  source hq `homelab/tools/hermes-skins/`. Check: `skin_engine.init_skin_from_config({"display":{"skin":"pep"}})`
-  then `get_active_skin()` in the runtime.
-- **Web dashboard**: `hermes dashboard` (default `127.0.0.1:9119`; `--host`,
-  `--port`, `--no-open`); a non-loopback bind always requires an auth
-  provider (password or OAuth). Its Chat tab runs the real TUI over a pty.
-- **`hermes update --check` is not read-only on v0.22**: it installed the
-  "default tools" `agent-browser` and `cua-driver` (opt out:
-  `hermes pm install --without <tool>`). `--plan` changed nothing.
-- Model switch to **`gpt-6.1-sol`** (2026-10-15, Oriol): test with
-  `hermes chat -Q --provider openai-codex -m gpt-6.1-sol -q "…"`, then
-  `hermes config set model.default gpt-6.1-sol`; `agent.log` shows
-  `model=gpt-6.1-sol provider=openai-codex`. Fallback left at
-  `gpt-5.6-luna`.
+Then check `agent.log` for `model=gpt-6.1-sol provider=openai-codex`.
 
 ## Account limits and "is this the subscription or the API?"
 
@@ -234,6 +149,9 @@ OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
   no `OPENAI_API_KEY`/`VOICE_TOOLS_OPENAI_KEY` in `~/.hermes/.env`.
   Verified on all three claws 2026-10-15: one shared ChatGPT **Pro** login
   (same plan, same window, same reset on every box).
+- **Sign in with ChatGPT**: Hermes support is open PR #128926, not released;
+  verdict in hq `shared/docs/openclaw.md` § Sign in with ChatGPT (not yet;
+  the device code stays).
 
 ## Custom model providers (NaN as an option)
 
@@ -246,98 +164,145 @@ is untouched. Ours: `nan` → `deepseek-v4-flash`, `glm5.3-flash` (2026-10-15,
 verified a plain turn and a tool call on pep). Skip models that call tools in
 XML (NaN's Qwen/Gemma).
 
-## Speech-to-text (voice notes, audio) — NaN Whisper
+## Voice: speech-to-text and text-to-speech
 
-- Built-in providers: `local` (faster-whisper), `groq`, `openai`, `mistral`,
-  `xai`, `elevenlabs`, `deepinfra`; `stt.providers.<name>: {type: command,
-  command: "… {input_path} {output_path}", format: txt, timeout: N}` adds
-  your own. A command provider runs with Hermes's secrets scrubbed from its
-  env (`env_passthrough: [VAR]` to pass one) and gets `{language}` defaulting
-  to `en`: do not put it in the command if you want auto-detect.
-- Hermes cuts long audio only by size (25 MB for `openai`) and by a
-  per-model duration table (`whisper-1` 600 s, `gpt-4o*-transcribe` 450 s);
-  an unknown model id gets no duration cap. `stt.openai.timeout` defaults to
-  60 s. So `openai` + `STT_OPENAI_BASE_URL` pointed at a slow
-  OpenAI-compatible server (NaN: ~1x realtime, 524 past ~2 min) fails on
-  long voice notes.
-- Ours (2026-10-15, all three): `stt.provider: nan` → command provider
-  `~/.local/libexec/nan-stt {input_path} {output_path}` (source hq
-  `homelab/tools/nan-stt.py`): ≤ 90 s Opus pieces, `model=whisper`, never a
-  language, 6.5 s between requests, retries; key in `~/.config/nan/stt.env`.
-  Test through Hermes itself:
-  `cd ~/.hermes/hermes-agent && HERMES_HOME=~/.hermes venv/bin/python -c 'from tools.transcription_tools import transcribe_audio as t; print(t("/tmp/x.mp3"))'`
-  → `provider: nan`. Detail: hq `docs/nan-builders.md`.
+Box-level config (provider, vocabulary lists, key file, TTS voice per agent):
+hq `shared/docs/agents.md` § Voice notes and audio. Mechanics:
 
-## From a dev machine: CLI wrappers and Hermes Desktop (2026-10-15)
-
-- **`hermes-pep` / `hermes-enzo` / `hermes-bruno`** (hq dotfiles
-  `local-bin/hermes-claw`, mapped three times in `sync-dotfiles.sh`): `ssh
-  [-t|-T] <host> '~/.local/bin/hermes <args %q-quoted>'` as oriol; `-t` only
-  when stdin AND stdout are ttys, so `hermes-pep chat -Q -q "…"` is clean in
-  scripts. Use these instead of hand-rolled ssh quoting.
-- **Hermes Desktop on Linux = a source install** (`scripts/install.sh
-  --include-desktop`; their release workflow ships no Linux package). Traps:
-  - Without `--branch release/X.Y.Z --commit vX.Y.Z` the installer clones
-    **`main`** (a canary) yet labels the install `stable`, and `hermes update
-    --channel stable` then refuses the "rollback" to the release. The tag
-    commit is NOT on `main` (`--commit` alone fails `commit_not_on_branch`).
-    Fixed by hand on minisforum: `git checkout --detach vX.Y.Z` in the
-    checkout, `hermes --version` (rebuilds deps), `hermes desktop
-    --build-only --force-build`.
-  - Bulk: checkout + Electron build ~3.7 GB under `--dir`, plus
-    `~/.hermes/{tools,installs,cache}` (pinned runtimes, the Python
-    environment, uv's cache, ~1 GB). On the estate all four live in
-    `~/not-important/homelab/hermes` (symlinks from `~/.hermes`, made BEFORE
-    the installer runs); Desktop looks for the runtime at
-    `~/.hermes/hermes-agent`, so that is a symlink to the checkout too.
-  - `--non-interactive --skip-browser --skip-computer-use`: no wizard, no
-    gateway service, no Chromium. The installer only edits `config.fish` when
-    no `fish_add_path …/.local/bin` line is there (it did not on minisforum).
-  - Launch from a shell needs the session's `DISPLAY` / `WAYLAND_DISPLAY`
-    (Electron defaults to X11 and exits "Missing X server" without them); the
-    menu entry `com.nousresearch.hermes.desktop` runs `hermes desktop
-    --skip-build`. Log: `~/.hermes/logs/desktop.log`.
-- **The connection registry** is `~/.config/Hermes/connections.json` (Electron
-  userData, productName `Hermes`; schema v2 in
-  `apps/desktop/electron/connection-registry.ts`): `{version: 2, primary,
-  launchMode, lastUsed, connections: [{id, kind: local|remote|cloud|ssh,
-  label, host, user, port, keyPath, remoteHermesPath, remoteProfile}]}`.
-  Labels are unique case-insensitively; a malformed entry is quarantined, not
-  dropped. Pre-seeding SSH entries works: ansible's
-  `files/hermes-desktop-connections.py` (homelab, `--tags hermes-desktop`)
-  adds `{id: host, kind: ssh, label, host, user: oriol}` only when the label
-  or host is new. Close the app first: it rewrites the file from memory.
-- **What an SSH connection does** (desktop.log, verified on all three):
-  control master → `bash -lc 'command -v hermes'` on the remote (falls back to
-  `~/.local/bin/hermes`) → version check → spawns a remote **dashboard on
-  127.0.0.1** → forwards it to a local port → the agent joins the roster.
-  It dialed all three at launch. Nothing to configure or expose on the
-  containers: never bind a dashboard to 0.0.0.0 for this.
-
-## When transcription fails, the agent improvises (and TTS on NaN)
-
-- **An empty transcript is a failure to Hermes**: a command STT provider that
-  writes an empty file gets "wrote no output file … and produced no stdout",
-  and the gateway hands the agent the raw audio. A capable agent then solves it
-  itself: Pep `pip install`ed `openai-whisper` and ran large-v3 on CPU in a 4 GB
-  container (2026-10-15: 3.8 GB RSS, swap thrash, box unreachable, host load
-  20). Defences, all in place on the claws: the STT command never exits with
-  an empty output (fallback model, then a "[no speech detected …]" line), and
-  a MEMORY.md rule saying transcription is automatic and local models are off
-  limits. Telling an agent "use Whisper V3" in a voice note reads as an order to
-  run it.
-- **Local fallback model**: `hermes pm install --extra stt-whisper` installs
-  faster-whisper into Hermes's managed Python (not the old `venv/`); use it from
-  outside with `~/.hermes/tools/python-3.*/bin/python3 -I -c 'import sys;
-  sys.path.insert(0, "<hermes-agent>"); import hermes_bootstrap; from
-  faster_whisper import WhisperModel …'`. `tiny` int8: ~350 MB, seconds per note.
-- **TTS on an OpenAI-compatible server** (NaN kokoro): `tts.provider: openai`,
-  `tts.openai.{base_url, model, voice, api_key}`. Put the key in
+- **Hermes STT providers**: `local` (faster-whisper), `groq`, `openai`,
+  `mistral`, `xai`, `elevenlabs`, `deepinfra`; `stt.providers.<name>: {type:
+  command, command: "… {input_path} {output_path}", format: txt, timeout: N}`
+  adds your own. A command provider runs with Hermes's secrets scrubbed from
+  its env (`env_passthrough: [VAR]` passes one) and gets `{language}`
+  defaulting to `en`: leave it out of the command to keep auto-detect.
+- **Why not `openai` + `STT_OPENAI_BASE_URL` pointed at NaN**: Hermes cuts
+  long audio only by size (25 MB for `openai`) and by a per-model duration
+  table (`whisper-1` 600 s, `gpt-4o*-transcribe` 450 s); an unknown model id
+  such as NaN's `whisper` gets no duration cap, and `stt.openai.timeout`
+  defaults to 60 s. NaN's proxy answers 524 when one request passes ~2 min
+  (NaN's page says ~1x realtime; measured ~12x on 2026-10-15), so long voice
+  notes fail.
+- **Ours** (all three, 2026-10-15): `stt.provider: nan` → command provider
+  `~/.local/libexec/nan-stt {input_path} {output_path}`, source hq
+  `homelab/tools/nan-stt.py`:
+  - ffmpeg → ≤ 90 s Opus pieces; each to NaN `whisper` (large-v3), **never a
+    language**, with a names-only vocabulary `prompt`; 6.5 s between
+    requests (10/min limit); 429/5xx backed off, a 524 retried at most once.
+  - urllib, not curl, so the key (`~/.config/nan/stt.env`) never sits on a
+    command line; it sends a real User-Agent (NaN's Cloudflare front 403s
+    `Python-urllib`).
+  - Per piece, when NaN fails or returns no text: local faster-whisper
+    `tiny` int8 (~350 MB, seconds) in Hermes's runtime Python, with
+    `vad_filter=True` and **no prompt**: tiny parrots a prompt back on
+    silence ("Plaud, Plaud…", "see you in the next video").
+  - Both empty → a `[no speech detected …]` line, so the output is never empty.
+  - Local model install: `hermes pm install --extra stt-whisper` (goes into the
+    managed runtime, not the old venv).
+  - Test through Hermes: `RT 'from tools.transcription_tools import transcribe_audio as t; print(t("/tmp/x.mp3"))'`
+    → `provider: nan`. Or run `~/.local/libexec/nan-stt` on a short ffmpeg clip.
+- **An empty transcript is a failure to Hermes**, and the agent then
+  improvises: a command provider that writes an empty file gets "wrote no
+  output file … and produced no stdout", the gateway hands the agent the raw
+  audio, and Pep `pip install`ed `openai-whisper` and ran large-v3 on CPU in
+  its 4 GB container (2026-10-15: 3.8 GB RSS, swap thrash, box unreachable,
+  host load 20). Defences in place: the never-empty output above, and a
+  MEMORY.md rule that transcription is automatic and local models are off
+  limits. Saying "use Whisper V3" in a voice note reads as an order to run it.
+- **TTS on an OpenAI-compatible server** (NaN kokoro): `tts.provider:
+  openai`, `tts.openai.{base_url, model, voice, api_key}`. Put the key in
   `tts.openai.api_key`, not `VOICE_TOOLS_OPENAI_KEY` (other OpenAI voice
   features read that env var and would send it to OpenAI).
   `tts.openai.language` is sent as `lang_code` (Kokoro-FastAPI style); the
   text_to_speech tool has no per-call voice, so one voice = one language per
-  agent. Test: `from tools.tts_tool import text_to_speech_tool` in the runtime.
+  agent. Test: `RT 'from tools.tts_tool import text_to_speech_tool; …'`.
+
+## Dashboard, look and messaging
+
+- **Web dashboard**: `hermes dashboard` (default `127.0.0.1:9119`; `--host`,
+  `--port`, `--no-open`); a non-loopback bind always requires an auth
+  provider (password or OAuth). Our `hermes-dashboard.service` binds
+  `0.0.0.0:9119` with password auth (creds in hq
+  `homelab/secrets/hermes-dashboards.env`; `/api/status` says
+  `auth_required: true`). Its Chat tab runs the real TUI over a pty.
+- **Dashboard plugins** (user): `~/.hermes/plugins/<name>/` needs a
+  `plugin.yaml` (name/version/description) AND `hermes plugins enable <name>`;
+  a folder with only `dashboard/manifest.json` is silently ignored. Restart
+  `hermes-dashboard`; check `GET /api/dashboard/plugins`; bundles are served at
+  `/dashboard-plugins/<name>/dist/index.js`. Ours: `claw-name` (agent name in
+  `header-left` + tab title), source hq `homelab/tools/hermes-dashboard-claw-name/`.
+- **CLI/TUI look = skins**, separate from dashboard themes: `display.skin` in
+  `config.yaml` (`/skin x` = this session only); custom `~/.hermes/skins/<name>.yaml`
+  overrides `colors` and `branding.agent_name/welcome/response_label/prompt_symbol`
+  and inherits the rest from `default` (the gold one). Ours: pep/enzo/bruno,
+  source hq `homelab/tools/hermes-skins/`. Check:
+  `RT 'from hermes_cli import skin_engine as s; s.init_skin_from_config({"display":{"skin":"pep"}}); print(s.get_active_skin().name)'`
+  → `pep`.
+- **Messaging needs the `messaging` extra**: without it a pairing QR prints
+  "QR code unavailable … run: hermes pm install --extra messaging". Install
+  with `hermes pm install --extra messaging`, restart the gateway (done on all
+  three 2026-10-15).
+- **WhatsApp in Hermes is its own code**, not WAHA: a built-in Node bridge on
+  `@whiskeysockets/baileys` (`scripts/whatsapp-bridge/`, QR pairing as a
+  linked device, unofficial, ban risk, docs say use a dedicated number), or
+  `whatsapp_cloud.py` for Meta's official Cloud API (Business account + a
+  public webhook). Pairing a number WAHA already holds just adds a second
+  linked device.
+- **Discord (researched 2026-10-03, not enabled anywhere)** — outbound
+  websocket only, so LAN-only is fine. One Discord application per box in
+  that scope's account (a token runs in only one gateway). Oriol, in the
+  Developer Portal: Bot → **Public Bot off**, **Message Content intent on**
+  (Server Members only for username/role allowlists), reset token, invite with
+  `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot+applications.commands&permissions=274878286912`;
+  he writes the token on the box himself:
+  `ssh -t oriol@<box> 'read -rsp "token: " T; printf "DISCORD_BOT_TOKEN=%s\n" "$T" >> ~/.hermes/.env; chmod 600 ~/.hermes/.env'`
+  and hands over the app id + his numeric user id. Agent then: the
+  `messaging` extra (else the gateway lazy-installs `discord.py[voice]`),
+  appends `DISCORD_ALLOWED_USERS=<id>` (numeric; no allowlist = everyone
+  denied) to `.env` without printing it, sets top-level
+  `unauthorized_dm_behavior: ignore` (default `pair` answers strangers with a
+  pairing code), restarts. Defaults: `DISCORD_REQUIRE_MENTION=true` (DMs
+  exempt), `DISCORD_AUTO_THREAD=true`, `DISCORD_ALLOW_BOTS=none`. Verify:
+  journal `[discord] Connected as …`, no `PrivilegedIntentsRequired` / `token
+  rejected` / `No Discord access policy`, a DM gets 👀 → ✅ + reply, a second
+  account gets silence. Allowed users get full tool/terminal access:
+  allowlist Oriol only. Source: `website/docs/user-guide/messaging/discord.md`.
+
+## From a dev machine: CLI wrappers and Hermes Desktop
+
+Setup: hq `homelab/ansible/roles/development/tasks/hermes-desktop.yml`
+(`--tags hermes-desktop`) and `shared/docs/agents.md`. Traps:
+
+- **`hermes-pep` / `hermes-enzo` / `hermes-bruno`** (hq dotfiles
+  `local-bin/hermes-claw`): `ssh [-t|-T] <host> '~/.local/bin/hermes <args>'`
+  as oriol, `-t` only when stdin AND stdout are ttys, so `hermes-pep chat -Q
+  -q "…"` is clean in scripts. Use them instead of hand-rolled ssh quoting.
+- **Hermes Desktop on Linux is a source install** (`scripts/install.sh
+  --include-desktop`; no Linux package is released). Without `--branch
+  release/X.Y.Z --commit vX.Y.Z` it clones **`main`** (canary) yet labels the
+  install `stable`, and `hermes update --channel stable` then refuses the
+  "rollback"; the tag commit is not on `main` (`--commit` alone fails
+  `commit_not_on_branch`). Fix: `git checkout --detach vX.Y.Z`, `hermes
+  --version` (rebuilds deps), `hermes desktop --build-only --force-build`.
+- Bulk (~3.7 GB checkout + Electron build, ~1 GB `~/.hermes/{tools,installs,cache}`)
+  lives in `~/not-important/homelab/hermes`, symlinked from `~/.hermes` BEFORE
+  the installer runs; `~/.hermes/hermes-agent` is a symlink to the checkout,
+  because Desktop looks for the runtime there. Use `--non-interactive
+  --skip-browser --skip-computer-use` (no wizard, no gateway service, no
+  Chromium). The installer edits `config.fish` only when no `fish_add_path
+  …/.local/bin` line is there.
+- Launching from a shell needs the session's `DISPLAY` / `WAYLAND_DISPLAY`
+  (else Electron exits "Missing X server"); the menu entry runs `hermes
+  desktop --skip-build`. Log: `~/.hermes/logs/desktop.log`.
+- **Connection registry** `~/.config/Hermes/connections.json` (schema v2,
+  `apps/desktop/electron/connection-registry.ts`; labels unique
+  case-insensitively, a malformed entry is quarantined). Ansible's
+  `files/hermes-desktop-connections.py` pre-seeds `{id: host, kind: ssh,
+  label, host, user: oriol}` only when new. Close the app first: it rewrites
+  the file from memory.
+- An SSH connection opens a control master, finds `hermes` on the remote
+  (falls back to `~/.local/bin/hermes`), checks the version, spawns its own
+  dashboard on the remote's 127.0.0.1 and forwards it. Nothing to configure
+  or expose on the containers for Desktop.
 
 ## After changing an agent's memory, persona or skills: let the agent review it
 
@@ -347,53 +312,51 @@ an agent's instructions — `~/.hermes/memories/MEMORY.md` / `USER.md`,
 behaviour — **ask that agent itself to review the result**, then apply what
 holds up. The agent reads its own context the way it will be used; we do not.
 
-1. Run the built-in checks first (read-only): `hermes doctor` (no `--fix`),
+1. Built-in checks first (read-only): `hermes doctor` (no `--fix`),
    `hermes config check`, `hermes skills list` (the skill is `enabled`),
    `hermes curator status`.
-2. Ask in a **fresh one-shot session** (a running chat loaded memory, SOUL and
-   skills when it STARTED and will not see the edits; tell Oriol to send `/new`
-   on a messaging channel too):
+2. Send the review as in the `send-to-claws` skill, as a **fresh one-shot**
+   (`--oneshot`, no `-c` thread: a running chat loaded memory, SOUL and skills
+   when it started and will not see the edits; tell Oriol to send `/new` on a
+   messaging channel too). The prompt:
 
-   ```bash
-   printf '%s\n' "From a Claude Code session for Oriol: <what changed today>. Review
-   ~/.hermes/memories/MEMORY.md, USER.md, ~/.hermes/SOUL.md and <skill> as the
-   agent who uses them: right format and shape for you (memory entries, the §
-   separators, skill frontmatter, length vs the caps)? Anything unclear,
-   duplicated, stale, contradictory, or in the wrong place (memory vs skill vs
-   SOUL)? Do NOT change any file. Reply with concrete findings and the exact
-   edits you propose, max ~20 lines." | ssh <host> 'f=$(mktemp) && cat > "$f" &&
-     timeout 900 ~/.local/bin/hermes chat -Q --oneshot --source claude-code \
-       --query-file "$f"; rc=$?; rm -f "$f"; exit $rc'
-   ```
+   > From a Claude Code session for Oriol: <what changed today>. Review
+   > ~/.hermes/memories/MEMORY.md, USER.md, ~/.hermes/SOUL.md and <skill> as the
+   > agent who uses them: right format and shape for you (memory entries, the §
+   > separators, skill frontmatter, length vs the caps)? Anything unclear,
+   > duplicated, stale, contradictory, or in the wrong place (memory vs skill vs
+   > SOUL)? Do NOT change any file. Reply with concrete findings and the exact
+   > edits you propose, max ~20 lines.
 
 3. Apply the clear fixes yourself (back up first), show Oriol the judgement
    calls, and re-ask if the change was large.
 
-Why it pays (first run, 2026-10-15, all three claws): the reviews found a
-migrated "Whisper model: medium" line contradicting the new transcription
-rule — the same confusion that had just made Pep run Whisper large-v3 on its
-own — plus our "never run Whisper locally" wording forbidding Hermes's own
-tiny fallback, identity duplicated between MEMORY and SOUL, and SOUL's stock
-"these files are your memory" ignoring the Mnemosyne provider.
+Why it pays (first run, 2026-10-15): the reviews found a migrated "Whisper
+model: medium" line contradicting the new transcription rule (the confusion
+that had just made Pep run large-v3 itself), our "never run Whisper locally"
+wording forbidding Hermes's own tiny fallback, identity duplicated between
+MEMORY and SOUL, and SOUL's stock "these files are your memory" ignoring the
+Mnemosyne provider.
 
 ## Liveness and boot
 
 - User timer `assistant-healthcheck@hermes.timer` runs
   `~/.local/libexec/assistant-healthcheck hermes`, which pings the
   healthchecks.io URL in `~/.config/assistant-monitoring/hermes.url` (or
-  `/fail`). Since 2026-10-15 the probe requires BOTH `hermes-gateway.service`
-  active AND `~/.hermes/gateway_state.json` saying `"gateway_state": "running"`
-  with `pid` equal to the unit's `MainPID` (an active unit whose gateway gave
-  up no longer passes). Still blind to a dead model login: only a real turn
-  proves that. An outage during an update pages.
-- The script is hand-installed on each box (no repo deploys it); a backup of
-  the previous version is `~/backups/assistant-healthcheck.pre-2026-10-15`.
-- Boot: `hermes-gateway.service` and the hermes timer are enabled user units
-  with linger on. **OpenClaw cannot start**: its unit file and drop-in were
-  moved to `~/backups/openclaw-retired-units/` and `openclaw-gateway.service`
-  plus `assistant-healthcheck@openclaw.{timer,service}` are **masked**
-  (2026-10-15). To bring it back: `systemctl --user unmask …`, move the files
-  back to `~/.config/systemd/user/`, `daemon-reload`, `enable --now`.
+  `/fail`). The probe requires BOTH `hermes-gateway.service` active AND
+  `~/.hermes/gateway_state.json` saying `"gateway_state": "running"` with
+  `pid` equal to the unit's `MainPID` (since 2026-10-15). Still blind to a dead
+  model login: only a real turn proves that. An outage during an update pages.
+- The script is hand-installed on each box (source hq
+  `homelab/tools/assistant-healthcheck/`); the previous version is
+  `~/backups/assistant-healthcheck.pre-2026-10-15`.
+- Boot: `hermes-gateway.service`, `hermes-dashboard.service` and the hermes
+  timer are enabled user units with linger on. **OpenClaw cannot start**: its
+  unit file and drop-in were moved to `~/backups/openclaw-retired-units/` and
+  `openclaw-gateway.service` plus `assistant-healthcheck@openclaw.{timer,service}`
+  are **masked** (2026-10-15). To bring it back: `systemctl --user unmask …`,
+  move the files back to `~/.config/systemd/user/`, `daemon-reload`,
+  `enable --now`.
 - `~/.bashrc` still sources OpenClaw's bash completion from `~/.openclaw/`;
   harmless, but it errors if `~/.openclaw` is ever renamed (`hermes claw
   cleanup`): drop that line then.
@@ -402,94 +365,90 @@ tiny fallback, identity duplicated between MEMORY and SOUL, and SOUL's stock
 
 - Built-in memory is two small files injected every turn:
   `~/.hermes/memories/MEMORY.md` (cap `memory.memory_char_limit`, 2200 on our
-  boxes) and `USER.md` (`user_char_limit`, 1375), entries separated by `§`.
-  `memory.write_approval: true` on our boxes. Persona is `~/.hermes/SOUL.md`.
-- The file format is entries joined by `"\n§\n"` (`ENTRY_DELIMITER` in
-  `tools/memory_tool_store.py`). `write_approval` gates only the agent's own
-  memory tool: editing the files directly (as the 2026-10-15 import did) is
-  not blocked, and it is safe while the gateway runs, because every tool
-  write rereads the file under a `.lock` and refuses on drift.
+  boxes) and `USER.md` (`user_char_limit`, 1375), entries joined by `"\n§\n"`
+  (`ENTRY_DELIMITER` in `tools/memory_tool_store.py`). Persona is
+  `~/.hermes/SOUL.md`.
+- `memory.write_approval: true` on our boxes gates only the agent's own
+  memory tool: editing the files directly is not blocked, and it is safe while
+  the gateway runs, because every tool write rereads the file under a `.lock`
+  and refuses on drift.
 - Every entry passes `_scan_memory_content` (injection/exfil patterns) at
   write AND at load; a flagged entry is dropped from the prompt with a
-  warning. Run it on curated text before installing it:
-  `venv/bin/python -c 'from tools.memory_tool_store import _scan_memory_content as s; print(s(open("x").read()))'`
-  from `~/.hermes/hermes-agent`.
+  warning. Scan curated text before installing it:
+  `RT 'from tools.memory_tool_store import _scan_memory_content as s; print(s(open("/abs/path/x").read()))'`
+  (`None` = clean).
 - Leave headroom under the caps (we installed ~1.2 KB of 2.2 KB): the agent
   adds its own entries and an over-cap file blocks every further addition.
-- An external memory provider can sit beside it (only one at a time;
-  `hermes memory status`). Ours have **`mnemosyne`** configured (plugin
-  `hermes-mnemosyne` 0.4.0 under `~/.hermes/plugins/`, data
-  `~/.hermes/mnemosyne/`, local SQLite + embeddings, multilingual MiniLM)
-  since 2026-07-23. Upstream is `mnemosyne-oss/mnemosyne` (3,420 GitHub stars
-  on 2026-10-15, passes the >1k rule; the Hermes provider is by its author,
-  GitHub AxDSan). Still: it recalls by similarity, so durable facts the
-  agent must always apply belong in MEMORY.md or a file skill, not only
-  there.
+- One external memory provider can sit beside it (`hermes memory status`).
+  Ours: **`mnemosyne`** (plugin `hermes-mnemosyne` 0.4.0 under
+  `~/.hermes/plugins/`, data `~/.hermes/mnemosyne/`, local SQLite +
+  multilingual MiniLM embeddings) since 2026-07-23; upstream
+  `mnemosyne-oss/mnemosyne` (3,420 stars on 2026-10-15, passes the >1k rule).
+  It recalls by similarity, so facts the agent must always apply belong in
+  MEMORY.md or a file skill, not only there.
 - Anything that does not fit the caps goes into a **file skill**
-  (`~/.hermes/skills/<category>/<name>/SKILL.md`), loaded on demand. Imported
-  OpenClaw skills land in `~/.hermes/skills/openclaw-imports/`. A category is
-  just a folder with a one-line `DESCRIPTION.md`; `hermes skills list` shows
-  a new skill immediately (scan by directory mtime), and new skills and
-  memory take effect in a NEW session; no gateway restart needed. Check a
-  hand-written skill with the built-in scanner (verdict SAFE → allowed):
-  `venv/bin/python -c 'from tools.skills_guard import scan_skill, format_scan_report; from pathlib import Path; print(format_scan_report(scan_skill(Path("<dir>"))))'`.
+  (`~/.hermes/skills/<category>/<name>/SKILL.md`), loaded on demand. A
+  category is a folder with a one-line `DESCRIPTION.md`; `hermes skills list`
+  shows a new skill immediately, and new skills and memory take effect in a
+  NEW session (no gateway restart). Check a hand-written skill with the
+  built-in scanner (verdict SAFE → allowed):
+  `RT 'from tools.skills_guard import scan_skill, format_scan_report; from pathlib import Path; print(format_scan_report(scan_skill(Path("/abs/dir"))))'`.
 - Our three agents each have `~/.hermes/skills/knowledge/agent-knowledge/`
   (since 2026-10-15): the long tail of what OpenClaw learned, grouped by
-  topic. Keep it current there, not in the overflow files.
+  topic. Keep it current there, not in the overflow files. Imported OpenClaw
+  skills land in `~/.hermes/skills/openclaw-imports/`.
 
 ## Importing from OpenClaw
 
 `hermes claw migrate [--dry-run] [--preset user-data|full]` (guide:
-`website/docs/guides/migrate-from-openclaw.md` in the installed tree, the
-reliable source; web write-ups are third-party). Traps:
+`website/docs/guides/migrate-from-openclaw.md` in the installed tree). Traps:
 
 - **The CLI has no `--include`, and `--preset user-data` still rewrites
   `config.yaml` (agent/compression/terminal, browser) and `.env` (Slack
-  settings)**. For a scoped import call the underlying script:
-  `~/.hermes/hermes-agent/venv/bin/python ~/.hermes/hermes-agent/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py --include memory,user-profile,daily-memory --execute`
-  (ids listed by `--help`; without `--execute` it is a dry run).
+  settings)**. For a scoped import call the underlying script with the
+  runtime Python:
+  `~/.hermes/tools/python-3.*/bin/python3 ~/.hermes/hermes-agent/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py --include memory,user-profile,daily-memory --execute`
+  (ids listed by `--help`; without `--execute` it is a dry run; the 2026-07
+  run used the old venv's Python).
 - **Memory merges are truncated at the char caps**: the rest goes to
   `~/.hermes/migration/openclaw/<ts>/overflow/*.txt`, which the agent never
-  reads (the 2026-07-23 run spilled ~11 KB on petraclaw; on emmaclaw the
-  overflow was mostly one reminder repeated daily). It also imports entries verbatim and
-  with duplicates (`2026-02-02: …` lines, the template's "Learn about the
-  person…" prose, misspelt names such as "Petrah-inbox"). On 2026-10-15 we
-  did NOT re-run it: we read every source (MEMORY, USER, IDENTITY, AGENTS,
-  `memory/*.md`, DREAMS, channel notes, the per-channel `systemPrompt`s in
-  `openclaw.json`), replaced MEMORY.md/USER.md with hand-curated entries and
-  put the rest in a knowledge skill. Verify with a fresh-session turn that
-  only the moved facts can answer.
+  reads (~11 KB spilled on petraclaw in 2026-07). It also imports entries
+  verbatim and with duplicates (`2026-02-02: …` lines, template prose,
+  misspelt names). On 2026-10-15 we did NOT re-run it: we read every source
+  (MEMORY, USER, IDENTITY, AGENTS, `memory/*.md`, DREAMS, channel notes, the
+  per-channel `systemPrompt`s in `openclaw.json`), replaced MEMORY.md/USER.md
+  with curated entries and put the rest in a knowledge skill. Verify with a
+  fresh-session turn that only the moved facts can answer.
 - OpenClaw knowledge also hides outside the workspace: per-channel
   `systemPrompt`s in `openclaw.json` (`channels.slack.channels.<id>`; Enzo's
   invoice-inbox → Holded purchase-draft rules lived only there) and
-  `workspace/memory/channel-*.md`. `DREAMS.md` is narrative "dream diary"
-  text with nothing durable on our boxes.
+  `workspace/memory/channel-*.md`. `DREAMS.md` is narrative with nothing
+  durable on our boxes and is not imported.
 - Daily notes keep firing stale reminders as facts: check them against
   later notes before importing (Enzo's capital-increase reminder kept
   running after the increase was cancelled; Bruno's Daniela follow-up after
   the hand-off was done).
 - `AGENTS.md` only moves with `--workspace-target`, and OpenClaw's is mostly
-  OpenClaw mechanics (heartbeats, `memory/` daily files): translate the
-  durable rules, do not copy it. `IDENTITY.md` is archived, merge it into
-  `SOUL.md` by hand. `DREAMS.md` is not imported.
+  OpenClaw mechanics: translate the durable rules, do not copy it.
+  `IDENTITY.md` is archived; merge it into `SOUL.md` by hand.
 - **Cron jobs: "No cron configuration found"** on OpenClaw 2026.9.x, whose
   jobs live in SQLite state, not in `openclaw.json`. Recreate them with
   `hermes cron create` from `openclaw cron list --json` (hq keeps the
   2026-10-15 export: `shared/docs/openclaw-jobs-2026-10-15.md`).
-- `--migrate-secrets` copies `TELEGRAM_BOT_TOKEN` etc. into `.env`: after a
-  restart Hermes answers on that channel. Treat it as the channel switch-over,
-  not part of a memory import. The Telegram allowlist is read from
-  `credentials/telegram-default-allowFrom.json`, which OpenClaw's doctor
-  moved into SQLite: expect `TELEGRAM_ALLOWED_USERS` empty and set it by hand.
+- `--migrate-secrets` (needed even under `--preset full`) copies
+  `TELEGRAM_BOT_TOKEN` etc. into `.env`: after a restart Hermes answers on that
+  channel. Treat it as the channel switch-over, not part of a memory import.
+  The Telegram allowlist is read from `credentials/telegram-default-allowFrom.json`,
+  which OpenClaw's doctor moved into SQLite: expect `TELEGRAM_ALLOWED_USERS`
+  empty and set it by hand.
 - `hermes claw cleanup` renames `~/.openclaw` to `.openclaw.pre-migration`
   (undoable). Run it only once nothing is left to recover from OpenClaw.
 
 ## OS upgrades of the claw containers (runbook, first run pep 2026-10-15)
 
-Ubuntu in the three LXC containers (Proxmox CT 100 pep, 102 enzo, 101 bruno).
+Ubuntu in the three LXC containers (CT 100 pep, 102 enzo, 101 bruno).
 **LTS only from now on** (Oriol, 2026-10-15). pep went 25.04 → 26.04.1 in
-16 minutes of upgrade time; follow the same steps on enzo and bruno, one at a
-time.
+16 minutes of upgrade time; one box at a time.
 
 1. **Check Proxmox knows the target**: `grep "'26.04'" /usr/share/perl5/PVE/LXC/Setup/Ubuntu.pm`
    on the host (pve-container 6.0.18 does). An unknown release makes the CT
@@ -505,29 +464,30 @@ time.
    then poll from the workstation (`until ssh root@<ct> 'grep -q HOPN-DONE … || ! tmux has-session -t upgrade'; do sleep 20; done`).
    Scripts use `DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a` and
    `apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold`.
+   Start each hop's tmux in its own command, not right after a `tmux
+   kill-session` of the last session in the same line: the dying server
+   swallowed bruno's hop-3 `tmux new`.
 5. **Hop through an EOL interim release by hand**: 25.04 and 25.10 are both
    EOL, so `do-release-upgrade` from 25.04 offers nothing. Hop 1:
    `apt-get update && full-upgrade` on plucky, `sed -i 's/\bplucky\b/questing/g' /etc/apt/sources.list.d/ubuntu.sources`
    (keep a copy), `apt-get update && full-upgrade && autoremove --purge`
-   (~6 min). `pct reboot <ct>` from the host.
-   On enzo (2026-10-15) **sshd refused connections for a few minutes** in this
-   hop, while openssh was upgraded; the tmux job carried on. Poll with a loop
-   that tolerates a failed ssh (`until ssh -o ConnectTimeout=5 … 2>/dev/null`),
-   never treat one refusal as a dead box. Two containers upgrading at once on
-   the 2-core host roughly doubles this hop (11 min on enzo).
-6. **Hop 2, the supported route** (bruno, 2026-10-15: started 2 s after the
-   reboot it printed "No new release found" and exited 1 — the meta-release
-   fetch ran before the container's network was up; so begin hop 2's script
-   with `until curl -fsS -o /dev/null https://changelogs.ubuntu.com/meta-release; do sleep 5; done`.
-   Also start each hop's tmux in its own command, not right after a
-   `tmux kill-session` of the last session in the same line: the dying
-   server swallowed bruno's hop-3 `tmux new`): `sed -i 's/^Prompt=.*/Prompt=normal/' /etc/update-manager/release-upgrades`
-   (needed only from an interim release), then
+   (~6 min). `pct reboot <ct>` from the host. On enzo **sshd refused
+   connections for a few minutes** in this hop while openssh was upgraded; the
+   tmux job carried on. Poll with a loop that tolerates a failed ssh (`until
+   ssh -o ConnectTimeout=5 … 2>/dev/null`), never treat one refusal as a dead
+   box. Two containers upgrading at once on the 2-core host roughly doubles
+   this hop (11 min on enzo).
+6. **Hop 2, the supported route**: begin the script with
+   `until curl -fsS -o /dev/null https://changelogs.ubuntu.com/meta-release; do sleep 5; done`
+   (bruno, started 2 s after the reboot, printed "No new release found" and
+   exited 1: the fetch ran before the network was up). Then
+   `sed -i 's/^Prompt=.*/Prompt=normal/' /etc/update-manager/release-upgrades`
+   (needed only from an interim release) and
    `do-release-upgrade -f DistUpgradeViewNonInteractive` (~9 min, rc 0; it says
    "Your Ubuntu release is not supported anymore" and carries on). It purges
-   snapd, moves Python 3.13 → 3.14, and installs new conffiles where ours were
-   untouched (`/etc/ssh/moduli`, the new `release-upgrades` already with
-   `Prompt=lts`). sshd config, ufw rules and Syncthing config survive.
+   snapd, moves the system Python 3.13 → 3.14, and installs new conffiles where
+   ours were untouched (`/etc/ssh/moduli`, the new `release-upgrades` already
+   with `Prompt=lts`). sshd config, ufw rules and Syncthing config survive.
 7. **Third-party sources come back disabled**: one-line `.list` files become
    `*.disabled` ("could not be automatically migrated"); Google's is migrated
    to deb822 but with `Enabled: no`. Move the `.disabled` files aside and write
@@ -549,12 +509,12 @@ time.
 10. **Verify Hermes after the OS**: gateway active and `gateway_state.json`
     running for its MainPID; `hermes --version`; dashboard `/api/status`
     `auth_required: true` + a login 200 (creds in hq
-    `homelab/secrets/hermes-dashboards.env`); healthcheck Result success; a real
+    `homelab/secrets/hermes-dashboards.env`); healthcheck result success; a real
     turn shows `model=gpt-6.1-sol` in `agent.log`; `~/.local/libexec/nan-stt`
     on a short ffmpeg clip exits 0 (system python/ffmpeg changed); OpenClaw
     still masked; ufw rules intact; Syncthing version, peers and folder state
     over its REST API (key in `~/.local/state/syncthing/config.xml`). Hermes's
-    own venv and managed Python 3.14 are untouched by the OS upgrade.
+    managed Python 3.14 under `~/.hermes/tools/` is untouched by the OS upgrade.
 11. Record it in the hq server file (OS line, the upgrade with UTC times and
     snapshot name) and `docs/changelog.md`.
 
