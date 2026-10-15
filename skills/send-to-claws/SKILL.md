@@ -50,6 +50,35 @@ printf '%s\n' "From a Claude Code session for Oriol: <the message>" |
 - Where the dev machine has them, `hermes-pep` / `hermes-enzo` / `hermes-bruno`
   wrap the same `ssh <host> ~/.local/bin/hermes …` for interactive use.
 
+## Typing into Oriol's open agent pane (herdr)
+
+When Oriol says "the hermes agent on the right panel" (or similar), he has
+an interactive `hermes-pep|enzo|bruno` session open in a herdr pane next to
+yours, and wants the request to show there. Verified 2026-10-15 (personal
+taxes session, Pep):
+
+```bash
+herdr pane list                       # find the pane: terminal_title "hermes-pep …", same tab_id as yours
+herdr pane read <pane> --lines 30     # idle = "Type / to browse commands" on the input line
+herdr pane send-text <pane> "<the whole request as ONE paragraph>"
+herdr pane send-keys <pane> Enter
+herdr pane wait-output <pane> --match "Type / to browse" --source visible --timeout 590000
+herdr pane read <pane> --lines 80     # its answer, in the ╭─ ◆ Pep box
+```
+
+- One paragraph: a newline in `send-text` may submit early.
+- `wait-output` returns as soon as the idle prompt is on screen. It is on
+  screen before you press Enter too, so read the pane after it to check
+  the turn really ended.
+- The agent cannot answer back into your pane (no herdr control from
+  its ssh session): ask it to write results to files on its box
+  (`~/inbox/<topic>/REPORT.txt`, a JSON, a manifest with sha256), then
+  `ssh <host> cat …` / `scp` them into an empty scratchpad folder and
+  verify the checksums.
+- When an agent hits an access blocker (a disabled Google API, no
+  signed-in browser), it reports it and stops. Put the fix in hq's
+  USER_TODO, and remove the item once a later run gets through.
+
 ## Send a file
 
 ```bash
