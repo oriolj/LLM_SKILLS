@@ -129,6 +129,28 @@ full tool/terminal access — allowlist Oriol only. Source:
 OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
 `shared/docs/openclaw.md` § Sign in with ChatGPT (not yet; device code stays).
 
+## Updating to v0.22+ (stable channel) — what changed
+
+- **v0.22.0 (2026-10-14) rebuilt the updater**: SemVer releases (`v0.22.1`),
+  and official source checkouts track the **`stable` channel** (latest
+  `vX.Y.Z`) instead of `main`; `hermes update --channel stable|canary|main`,
+  `--set-channel` persists, `--plan` previews, `--check` checks.
+  `_finish_pulled_update` is gone, so `scripts/hermes_post_checkout.py` only
+  applies to the v0.19–v0.21.5 line. A v0.21.5 box still compares against
+  `main` ("13012 commits behind"): never `hermes update` there.
+- **Path that worked 0.21.5 → 0.22.1 (pep, 2026-10-15)**: Proxmox snapshot
+  of the CT first (`pct snapshot <id> pre_hermes_<ver>`), stop the gateway,
+  back up `~/.hermes`, `git fetch --no-tags origin tag v0.22.1 && git
+  checkout v0.22.1`, `uv pip install -e ".[all]"` into the venv (Python 3.11
+  is fine: `>=3.11,<3.15`), then **run one CLI call in the foreground BEFORE
+  starting the gateway** (`hermes --version`): the first run of a new
+  revision "completes source-update dependencies" (Python deps again, Node
+  deps, TUI build, web UI build, ~1.8 GB peak). Started straight from
+  systemd, that build blows the unit's default 90 s start timeout
+  (`Type=notify`): systemd kills it, `Restart=always` restarts it, and the
+  build starts over in a loop. Boot maintenance (config migration, skills
+  sync) then runs per revision on its own.
+
 ## Liveness and boot
 
 - User timer `assistant-healthcheck@hermes.timer` runs
