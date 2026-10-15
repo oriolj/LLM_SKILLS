@@ -307,6 +307,43 @@ XML (NaN's Qwen/Gemma).
   text_to_speech tool has no per-call voice, so one voice = one language per
   agent. Test: `from tools.tts_tool import text_to_speech_tool` in the runtime.
 
+## After changing an agent's memory, persona or skills: let the agent review it
+
+Oriol, 2026-10-15: whenever we (Claude Code / Codex, from outside) add or edit
+an agent's instructions — `~/.hermes/memories/MEMORY.md` / `USER.md`,
+`~/.hermes/SOUL.md`, a skill under `~/.hermes/skills/`, config that changes
+behaviour — **ask that agent itself to review the result**, then apply what
+holds up. The agent reads its own context the way it will be used; we do not.
+
+1. Run the built-in checks first (read-only): `hermes doctor` (no `--fix`),
+   `hermes config check`, `hermes skills list` (the skill is `enabled`),
+   `hermes curator status`.
+2. Ask in a **fresh one-shot session** (a running chat loaded memory, SOUL and
+   skills when it STARTED and will not see the edits; tell Oriol to send `/new`
+   on a messaging channel too):
+
+   ```bash
+   printf '%s\n' "From a Claude Code session for Oriol: <what changed today>. Review
+   ~/.hermes/memories/MEMORY.md, USER.md, ~/.hermes/SOUL.md and <skill> as the
+   agent who uses them: right format and shape for you (memory entries, the §
+   separators, skill frontmatter, length vs the caps)? Anything unclear,
+   duplicated, stale, contradictory, or in the wrong place (memory vs skill vs
+   SOUL)? Do NOT change any file. Reply with concrete findings and the exact
+   edits you propose, max ~20 lines." | ssh <host> 'f=$(mktemp) && cat > "$f" &&
+     timeout 900 ~/.local/bin/hermes chat -Q --oneshot --source claude-code \
+       --query-file "$f"; rc=$?; rm -f "$f"; exit $rc'
+   ```
+
+3. Apply the clear fixes yourself (back up first), show Oriol the judgement
+   calls, and re-ask if the change was large.
+
+Why it pays (first run, 2026-10-15, all three claws): the reviews found a
+migrated "Whisper model: medium" line contradicting the new transcription
+rule — the same confusion that had just made Pep run Whisper large-v3 on its
+own — plus our "never run Whisper locally" wording forbidding Hermes's own
+tiny fallback, identity duplicated between MEMORY and SOUL, and SOUL's stock
+"these files are your memory" ignoring the Mnemosyne provider.
+
 ## Liveness and boot
 
 - User timer `assistant-healthcheck@hermes.timer` runs
