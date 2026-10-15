@@ -282,6 +282,31 @@ XML (NaN's Qwen/Gemma).
   It dialed all three at launch. Nothing to configure or expose on the
   containers: never bind a dashboard to 0.0.0.0 for this.
 
+## When transcription fails, the agent improvises (and TTS on NaN)
+
+- **An empty transcript is a failure to Hermes**: a command STT provider that
+  writes an empty file gets "wrote no output file … and produced no stdout",
+  and the gateway hands the agent the raw audio. A capable agent then solves it
+  itself: Pep `pip install`ed `openai-whisper` and ran large-v3 on CPU in a 4 GB
+  container (2026-10-15: 3.8 GB RSS, swap thrash, box unreachable, host load
+  20). Defences, all in place on the claws: the STT command never exits with
+  an empty output (fallback model, then a "[no speech detected …]" line), and
+  a MEMORY.md rule saying transcription is automatic and local models are off
+  limits. Telling an agent "use Whisper V3" in a voice note reads as an order to
+  run it.
+- **Local fallback model**: `hermes pm install --extra stt-whisper` installs
+  faster-whisper into Hermes's managed Python (not the old `venv/`); use it from
+  outside with `~/.hermes/tools/python-3.*/bin/python3 -I -c 'import sys;
+  sys.path.insert(0, "<hermes-agent>"); import hermes_bootstrap; from
+  faster_whisper import WhisperModel …'`. `tiny` int8: ~350 MB, seconds per note.
+- **TTS on an OpenAI-compatible server** (NaN kokoro): `tts.provider: openai`,
+  `tts.openai.{base_url, model, voice, api_key}`. Put the key in
+  `tts.openai.api_key`, not `VOICE_TOOLS_OPENAI_KEY` (other OpenAI voice
+  features read that env var and would send it to OpenAI).
+  `tts.openai.language` is sent as `lang_code` (Kokoro-FastAPI style); the
+  text_to_speech tool has no per-call voice, so one voice = one language per
+  agent. Test: `from tools.tts_tool import text_to_speech_tool` in the runtime.
+
 ## Liveness and boot
 
 - User timer `assistant-healthcheck@hermes.timer` runs
