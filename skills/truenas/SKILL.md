@@ -656,8 +656,12 @@ restriction.
   ends `via DERP(…)`, `tailscale status` says `relay "nue"`; every other
   source went direct). The NAS's own path cannot be read through the
   API, so check from another home machine. Fix on the source: inbound
-  UDP 41641 open (the baseline role's rule); a running copy speeds up
-  when the path turns direct, no restart.
+  UDP 41641 open (the baseline role's rule). If ufw already allows it,
+  look in front of the box: on a Hetzner Robot server the stateless Robot
+  firewall drops the IPv4 UDP replies and only Oriol can add the rule
+  (storage-1, 2026-10-15; how to prove it with tcpdump: the `tailscale`
+  skill §0). A running copy speeds up when the path turns direct, no
+  restart.
   The first scheduled night after the first copies: 32 s for the small
   server, 15 min for the 273 GiB one, both clean while that long copy
   was still running on the two-thread NAS. A long first copy does not
