@@ -87,6 +87,21 @@ Reading it:
   2026-09-12 sample from home: `infra-monitoring` direct via
   `159.69.48.55:41641`, while `monitor-1-nc`, `storage-1` and
   `whalehet-01` stayed on DERP `nue`.
+- **ufw allows 41641 and the server is still relayed → a provider
+  firewall in front, and prove it with tcpdump** *(storage-1, Hetzner
+  Robot, 2026-10-15)*. The tells on the server: `tailscale netcheck`
+  says `UDP: true` but `IPv4: (no addr found)` with an IPv6 address
+  (STUN only works over v6); `dig -4 @1.1.1.1` times out while
+  `dig -4 +tcp` and `dig -6` answer; and `tcpdump -ni <nic> udp and host
+  1.1.1.1` shows the query leave and **no reply arrive** — tcpdump sees
+  packets before netfilter, so the drop is upstream, not ufw. Peers
+  without IPv6 (most home connections) then have only DERP. The Hetzner
+  **Robot** (dedicated) firewall is stateless and filters IPv4 only; its
+  default template admits TCP replies and no UDP. One incoming rule
+  *udp, destination port 41641, accept* fixes both STUN discovery and
+  inbound direct, because tailscaled sends STUN from its own port. The
+  provider's resolver may still answer over IPv4 UDP (Hetzner's
+  185.12.64.1 does), so working system DNS proves nothing.
 - LAN peers (nuc8i7, the Mac mini) go direct over the LAN address
   (`via 192.168.7.x:41641`, 3 ms). If a LAN peer is relayed, look at the
   peer's own firewall or Wi-Fi client isolation on the AP.
