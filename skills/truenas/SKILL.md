@@ -367,8 +367,15 @@ Read it in this order:
    the disk several times. Test the block you changed on its own.
    **Proxmox: each guest is a pulled machine of its own, the hypervisor
    is not pulled** (Oriol, 2026-10-15: "backup vm per vm, and not the
-   proxmox itself"). An LXC guest needs nothing special: same key, same
-   defaults (its lxcfs views of `/proc` fall under `/proc/*`).
+   proxmox itself"). An LXC guest needs the same key and defaults (its
+   lxcfs views of `/proc` fall under `/proc/*`), **plus an exclude of
+   `/lost+found`**: in an unprivileged container it belongs to the
+   Proxmox host's root, the container's root cannot open it, and every
+   run ends FAILED with `opendir "/lost+found" failed: Permission denied`
+   (rsync 23, deletions skipped). Nothing in it is copyable from inside,
+   so the exclude loses nothing (pep/enzo/bruno, 2026-10-15; Oriol chose
+   the exclude). The space-analysis script lists such folders under
+   "UNREADABLE FOLDERS".
 2. *Big folders and files over 1 GiB.* A candidate is big AND rebuilt by
    a program. Everything else is copied.
    On a production box the script is safe to run (it sets itself to the
@@ -519,8 +526,9 @@ It needs `/usr/bin/rrsync` there (rsync ≥ 3.2.4 ships it; Ubuntu 20.04's
 3.1.3 has it as a symlink). Debian 9's rsync 3.1.2 has it only as
 `/usr/share/doc/rsync/scripts/rrsync.gz` (the older perl version; seen
 on whalehet-01, 2026-10-14): `zcat` it to `/usr/bin/rrsync`, `chmod
-755`, and the authorize script then accepts the box. Whether that perl
-rrsync accepts every option TrueNAS sends is not verified yet. Servers: hq `shared/ansible` group
+755`, and the authorize script then accepts the box. That perl rrsync
+accepts every option TrueNAS sends: whalehet-01's first copy ran 24 h
+with it and ended SUCCESS (2026-10-15). Servers: hq `shared/ansible` group
 `nas_rsync_sources`; always-on dev machines: `homelab/ansible`
 `nas_rsync_source_hostnames` (root's key, with sshd on `PermitRootLogin
 forced-commands-only`); others: the authorize script. macOS cannot (no
