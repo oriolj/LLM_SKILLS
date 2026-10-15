@@ -213,6 +213,52 @@ OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
   `cd ~/.hermes/hermes-agent && HERMES_HOME=~/.hermes venv/bin/python -c 'from tools.transcription_tools import transcribe_audio as t; print(t("/tmp/x.mp3"))'`
   → `provider: nan`. Detail: hq `docs/nan-builders.md`.
 
+## From a dev machine: CLI wrappers and Hermes Desktop (2026-10-15)
+
+- **`hermes-pep` / `hermes-enzo` / `hermes-bruno`** (hq dotfiles
+  `local-bin/hermes-claw`, mapped three times in `sync-dotfiles.sh`): `ssh
+  [-t|-T] <host> '~/.local/bin/hermes <args %q-quoted>'` as oriol; `-t` only
+  when stdin AND stdout are ttys, so `hermes-pep chat -Q -q "…"` is clean in
+  scripts. Use these instead of hand-rolled ssh quoting.
+- **Hermes Desktop on Linux = a source install** (`scripts/install.sh
+  --include-desktop`; their release workflow ships no Linux package). Traps:
+  - Without `--branch release/X.Y.Z --commit vX.Y.Z` the installer clones
+    **`main`** (a canary) yet labels the install `stable`, and `hermes update
+    --channel stable` then refuses the "rollback" to the release. The tag
+    commit is NOT on `main` (`--commit` alone fails `commit_not_on_branch`).
+    Fixed by hand on minisforum: `git checkout --detach vX.Y.Z` in the
+    checkout, `hermes --version` (rebuilds deps), `hermes desktop
+    --build-only --force-build`.
+  - Bulk: checkout + Electron build ~3.7 GB under `--dir`, plus
+    `~/.hermes/{tools,installs,cache}` (pinned runtimes, the Python
+    environment, uv's cache, ~1 GB). On the estate all four live in
+    `~/not-important/homelab/hermes` (symlinks from `~/.hermes`, made BEFORE
+    the installer runs); Desktop looks for the runtime at
+    `~/.hermes/hermes-agent`, so that is a symlink to the checkout too.
+  - `--non-interactive --skip-browser --skip-computer-use`: no wizard, no
+    gateway service, no Chromium. The installer only edits `config.fish` when
+    no `fish_add_path …/.local/bin` line is there (it did not on minisforum).
+  - Launch from a shell needs the session's `DISPLAY` / `WAYLAND_DISPLAY`
+    (Electron defaults to X11 and exits "Missing X server" without them); the
+    menu entry `com.nousresearch.hermes.desktop` runs `hermes desktop
+    --skip-build`. Log: `~/.hermes/logs/desktop.log`.
+- **The connection registry** is `~/.config/Hermes/connections.json` (Electron
+  userData, productName `Hermes`; schema v2 in
+  `apps/desktop/electron/connection-registry.ts`): `{version: 2, primary,
+  launchMode, lastUsed, connections: [{id, kind: local|remote|cloud|ssh,
+  label, host, user, port, keyPath, remoteHermesPath, remoteProfile}]}`.
+  Labels are unique case-insensitively; a malformed entry is quarantined, not
+  dropped. Pre-seeding SSH entries works: ansible's
+  `files/hermes-desktop-connections.py` (homelab, `--tags hermes-desktop`)
+  adds `{id: host, kind: ssh, label, host, user: oriol}` only when the label
+  or host is new. Close the app first: it rewrites the file from memory.
+- **What an SSH connection does** (desktop.log, verified on all three):
+  control master → `bash -lc 'command -v hermes'` on the remote (falls back to
+  `~/.local/bin/hermes`) → version check → spawns a remote **dashboard on
+  127.0.0.1** → forwards it to a local port → the agent joins the roster.
+  It dialed all three at launch. Nothing to configure or expose on the
+  containers: never bind a dashboard to 0.0.0.0 for this.
+
 ## Liveness and boot
 
 - User timer `assistant-healthcheck@hermes.timer` runs
