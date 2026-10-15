@@ -390,6 +390,69 @@ reliable source; web write-ups are third-party). Traps:
 - `hermes claw cleanup` renames `~/.openclaw` to `.openclaw.pre-migration`
   (undoable). Run it only once nothing is left to recover from OpenClaw.
 
+## OS upgrades of the claw containers (runbook, first run pep 2026-10-15)
+
+Ubuntu in the three LXC containers (Proxmox CT 100 pep, 102 enzo, 101 bruno).
+**LTS only from now on** (Oriol, 2026-10-15). pep went 25.04 → 26.04.1 in
+16 minutes of upgrade time; follow the same steps on enzo and bruno, one at a
+time.
+
+1. **Check Proxmox knows the target**: `grep "'26.04'" /usr/share/perl5/PVE/LXC/Setup/Ubuntu.pm`
+   on the host (pve-container 6.0.18 does). An unknown release makes the CT
+   refuse to start after the upgrade. Do not upgrade the host's packages for this.
+2. **Snapshot**: `pct snapshot <ct> pre_ubuntu_2604 --description "…"` on the
+   host (`ssh -o HostKeyAlgorithms=ssh-ed25519 root@192.168.7.179`). Rollback
+   (`pct rollback`) is Oriol's call.
+3. **Baseline**: os-release, `ufw status`, `systemctl --user` states of
+   `hermes-gateway`, `hermes-dashboard`, `assistant-healthcheck@hermes.timer`,
+   OpenClaw masked, `syncthing@oriol`, free disk.
+4. **Everything as root in a detached tmux with a log**, never in the foreground
+   ssh: `tmux new -d -s upgrade "script -f -q /root/upgrade-hopN.log -c /root/upgrade-hopN.sh"`,
+   then poll from the workstation (`until ssh root@<ct> 'grep -q HOPN-DONE … || ! tmux has-session -t upgrade'; do sleep 20; done`).
+   Scripts use `DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a` and
+   `apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold`.
+5. **Hop through an EOL interim release by hand**: 25.04 and 25.10 are both
+   EOL, so `do-release-upgrade` from 25.04 offers nothing. Hop 1:
+   `apt-get update && full-upgrade` on plucky, `sed -i 's/\bplucky\b/questing/g' /etc/apt/sources.list.d/ubuntu.sources`
+   (keep a copy), `apt-get update && full-upgrade && autoremove --purge`
+   (~6 min). `pct reboot <ct>` from the host.
+6. **Hop 2, the supported route**: `sed -i 's/^Prompt=.*/Prompt=normal/' /etc/update-manager/release-upgrades`
+   (needed only from an interim release), then
+   `do-release-upgrade -f DistUpgradeViewNonInteractive` (~9 min, rc 0; it says
+   "Your Ubuntu release is not supported anymore" and carries on). It purges
+   snapd, moves Python 3.13 → 3.14, and installs new conffiles where ours were
+   untouched (`/etc/ssh/moduli`, the new `release-upgrades` already with
+   `Prompt=lts`). sshd config, ufw rules and Syncthing config survive.
+7. **Third-party sources come back disabled**: one-line `.list` files become
+   `*.disabled` ("could not be automatically migrated"); Google's is migrated
+   to deb822 but with `Enabled: no`. Move the `.disabled` files aside and write
+   deb822 `.sources` with the existing keyrings:
+   `syncthing.sources` (`URIs: https://apt.syncthing.net/`, `Suites: syncthing`,
+   `Components: stable-v2`, `Signed-By: /etc/apt/keyrings/syncthing-archive-keyring.gpg`),
+   `nodesource.sources` (`https://deb.nodesource.com/node_22.x`, `nodistro`,
+   `main`, `Architectures: amd64`, `/usr/share/keyrings/nodesource.gpg`);
+   `sed -i 's/^Enabled: no$/Enabled: yes/'` on `google-chrome.sources`. Then
+   `apt-get update && full-upgrade` in tmux. Syncthing reached 2.1.6 already in
+   hop 1 (from its own repo).
+8. **Reboot, then `Prompt=lts`**: `grep ^Prompt /etc/update-manager/release-upgrades`
+   must say `lts` (set it if not; check for a `.dpkg-dist` variant), and
+   `do-release-upgrade -c` must find no newer LTS.
+9. **`netplan-configure.service` fails on 26.04 in an LXC** ("Failed to send
+   reload request": its `udevadm control --reload` has no udev). `/etc/netplan/`
+   is empty; Proxmox writes systemd-networkd's `eth0.network`. `systemctl mask
+   netplan-configure.service && systemctl reset-failed`; expect 0 failed units.
+10. **Verify Hermes after the OS**: gateway active and `gateway_state.json`
+    running for its MainPID; `hermes --version`; dashboard `/api/status`
+    `auth_required: true` + a login 200 (creds in hq
+    `homelab/secrets/hermes-dashboards.env`); healthcheck Result success; a real
+    turn shows `model=gpt-6.1-sol` in `agent.log`; `~/.local/libexec/nan-stt`
+    on a short ffmpeg clip exits 0 (system python/ffmpeg changed); OpenClaw
+    still masked; ufw rules intact; Syncthing version, peers and folder state
+    over its REST API (key in `~/.local/state/syncthing/config.xml`). Hermes's
+    own venv and managed Python 3.14 are untouched by the OS upgrade.
+11. Record it in the hq server file (OS line, the upgrade with UTC times and
+    snapshot name) and `docs/changelog.md`.
+
 ## Rules
 
 - Update one VM, verify, then the others.
