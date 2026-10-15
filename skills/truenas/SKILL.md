@@ -356,6 +356,19 @@ Read it in this order:
    called four such mounts "empty disks" (nuc8i7, 2026-10-12: the
    enclosures had been gone four weeks). Fix on the machine (unmount) or
    an exclude decided by Oriol; never an exclude on the agent's own.
+   Two false alarms of its DEVICE GONE line, fixed 2026-10-15: inside an
+   LXC container no device node is visible, so `/` was flagged on all
+   three Proxmox CTs (the script now skips the check when
+   `systemd-detect-virt -c` names a container); and `findmnt` writes a
+   btrfs subvolume as `/dev/dm-1[/@home]`, which no `-b` test matches
+   (it now tests the part before `[`). A DEVICE GONE on a mount that
+   `ls` reads fine is worth a second look before anything is unmounted.
+   **Never run the whole script on a workstation to test it**: it walks
+   the disk several times. Test the block you changed on its own.
+   **Proxmox: each guest is a pulled machine of its own, the hypervisor
+   is not pulled** (Oriol, 2026-10-15: "backup vm per vm, and not the
+   proxmox itself"). An LXC guest needs nothing special: same key, same
+   defaults (its lxcfs views of `/proc` fall under `/proc/*`).
 2. *Big folders and files over 1 GiB.* A candidate is big AND rebuilt by
    a program. Everything else is copied.
    On a production box the script is safe to run (it sets itself to the
