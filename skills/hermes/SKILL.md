@@ -221,6 +221,20 @@ OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
   `model=gpt-6.1-sol provider=openai-codex`. Fallback left at
   `gpt-5.6-luna`.
 
+## Account limits and "is this the subscription or the API?"
+
+- `hermes usage` (`/usage` in a chat): provider, plan, rate-limit windows,
+  reset time and banked resets, e.g. `openai-codex (Pro) · Weekly: 99%
+  remaining · resets in 6d 18h · 3 resets banked (/usage reset)`. Read-only.
+- Subscription vs API, three checks: `~/.hermes/auth.json` pool entry
+  `openai-codex` with `auth_type: oauth` and `base_url
+  https://chatgpt.com/backend-api/codex` (ChatGPT sign-in; the API would be
+  `api.openai.com` + an `sk-` key); `agent.log` "OpenAI client created …
+  provider=openai-codex base_url=https://chatgpt.com/backend-api/codex";
+  no `OPENAI_API_KEY`/`VOICE_TOOLS_OPENAI_KEY` in `~/.hermes/.env`.
+  Verified on all three claws 2026-10-15: one shared ChatGPT **Pro** login
+  (same plan, same window, same reset on every box).
+
 ## Custom model providers (NaN as an option)
 
 `providers.<name>: {api: <OpenAI-compatible base URL>, key_env: VAR (or
