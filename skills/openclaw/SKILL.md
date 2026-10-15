@@ -1,6 +1,6 @@
 ---
 name: openclaw
-description: Operate the estate's OpenClaw agent VMs (petraclaw = personal, emmaclaw = Enantena, blakeclaw = SmartupSoft/BikeCRM — self-hosted personal-AI-agent gateways on the home LAN) — how they are installed (nvm Node, npm global, user systemd unit), the safe update procedure and the trap where `openclaw update` leaves the gateway DOWN on a pending state-DB migration, plugin version pins, the systemd unit reinstall, adding a Slack workspace (socket mode, manifest, tokens, allowlists), adding Telegram/other channels, reading the config without leaking secrets, and the verification that proves an update or a channel actually works. Use when the user mentions OpenClaw, petraclaw/emmaclaw/blakeclaw, "the claw", updating an agent VM, connecting an agent to Slack/Telegram/WhatsApp, `openclaw doctor`, a gateway that will not start, plugin drift warnings, or Hermes (the Nous Research Hermes Agent on the same VMs — `hermes-gateway`, tag-pinned update and rollback, model/fallback switch, a Discord bot on a claw).
+description: Operate the estate's OpenClaw agent VMs (petraclaw = personal, emmaclaw = Enantena, blakeclaw = SmartupSoft/BikeCRM — self-hosted personal-AI-agent gateways on the home LAN) — how they are installed (nvm Node, npm global, user systemd unit), the safe update procedure and the trap where `openclaw update` leaves the gateway DOWN on a pending state-DB migration, plugin version pins, the systemd unit reinstall, adding a Slack workspace (socket mode, manifest, tokens, allowlists), adding Telegram/other channels, reading the config without leaking secrets, and the verification that proves an update or a channel actually works. Use when the user mentions OpenClaw, petraclaw/emmaclaw/blakeclaw, "the claw", updating an agent VM, connecting an agent to Slack/Telegram/WhatsApp, `openclaw doctor`, a gateway that will not start, plugin drift warnings. OpenClaw was stopped on all three VMs on 2026-10-15 and is being retired in favour of Hermes (the `hermes` skill); use this one to bring a gateway back, read its state, or recover data from `~/.openclaw`.
 ---
 
 # OpenClaw — the three agent VMs
@@ -379,112 +379,11 @@ has the model. After several live model switches a Codex thread can wedge
 (*"Codex session policy handoff failed … did not confirm unloading its
 previous configuration"*) — restart the gateway.
 
-## Hermes (Nous Research Hermes Agent, on the same VMs)
+## Hermes
 
-State: hq `shared/docs/hermes.md`. `~/.hermes/hermes-agent` is a **shallow
-git checkout** (`.install_method` = git), venv `./venv`, `uv` at
-`~/.hermes/bin/uv`, CLI `~/.hermes/hermes-agent/venv/bin/hermes` (not on
-PATH), config `~/.hermes/config.yaml`, secrets `~/.hermes/.env` and
-`auth.json` (its own Codex login — never print), user unit
-`hermes-gateway.service`, provider `openai-codex`.
-
-**Updating — pin a release tag, never a bare `hermes update`** (it tracks
-`main`, which is canary; `hermes --version`'s "+N carried commits" / "N
-commits behind" is a shallow-clone artifact, not local work). Releases:
-`gh release list -R NousResearch/hermes-agent` (tag = `v<date>`, name =
-`vX.Y.Z`). Procedure that worked 2026-10-03 (v0.19.0 → v0.21.5, all three):
-
-The release's own post-update steps (lazy backends, npm workspaces with
-system Node, web UI build, bundled-skill sync, config migration) run
-through [scripts/hermes_post_checkout.py](scripts/hermes_post_checkout.py),
-which calls `hermes update`'s private tail functions. It mirrors
-`hermes_cli.update_cmd._finish_pulled_update` **as of `v2026.9.24`**: for a
-newer tag, compare it with that function in the target tag first (a
-renamed helper fails the run with the gateway down). Copy it to the box,
-then run the update as a script (`ssh oriol@<vm> 'bash -s' < update.sh`),
-not pasted line by line: `set -e` is what stops it at the first failed
-step.
-
-```bash
-# from the LLM_SKILLS checkout:
-ssh oriol@<vm> 'mkdir -p ~/backups' && scp skills/openclaw/scripts/hermes_post_checkout.py oriol@<vm>:backups/
-```
-
-```bash
-set -euo pipefail
-umask 077                     # the backup holds .env + auth.json
-TAG=<tag>
-H=~/.hermes/hermes-agent; cd "$H"
-test -f ~/backups/hermes_post_checkout.py
-test -z "$(git status --porcelain | grep -v '^?? .install_method$')"   # only .install_method may be untracked
-PRE_SHA=$(git rev-parse HEAD)   # driver args; the version (from pyproject, as `hermes update` reads it) only feeds its report line
-PRE_VERSION=$(venv/bin/python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-systemctl --user stop hermes-gateway.service      # BEFORE the backup: tar fails "file changed" while it runs
-BACKUP=~/backups/hermes-pre-$TAG-$(date -u +%Y%m%dT%H%M%SZ).tgz; echo "backup: $BACKUP"
-tar czf "$BACKUP" -C ~ \
-  --exclude=.hermes/hermes-agent/venv --exclude=.hermes/hermes-agent/node_modules .hermes
-cp -a ~/.hermes/config.yaml ~/backups/hermes-config.yaml.pre-$TAG
-git fetch --no-tags origin tag "$TAG" && git checkout "$TAG"
-VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[all]"
-venv/bin/python ~/backups/hermes_post_checkout.py "$PRE_SHA" "$PRE_VERSION" | tee ~/backups/hermes-post-checkout-$TAG.log
-systemctl --user start hermes-gateway.service   # reached only when the driver exits 0 (update_complete=True)
-```
-
-If it stops early, the gateway stays down (and pages). Before the
-`git checkout`, nothing changed: fix the cause, then re-run or start it.
-After it, the tree and maybe `~/.hermes` are half-updated; put both back
-(planned, not yet exercised):
-`cd ~/.hermes/hermes-agent && git checkout <PRE_SHA> && tar xzf <BACKUP> -C ~ && VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[all]" && systemctl --user start hermes-gateway.service`
-(the sha and tarball path are in the run's output; the tarball excludes
-`venv` and `node_modules`, which the install and the old tag's own
-`node_modules` cover).
-
-Verify: `hermes --version`, a real turn, `~/.hermes/logs/agent.log` →
-`model=gpt-6-luna provider=openai-codex`, `assistant-healthcheck@hermes`
-exit 0. The update pings one failure to healthchecks.io per box. Rollback:
-`git checkout <old tag>`, the same `uv pip install`, restore the config copy.
-
-Model switch:
-
-```bash
-H=~/.hermes/hermes-agent/venv/bin/hermes
-$H chat -Q --provider openai-codex -m gpt-6-luna -q "Reply with exactly: HERMES OK"   # test first
-$H config set model.default gpt-6-luna
-# fallback: top-level list; `hermes fallback add` is interactive only, and
-# `fallback_model:` (still in its docs) is NOT a recognised key
-grep -q '^fallback_providers:' ~/.hermes/config.yaml ||   # appending twice = duplicate top-level key
-  printf '%s\n' 'fallback_providers:' '- provider: openai-codex' '  model: gpt-5.6-luna' >> ~/.hermes/config.yaml
-$H fallback list; systemctl --user restart hermes-gateway.service
-```
-
-**Discord (v0.21.5; researched 2026-10-03, not yet enabled anywhere)** —
-outbound websocket only, so LAN-only is fine. One Discord application per
-VM in that scope's account (a token can run in only one gateway). Oriol,
-in the Developer Portal: Bot → **Public Bot off**, **Message Content intent
-on** (Server Members only for username/role allowlists), reset token,
-invite with `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot+applications.commands&permissions=274878286912`;
-he writes the token on the box himself:
-`ssh -t oriol@<vm> 'read -rsp "token: " T; printf "DISCORD_BOT_TOKEN=%s\n" "$T" >> ~/.hermes/.env; chmod 600 ~/.hermes/.env'`
-and hands over the app id + his numeric user id. Agent then:
-`cd ~/.hermes/hermes-agent && VIRTUAL_ENV=$PWD/venv ~/.hermes/bin/uv pip install -e ".[messaging]"`
-(else the gateway lazy-installs `discord.py[voice]`), appends
-`DISCORD_ALLOWED_USERS=<id>` (numeric — no allowlist = everyone denied) to
-`.env` without printing it, sets top-level `unauthorized_dm_behavior: ignore`
-(default `pair` answers strangers with a pairing code), restarts. Defaults:
-`DISCORD_REQUIRE_MENTION=true` (DMs exempt), `DISCORD_AUTO_THREAD=true`,
-`DISCORD_ALLOW_BOTS=none`. Verify: journal `[discord] Connected as …`, no
-`PrivilegedIntentsRequired` / `token rejected` / `No Discord access policy`,
-a DM gets 👀 → ✅ + reply, a second account gets silence. Allowed users get
-full tool/terminal access — allowlist Oriol only. Source:
-`website/docs/user-guide/messaging/discord.md` in the tag.
-
-**Sign in with ChatGPT**: Hermes support is open PR #128926, not released;
-OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
-`shared/docs/openclaw.md` § Sign in with ChatGPT (not yet; device code stays).
-
-Both runtimes are watched by user timers `assistant-healthcheck@{openclaw,hermes}`
-→ healthchecks.io (service active + HTTP only — a dead model login stays
-green) — an outage during an update will page.
+Hermes Agent runs on the same three VMs and is the runtime going forward
+(Oriol, 2026-10-15). Its mechanics are the **`hermes` skill**
+(`skills/hermes/SKILL.md`); the estate page is hq `shared/docs/agents.md`.
 
 ## Pre-flight: a stranded Codex login (emmaclaw, since 2026-09-25)
 
