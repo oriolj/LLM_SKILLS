@@ -363,6 +363,13 @@ Read it in this order:
    btrfs subvolume as `/dev/dm-1[/@home]`, which no `-b` test matches
    (it now tests the part before `[`). A DEVICE GONE on a mount that
    `ls` reads fine is worth a second look before anything is unmounted.
+   **A second local disk and a moved Docker root are measured too** (since
+   2026-10-15: storage-1's 4.4 TB array on `/srv/data` and its Docker root
+   `/srv/data/docker` had gone unmeasured). A moved Docker root is not
+   covered by the default excludes, which name `/var/lib/docker`: that host
+   needs its own overlay2 `merged` and `shm` excludes, and a bind mount
+   that re-shows a folder of `/` (storage-1's TimescaleDB) is excluded as a
+   duplicate view.
    **Never run the whole script on a workstation to test it**: it walks
    the disk several times. Test the block you changed on its own.
    **Proxmox: each guest is a pulled machine of its own, the hypervisor
