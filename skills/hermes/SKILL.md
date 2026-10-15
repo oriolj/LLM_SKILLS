@@ -14,6 +14,18 @@ runtime state [`shared/docs/hermes.md`](/home/oriol/Syncthing/Syncthing-mobile-d
 per-box facts in `hq/docs/servers/<vm>.md`. This skill is the *mechanics*;
 update it the same turn a step behaves differently.
 
+## Official sources first (Oriol, 2026-10-15)
+
+When a mechanic is not in this skill, or behaves differently, **check the
+official Hermes docs before guessing or searching the web**:
+<https://hermes-agent.nousresearch.com/docs/> (skills:
+<https://hermes-agent.nousresearch.com/docs/user-guide/skills/>). The same
+docs ship in the installed tree, matching the running version:
+`~/.hermes/hermes-agent/website/docs/` on any claw (e.g. `user-guide/
+configuring-models.md`, `features/voice-mode.md`, `features/web-dashboard.md`,
+`guides/migrate-from-openclaw.md`), and the source is next to them. Third-party
+write-ups are often stale: v0.22 changed the updater, STT and dashboard auth.
+
 ## Access
 
 - One VM per scope on the home Proxmox host (`192.168.7.179`), LAN only.
@@ -190,6 +202,17 @@ OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
   `hermes config set model.default gpt-6.1-sol`; `agent.log` shows
   `model=gpt-6.1-sol provider=openai-codex`. Fallback left at
   `gpt-5.6-luna`.
+
+## Custom model providers (NaN as an option)
+
+`providers.<name>: {api: <OpenAI-compatible base URL>, key_env: VAR (or
+api_key: "${VAR}"), discover_models: false, models: {id: {context_length: N}}}`
+in `config.yaml`; the key goes in `~/.hermes/.env`. Use it per run with
+`hermes chat --provider <name> -m <model>` (also `custom:<name>`; `agent.log`
+shows `provider=custom`) or `/model <name>:<model>` in a chat; `model.default`
+is untouched. Ours: `nan` → `deepseek-v4-flash`, `glm5.3-flash` (2026-10-15,
+verified a plain turn and a tool call on pep). Skip models that call tools in
+XML (NaN's Qwen/Gemma).
 
 ## Speech-to-text (voice notes, audio) — NaN Whisper
 
