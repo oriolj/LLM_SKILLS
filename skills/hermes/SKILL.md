@@ -185,8 +185,8 @@ reliable source; web write-ups are third-party). Traps:
   (ids listed by `--help`; without `--execute` it is a dry run).
 - **Memory merges are truncated at the char caps**: the rest goes to
   `~/.hermes/migration/openclaw/<ts>/overflow/*.txt`, which the agent never
-  reads (the 2026-07-23 run spilled ~11 KB on petraclaw, mostly emmaclaw's
-  repeated daily reminders there). It also imports entries verbatim and
+  reads (the 2026-07-23 run spilled ~11 KB on petraclaw; on emmaclaw the
+  overflow was mostly one reminder repeated daily). It also imports entries verbatim and
   with duplicates (`2026-02-02: …` lines, the template's "Learn about the
   person…" prose, misspelt names such as "Petrah-inbox"). On 2026-10-15 we
   did NOT re-run it: we read every source (MEMORY, USER, IDENTITY, AGENTS,
