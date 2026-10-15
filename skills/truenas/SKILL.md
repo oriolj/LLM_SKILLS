@@ -491,6 +491,10 @@ those as `candidates:` in the registry and ask.
   That can be wanted (a year of daily database history) or not: put the
   number in front of Oriol with the exclude candidates, before the first
   copy (v5, 2026-10-12).
+  **Coolify's staged dumps are settled: skipped on every server**
+  (Oriol, 2026-10-15, "skip coolify backups"): `/data/coolify/backups/*`
+  is a default exclude in hq's registry, so it is not a question per
+  machine any more. The live database directory is still copied.
 - **Machine not measured yet, or an exclude question still open: a
   provisional cap below the size of the doubtful part.** The dataset can
   exist before the analysis (the host key scan is the reachability
