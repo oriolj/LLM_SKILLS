@@ -42,6 +42,9 @@ printf '%s\n' "From a Claude Code session for Oriol: <the message>" |
   the second send resumes the thread). Use a new thread name for a new topic.
 - `--source claude-code` (or `codex`) tags the session so Oriol can tell it apart.
 - The reply prints on stdout, then `session_id: …`. A turn can take minutes.
+- If what you send changes the agent's lasting instructions (memory, persona,
+  a skill), finish with the `hermes` skill's self-review step: a fresh one-shot
+  asking the agent to review those files read-only.
 - Never pass `--yolo`. If the agent should remember something durably, say so in
   the message and check the reply says where it saved it.
 - Where the dev machine has them, `hermes-pep` / `hermes-enzo` / `hermes-bruno`
