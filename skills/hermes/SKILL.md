@@ -149,7 +149,22 @@ OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
   systemd, that build blows the unit's default 90 s start timeout
   (`Type=notify`): systemd kills it, `Restart=always` restarts it, and the
   build starts over in a loop. Boot maintenance (config migration, skills
-  sync) then runs per revision on its own.
+  sync) then runs per revision on its own. The first run also moved Hermes
+  onto its own managed **Python 3.14** runtime (`hermes --version`).
+- **Once on v0.22.x, use the official updater**: gateway stopped, then
+  `hermes update --yes` in the foreground (pep, v0.22.1 → v0.22.2,
+  2026-10-15: own zip backup in `~/.hermes/backups/pre-update-*.zip`, Node +
+  TUI + web UI rebuilt, skills and config checked, "Update complete"), then
+  start the gateway. enzo and bruno went 0.21.5 → v0.22.2 directly with the
+  manual tag checkout above.
+- **`hermes update --check` is not read-only on v0.22**: it installed the
+  "default tools" `agent-browser` and `cua-driver` (opt out:
+  `hermes pm install --without <tool>`). `--plan` changed nothing.
+- Model switch to **`gpt-6.1-sol`** (2026-10-15, Oriol): test with
+  `hermes chat -Q --provider openai-codex -m gpt-6.1-sol -q "…"`, then
+  `hermes config set model.default gpt-6.1-sol`; `agent.log` shows
+  `model=gpt-6.1-sol provider=openai-codex`. Fallback left at
+  `gpt-5.6-luna`.
 
 ## Liveness and boot
 
