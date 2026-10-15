@@ -157,6 +157,31 @@ OpenClaw's beta exists since 9.7 — verdict and evaluation in hq
   TUI + web UI rebuilt, skills and config checked, "Update complete"), then
   start the gateway. enzo and bruno went 0.21.5 → v0.22.2 directly with the
   manual tag checkout above.
+- **The first v0.22 run rewrites `~/.local/bin/hermes`** into a 2-line sh
+  launcher (`exec ~/.hermes/hermes-agent/.hermes/bin/hermes "$@"`), replacing
+  our symlink. The NEXT `hermes` call in the SAME script then died with
+  `SyntaxError` (a Python trampoline `runpy`-ing the sh launcher), which
+  under `set -e` left enzo and bruno with the gateway stopped (2026-10-15).
+  The same command from a fresh ssh shell worked. So end the script after
+  the first-run call and continue in a new session, and always check
+  `systemctl --user is-active hermes-gateway` at the end.
+- **Messaging platforms need the `messaging` extra**: without it a pairing
+  QR prints "QR code unavailable … run: hermes pm install --extra
+  messaging". Install it (`hermes pm install --extra messaging`), then
+  restart the gateway. Installed on all three 2026-10-15.
+- After the v46 → v50 config migration enzo and bruno warn that platform
+  `homeassistant` references unknown toolset `hermes-homeassistant`: Home
+  Assistant moved to a catalog plugin in v0.22. Harmless while that platform
+  is unused; `hermes tools` reconfigures it.
+- **WhatsApp in Hermes is its own code**, not WAHA: a built-in Node bridge on
+  `@whiskeysockets/baileys` (`scripts/whatsapp-bridge/`, QR pairing as a
+  linked device, unofficial, ban risk, docs say use a dedicated number), or
+  `whatsapp_cloud.py` for Meta's official Cloud API (Business account + a
+  public webhook). Pairing a number WAHA already holds just adds a second
+  linked device.
+- **Web dashboard**: `hermes dashboard` (default `127.0.0.1:9119`; `--host`,
+  `--port`, `--no-open`); a non-loopback bind always requires an auth
+  provider (password or OAuth). Its Chat tab runs the real TUI over a pty.
 - **`hermes update --check` is not read-only on v0.22**: it installed the
   "default tools" `agent-browser` and `cua-driver` (opt out:
   `hermes pm install --without <tool>`). `--plan` changed nothing.
