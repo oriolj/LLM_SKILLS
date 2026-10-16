@@ -17,6 +17,7 @@ resolves from it.
 | `enacast.chat` | CDmon | **Cloudflare** (zone `78798ebd9e4d55ea03c5ac24e3d4537d`) | the Cloudflare API — see `cloudflare-deploy` |
 | `santjust.chat` | CDmon | **CDmon** | this API — one apex `A @ → 141.95.29.64` (EnaChat client custom domain, live 2026-08-25; apex cannot be a CNAME) |
 | `panotxa.com` | CDmon (personal acct `oriolj88`) | **Cloudflare** (moved 2026-08-31) | the Cloudflare API — CDmon-side records are inert leftovers. The move itself: Oriol disabled DNSSEC in the panel, agent RDAP-verified the DS was gone, then `/dns` with heidi/kyle.ns.cloudflare.com (explicit per-move authorization). Zero downtime because the CF zone mirrored every record first |
+| `panotxa.app` | CDmon (personal acct `oriolj88`) | **Cloudflare** (moved 2026-10-16, zone `19717ade76696a934680fbd84bbcf8b1`) | the Cloudflare API — the Panotxa landing's main domain. Agent did the whole move by API on Oriol's explicit per-domain authorization: `/dnssec disable` → DS gone at the .app registry in ~90 s → `/dns` heidi/kyle → zone `active` ~1 min later. Google Workspace mail records mirrored first. Cost: a ~1 h SERVFAIL window on resolvers holding the cached DS (see below) |
 
 `enacast.chat` was registered 2026-08-26 and is the product's main domain; its
 nameservers point at Cloudflare so the apex can serve Cloudflare Pages and so
@@ -59,6 +60,17 @@ publishes one per zone) and add it at the registrar — never leave the old one.
 
 Order that always works: **disable DNSSEC → change NS → re-enable with the new
 provider's DS.**
+
+⚠️ **`/dnssec disable` also stops CDmon signing the zone AT ONCE** (panotxa.app,
+2026-10-16): the registry dropped the DS ~90 s later, but validating resolvers
+that had cached the DS (1.1.1.1) answered `SERVFAIL` / EDE "failed to verify"
+for the domain straight away — already BEFORE the NS change — until the DS TTL
+ran out (up to ~1 h on .app). Mail to the domain is deferred (senders retry),
+not lost. Plan the disable outside busy hours for a domain that carries mail
+or traffic; changing the NS right after does not make it worse (both sides are
+unsigned). Check the DS at the TLD servers themselves
+(`dig DS <d> @<tld-ns> +norec`), not RDAP: rdap.org still showed the DS
+minutes after the registry had removed it.
 
 ⚠️ **Re-enabling with an EXTERNAL DS cannot be done through this API**
 (verified 2026-08-31, panotxa.com): the blueprint's `/sendDnsKey` route is
