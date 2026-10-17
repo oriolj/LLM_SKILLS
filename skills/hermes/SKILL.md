@@ -518,6 +518,15 @@ The order that worked, about 40 minutes of wall time:
    messaging`, `hermes gateway install --start-on-login --no-start-now`
    + the `10-private-memory.conf` (`UMask=0077`) drop-in, start it.
 6. The model login is Oriol's: `hermes auth add openai-codex --type oauth --no-browser`.
+7. **TTS on NaN kokoro, always** (Oriol, 2026-10-17: the default for every
+   new claw): `hermes config set` `tts.provider openai`,
+   `tts.openai.base_url https://api.nan.builders/v1`, `tts.openai.model
+   kokoro`, `tts.openai.voice <voice>` (one per agent: `em_alex`, `ef_dora`…)
+   and `tts.openai.api_key` from hq `homelab/secrets/nan.env` piped over ssh
+   (never `VOICE_TOOLS_OPENAI_KEY`). Test with `RT 'from tools.tts_tool import
+   text_to_speech_tool as t; print(t("…"))'`, read the MP3 back with NaN
+   Whisper, restart the gateway. The Catalan voice rule goes in its MEMORY.md
+   with the persona.
 
 ## Tailscale on the claws (2026-10-17)
 
