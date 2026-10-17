@@ -221,6 +221,40 @@ app actually collects.
 
 ## Known gotchas
 
+- **An Xcode update changes the SDK, and the iOS 27 SDK kills apps without
+  the UIScene lifecycle at launch** (Panotxa, 2026-10-17). Xcode 26.6 was
+  silently replaced by Xcode 27.1 (iOS 27.1 SDK) between two uploads; the
+  next build crashed in ~140 ms on every iOS 27 device:
+  `EXC_BREAKPOINT` in `_UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`
+  on the main thread, nothing of ours on the stack. Apple announced it at
+  WWDC25: built with the SDK after iOS 26, a UIKit app with no
+  `UIApplicationSceneManifest` does not launch. The same source built with
+  Xcode 26.6 ran fine on iOS 27. Capacitor ≤8.4 (its template is an
+  AppDelegate app) is affected; **Capacitor 8.5 ships `CAPSceneDelegateProxy`
+  and a `migrate-uiscene` task**: the long-term fix, but our own native code
+  (deep links, widgets, watch bridge, push) must move to the scene callbacks
+  too. Until then, archive with Xcode 26.x side by side
+  (`DEVELOPER_DIR=/Applications/Xcode_26.6.app/Contents/Developer`; Apple
+  accepts the previous SDK until its spring cutoff). Guards: the release lane
+  should print `xcodebuild -version` and the archive's `DTSDKName`, and refuse
+  an `iphoneos27*` SDK without a scene manifest; read `DTXcode` in a crash
+  report's build before blaming the code.
+- **Install the uploaded build on a real device before submitting it.** The
+  crash above was found by the developer after the build had already been
+  resubmitted to App Review (it was pulled with Cancel Submission → "Developer
+  Rejected", and the TestFlight build expired before beta review approved it).
+  Internal TestFlight testers get the build minutes after processing; one
+  launch on the newest iOS would have caught it. Pull device crash logs
+  without Organizer: `xcrun devicectl device info files --device <UDID>
+  --domain-type systemCrashLogs` then `… device copy from --source
+  Retired/App-<date>.ips` (fresh crashes land in `Retired/` once read).
+- **`error: exportArchive Failed to Use Accounts` (exit 70) at the upload
+  step** = Xcode's signed-in Apple ID lost its App Store Connect session
+  (`IDEDistribution.verbose.log`: "Failed to find an account with App Store
+  Connect access for team …"). Not the agent sandbox: it failed the same from
+  the user's terminal. Fix: Xcode → Settings → Accounts → sign in again, re-run;
+  an ASC API key avoids it.
+
 - **Plugin proxies are thenables — never resolve a promise with one**
   (Panotxa, 2026-10-01). A `registerPlugin()` object is a `Proxy` that
   answers *every* property with a native-method stub, `then` included. So
