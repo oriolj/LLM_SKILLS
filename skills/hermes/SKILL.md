@@ -527,6 +527,20 @@ The order that worked, about 40 minutes of wall time:
    text_to_speech_tool as t; print(t("…"))'`, read the MP3 back with NaN
    Whisper, restart the gateway. The Catalan voice rule goes in its MEMORY.md
    with the persona.
+8. **STT on NaN Whisper, always** (Oriol, 2026-10-17, default for every new
+   claw): system `ffmpeg` (apt; `nan-stt` calls it from PATH, Hermes's own
+   copy is not on it: FileNotFoundError otherwise), `~/.local/libexec/nan-stt`
+   (0755, from hq `homelab/tools/nan-stt.py`), `~/.config/nan/stt.env`
+   (`NAN_API_KEY=`, 0600, piped from hq `nan.env`), a names-only
+   `~/.config/nan/stt-vocabulary.txt` (hq `homelab/tools/nan-stt-vocabulary/<agent>.txt`),
+   `hermes pm install --extra stt-whisper`, then `hermes config set
+   stt.enabled true`, `stt.provider nan`, `stt.local.model tiny`,
+   `stt.language ""` (a fresh config ships `"en"`), and with **`--force`**
+   (the CLI rejects nested custom keys otherwise) `stt.providers.nan.type
+   command`, `.command "/home/oriol/.local/libexec/nan-stt {input_path} {output_path}"`,
+   `.format txt`, `.timeout 1800`. Test: `RT 'from tools.transcription_tools
+   import transcribe_audio as t; print(t("<the TTS clip>"))'` → `provider: nan`
+   and the text. Restart the gateway.
 
 ## Tailscale on the claws (2026-10-17)
 
