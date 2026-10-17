@@ -21,7 +21,11 @@ Three Hermes agents, one per scope, each in an LXC container on the home LAN
   agent when the scope is not obvious; never guess.
 - **Accounts follow the scope**: never send one scope's data to another scope's
   agent (no personal health to Enzo, no EnaCast books to Bruno).
-- **No secrets** (keys, tokens, passwords) in a message or a file.
+- **No secrets** (keys, tokens, passwords) in a message or a file you send.
+  Giving an agent a credential is a separate install, never a send: stream the
+  one key it needs over ssh into `~/.config/<tool>/agent.env` (`umask 077`,
+  no overwrite), give it a wrapper in `~/.local/bin/` that reads the key as data,
+  and tell it only the path and the command. Its skill says what the key may do.
 - LAN only: `ssh pep` works from the dev machines at home. If it fails
   (away, box down), say so and stop; no workarounds.
 - Quote the agent's reply back to Oriol. The agent may act on what you send
