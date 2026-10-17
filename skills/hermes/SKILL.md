@@ -352,6 +352,19 @@ wording forbidding Hermes's own tiny fallback, identity duplicated between
 MEMORY and SOUL, and SOUL's stock "these files are your memory" ignoring the
 Mnemosyne provider.
 
+## Unattended runs refuse flagged commands (one-shot, `-q`, cron)
+
+With no user present to approve, Hermes BLOCKS every terminal command its
+approval detector flags (`tools/approval_detection.py`): `rm -r` ("recursive
+delete"), a script run through a heredoc, and `execute_code` itself. The agent
+then reports "blocked" and does nothing (Bruno, 2026-10-17: a skill's setup
+block ended in `rm -r "$T"`). Skill code blocks the agent must run alone avoid
+those forms: temp files from `mktemp`, removed with `trap 'rm -f …; rmdir …' EXIT`,
+and say "run as one plain bash command". Check each block before installing:
+`RT 'from tools.approval_detection import detect_dangerous_command as d; print(d(open("/abs/block.sh").read()))'`
+→ `(False, None, None)`. Blocked attempts show in `~/.hermes/logs/agent.log` as
+`BLOCKED: Command flagged as dangerous (<reason>)`.
+
 ## Liveness and boot
 
 - User timer `assistant-healthcheck@hermes.timer` runs
