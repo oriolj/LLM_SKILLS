@@ -383,7 +383,9 @@ Mnemosyne provider.
   (`ENTRY_DELIMITER` in `tools/memory_tool_store.py`). Persona is
   `~/.hermes/SOUL.md`.
 - `memory.write_approval: true` on our boxes gates only the agent's own
-  memory tool: editing the files directly is not blocked, and it is safe while
+  memory tool (on bruno, 2026-10-17, the approval step itself failed with
+  "Unknown Mnemosyne tool" and nothing was saved: when an agent reports that,
+  add the entry to `MEMORY.md` by hand after the scan below): editing the files directly is not blocked, and it is safe while
   the gateway runs, because every tool write rereads the file under a `.lock`
   and refuses on drift.
 - Every entry passes `_scan_memory_content` (injection/exfil patterns) at
