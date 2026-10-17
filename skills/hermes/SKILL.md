@@ -267,6 +267,18 @@ hq `shared/docs/agents.md` § Voice notes and audio. Mechanics:
   account gets silence. Allowed users get full tool/terminal access:
   allowlist Oriol only. Source: `website/docs/user-guide/messaging/discord.md`.
 
+## MCP servers (remote, OAuth)
+
+`hermes mcp catalog` lists Nous-approved entries (manifests under the install tree,
+e.g. `sentry` → `https://mcp.sentry.dev/mcp`, `auth: oauth`); `hermes mcp install <name>`
+writes the entry. From a non-interactive ssh the install's tool probe fails ("MCP OAuth …
+non-interactive environment and no cached tokens") but the entry IS saved, enabled, with no
+tool filter. The owner then runs `hermes-<agent> mcp login <name>` (prints the authorization
+link; over ssh it explains the callback / paste-the-redirect step) or uses the dashboard's
+Authorize. After login: `hermes mcp configure <name>` to drop write tools (the agent acts with
+the authorizing user's permissions), and a NEW session to load the tools (`/reload-mcp` in a
+running one). Verified on bruno 2026-10-17 (install + saved entry; login pending).
+
 ## From a dev machine: CLI wrappers and Hermes Desktop
 
 Setup: hq `homelab/ansible/roles/development/tasks/hermes-desktop.yml`, run
