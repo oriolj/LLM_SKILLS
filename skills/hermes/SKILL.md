@@ -25,11 +25,12 @@ and dashboard auth).
 
 ## Access
 
-- Three Ubuntu LXC containers on the home Proxmox host (`192.168.7.179`),
+- Ubuntu LXC containers on the home Proxmox host (`192.168.7.179`),
   one per scope: CT 100 **pep** (personal), CT 102 **enzo** (Enantena/EnaCast),
-  CT 101 **bruno** (SmartupSoft/BikeCRM). LAN only; `ssh oriol@<box>` by name
-  from the workstations. Each box holds only its scope's keys; never copy a
-  token between them.
+  CT 101 **bruno** (SmartupSoft/BikeCRM), plus CT 103 **patri** (Panotxa,
+  shared with Anna, 2026-10-17). `ssh oriol@<box>` by name from the
+  workstations; each also joins a tailnet (below). Each box holds only its
+  scope's (or project's) keys; never copy a token between them.
 - Hermes is installed **per user (`oriol`)**. As root `hermes` is "command
   not found", and running it as root would start an empty `/root/.hermes`:
   always `ssh oriol@<box>` (or `su - oriol`). Non-interactive ssh does not
@@ -488,6 +489,48 @@ and say "run as one plain bash command". Check each block before installing:
   empty and set it by hand.
 - `hermes claw cleanup` renames `~/.openclaw` to `.openclaw.pre-migration`
   (undoable). Run it only once nothing is left to recover from OpenClaw.
+
+## A new claw container (patri, 2026-10-17)
+
+The order that worked, about 40 minutes of wall time:
+
+1. Host: `pveam update && pveam download local ubuntu-26.04-standard_26.04-1_amd64.tar.zst`;
+   `pct create <ct> local:vztmpl/… --hostname <box> --cores 2 --memory 4096
+   --swap 2048 --rootfs local-lvm:64 --unprivileged 1 --features nesting=1
+   --net0 name=eth0,bridge=vmbr0,firewall=1,ip=dhcp --ostype ubuntu --onboot 1
+   --tags claw-agent --timezone UTC --ssh-public-keys <roster.pub>`
+   (the roster = `shared/ansible/roles/baseline/files/authorized_keys/*.pub`),
+   then `pct set <ct> --dev0 /dev/net/tun` + a restart for Tailscale (below;
+   passing `--dev0` at create time was not tried).
+   Note the ed25519 host-key fingerprint it prints: the NAS pull compares it.
+2. UniFi reservation + local DNS record + `static-dns` `<box>.localdomain`
+   (`unifi` skill), `ssh` hosts.conf `Host … <box>`, both inventories.
+3. As root: user `oriol` (uid 1000, **no sudo** when someone other than Oriol
+   will talk to the agent), copy the keys, `loginctl enable-linger oriol`,
+   `Prompt=lts`, mask `netplan-configure.service`, full-upgrade.
+4. As oriol, Hermes: `curl -fsSL https://hermes-agent.nousresearch.com/install.sh`
+   to a file, run it in tmux with `--branch release/X.Y.Z --commit vX.Y.Z
+   --non-interactive`; wait on `tmux has-session`, not on a string in the
+   `script` log (its header echoes the command line). ~1.3 GB in `~/.hermes`.
+   `cua-driver` failed to install there and nothing needs it.
+5. `hermes config set` model / provider / base_url, `memory.write_approval
+   false`, the `fallback_providers` block, `hermes pm install --extra
+   messaging`, `hermes gateway install --start-on-login --no-start-now`
+   + the `10-private-memory.conf` (`UMask=0077`) drop-in, start it.
+6. The model login is Oriol's: `hermes auth add openai-codex --type oauth --no-browser`.
+
+## Tailscale on the claws (2026-10-17)
+
+An unprivileged LXC container has no `/dev/net/tun`: `pct set <ct> --dev0
+/dev/net/tun` (PVE 9.1) and **`pct reboot <ct>`** (it does not hot-plug;
+~20 s of agent downtime, the gateway comes back by itself). Then the
+`pkgs.tailscale.com` repo for the Ubuntu codename, `systemctl enable --now
+tailscaled`, ufw `allow 41641/udp`, and
+`nohup tailscale up --hostname=<box> --accept-routes=false &` (the boxes sit
+on the LAN that minisforum advertises; accepting it breaks LAN replies). The
+login URL is in `tailscale status --json` → `AuthURL`; it is Oriol's to open
+in the right account (pep/patri personal, enzo/bruno EnaCast). Check
+`active_agents` in `~/.hermes/gateway_state.json` is 0 before the reboot.
 
 ## OS upgrades of the claw containers (runbook, first run pep 2026-10-15)
 
