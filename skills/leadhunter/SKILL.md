@@ -65,11 +65,12 @@ Delete `$HDR` when the session ends.
 
 **Organization** groups **projects**; the project is the data tenant
 (since 2026-09-28). Today: `enacast` → `enacast`; `smartupsoft` →
-`bikecrm`, `petcrm`, `motorcrm`, `fichachat`. Every endpoint takes
-`?project=<slug-or-uuid>`. An unknown project, or one the agent is not
-a member of, gives **400** on accounts and messages, an **empty page** on
-`GET /api/campaigns/?project=`, and **zeros** on the dashboard stats (no
-error). Organizations list only member projects.
+`bikecrm`, `petcrm`, `motorcrm`, `fichachat`. Project-scoped lists take
+`?project=<slug-or-uuid>`; detail endpoints use object ids; a `project`
+**field in a write body** may want the **UUID** (a slug is a 400 on
+`POST /api/saved-filters/`, seen 2026-10-17): use the id from `/api/projects/`. An unknown project, or one the agent is not
+a member of, gives **400** on accounts, messages and campaigns (re-checked
+2026-10-17), and **zeros** on the dashboard stats (no error). Organizations list only member projects.
 
 ## Reading
 
@@ -468,7 +469,7 @@ Four sections, each `{count, results}` with the exact count and the top N:
 - `due_steps` (20; + `overdue` / `today` / `tomorrow` counts) — open next
   steps due on or before tomorrow, in the `/api/next-steps/` row shape.
   `scope=mine` = assigned to the token's user — for an agent token that
-  is usually Oriol; use `team` to see everyone's.
+  is the agent's own user, not Oriol; use `team` to see everyone's.
 - `replies_waiting` (20, newest first) — accounts whose latest sent
   inbound message has no sent outbound at or after it (drafts don't
   count), not archived, not `do_not_contact`. Team-wide. Heuristic: an
