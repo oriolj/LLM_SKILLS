@@ -395,12 +395,16 @@ and say "run as one plain bash command". Check each block before installing:
   boxes) and `USER.md` (`user_char_limit`, 1375), entries joined by `"\n§\n"`
   (`ENTRY_DELIMITER` in `tools/memory_tool_store.py`). Persona is
   `~/.hermes/SOUL.md`.
-- `memory.write_approval: true` on our boxes gates only the agent's own
-  memory tool (on bruno, 2026-10-17, the approval step itself failed with
-  "Unknown Mnemosyne tool" and nothing was saved: when an agent reports that,
-  add the entry to `MEMORY.md` by hand after the scan below): editing the files directly is not blocked, and it is safe while
-  the gateway runs, because every tool write rereads the file under a `.lock`
-  and refuses on drift.
+- **`memory.write_approval: false` on every claw, and on every new one**
+  (Oriol, 2026-10-17: "memory write approval should be off"). With `true`
+  the agent's own memory tool waits for an approval, and on bruno
+  (2026-10-17) the approval step itself failed with "Unknown Mnemosyne tool",
+  so nothing was saved. Set it with `hermes config set memory.write_approval
+  false`, restart `hermes-gateway`, check with `hermes config get
+  memory.write_approval`. The setting gates only the memory tool: editing
+  the files directly is always possible, and safe while the gateway runs,
+  because every tool write rereads the file under a `.lock` and refuses on
+  drift. The injection scan below still runs on every write.
 - Every entry passes `_scan_memory_content` (injection/exfil patterns) at
   write AND at load; a flagged entry is dropped from the prompt with a
   warning. Scan curated text before installing it:
