@@ -1,9 +1,9 @@
 ---
 name: whatsapp-waha
-description: Send and read WhatsApp messages from Oriol's own account through the local WAHA instance (WhatsApp HTTP API, WEBJS engine — headless WhatsApp Web holding one Linked-devices slot) on minisforum-um880, and transcribe voice notes locally. Use when Oriol asks to "send X a WhatsApp", "remind X on WhatsApp", "tell X that…", "what did X say", "read my WhatsApp with X", "transcribe the audio X sent me", "is X on WhatsApp", or mentions WAHA, whatsapp-web.js, the WhatsApp API, the pairing QR, or Pep/Enzo/Bruno writing on WhatsApp. Covers the signing rule (to the team: Pep on the personal session, Bruno on bikecrm; to anyone outside the team: as Oriol or Enric, only with a text Oriol approved), the send-only-when-asked and confirm-the-recipient rules, the bundled `scripts/wa.py` client (status, qr, find, chats, read, send with a persona guard and a dry run, media, transcribe via oj-transcribe), the API surface learned from the live Swagger (auth, chat-id formats, messages, media download, sessions, the built-in MCP endpoint), ban-risk limits of an unofficial client, and the install/firewall facts.
+description: Send and read WhatsApp messages from Oriol's own account through WAHA (WhatsApp HTTP API, WEBJS engine — headless WhatsApp Web holding one Linked-devices slot), one instance per account on the claw box of its scope (personal on pep, bikecrm on bruno), and transcribe voice notes locally. Use when Oriol asks to "send X a WhatsApp", "remind X on WhatsApp", "tell X that…", "what did X say", "read my WhatsApp with X", "transcribe the audio X sent me", "is X on WhatsApp", or mentions WAHA, whatsapp-web.js, the WhatsApp API, the pairing QR, or Pep/Enzo/Bruno writing on WhatsApp. Covers the signing rule (to the team: Pep on the personal session, Bruno on bikecrm; to anyone outside the team: as Oriol or Enric, only with a text Oriol approved), the send-only-when-asked and confirm-the-recipient rules, the bundled `scripts/wa.py` client (status, qr, find, chats, read, send with a persona guard and a dry run, media, transcribe via oj-transcribe), the API surface learned from the live Swagger (auth, chat-id formats, messages, media download, sessions, the built-in MCP endpoint), ban-risk limits of an unofficial client, and the install/firewall facts.
 ---
 
-# WhatsApp via the local WAHA (sessions personal + bikecrm)
+# WhatsApp via WAHA (personal on pep, bikecrm on bruno)
 
 Oriol's own WhatsApp number, driven by an agent. Unofficial (WhatsApp Web
 automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
@@ -15,8 +15,8 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
      assistant signs by session. On `personal` it is Pep, e.g. Catalan
      `Hola Anna! Sóc en Pep, l'assistent d'IA de l'Oriol. …`. On `bikecrm`
      it is Bruno. Enzo is the EnaCast assistant. Always pass
-     `WAHA_SESSION=personal|bikecrm`: with two WORKING sessions, wa.py
-     refuses to guess.
+     `WAHA_SESSION=personal|bikecrm`: it picks the instance (box, URL and
+     key), and with two session files wa.py refuses to guess.
    - **To anyone outside the team (customers, leads, suppliers):** write as
      **Oriol** (default) or **Enric** (when Oriol says so). No AI, no Pep
      or Bruno: these are messages the two of them validate word for word
@@ -91,21 +91,43 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
 
 ## Where it runs
 
+**One WAHA per WhatsApp account, on the claw box of its scope** (Oriol,
+2026-10-18: "one waha for each account on their correct hosts"; until then
+one WAHA on minisforum ran both). A box holds only its own scope's login and
+key; a new account gets its own instance on its own scope's box, never a
+session in another scope's WAHA.
+
+| | `personal` (Oriol's number, Pep) | `bikecrm` (BikeCRM support, Bruno) |
+|---|---|---|
+| Host | pep (CT 100, LAN `192.168.7.73`) | bruno (CT 101, LAN `192.168.7.187`) |
+| URL | `http://pep:3010` | `http://bruno:3010` |
+
 | | |
 |---|---|
-| Host | minisforum-um880 (Oriol's desktop), docker compose in hq `homelab/whatsapp/` ([README](../../../../../Syncthing/Syncthing-mobile-docs/hq/homelab/whatsapp/README.md)) |
-| URL | `http://localhost:3010` on the box, `http://minisforum-um880:3010` on the tailnet (only xps13wc, fw13, fw13pro, x1yogag9 and internal-1/Gatus once the ufw DOCKER-USER play is applied) |
-| Dashboard / Swagger | `/dashboard` (user `oriol`, `WAHA_DASHBOARD_PASSWORD`; the dashboard also needs the API key in its server entry) · Swagger UI at `/`, raw spec at `/-json` (basic auth `WHATSAPP_SWAGGER_*`) |
-| Secrets | `~/.config/waha/env` on minisforum ONLY: `WAHA_API_KEY`, dashboard + swagger user/password. Never print them; parse with grep/cut |
-| State | `~/.local/share/waha/sessions` (the linked login — whoever holds it IS the account; not synced, not in git), `media/`, `downloads/`, `sent.jsonl` (wa.py send log) |
-| Version | WAHA Core `2026.9.2` (upgraded 2026-10-10: `docker compose pull && up -d` in hq `homelab/whatsapp`, ~30 s, logins survive — `bikecrm` came back WORKING without a QR; check newer with Docker Hub tags `latest-<ver>`), engine WEBJS (Chromium + [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js)), image `devlikeapro/waha:latest` |
+| Source | hq `homelab/whatsapp/` ([README](../../../../../Syncthing/Syncthing-mobile-docs/hq/homelab/whatsapp/README.md)): one `docker-compose.yml`, `hosts/<box>.env`, `deploy.sh` (`make deploy HOST=<box>` copies to `/srv/waha/` on the box, writes the firewall block, `compose up`) |
+| On the box | `/srv/waha/` as root: `env` (secrets), `sessions/webjs/<session>/` (the linked login — whoever holds it IS the account; not synced, not in git), `media/`. Docker is root-only there on purpose (the Hermes agent runs as `oriol`; the docker group would be root for it) |
+| Who reaches 3010 | `127.0.0.1` on the box, and on the LAN IP only minisforum `192.168.7.48` (also the tailnet subnet router, SNAT: tailnet peers with accept-routes arrive as `.48`) and fw13pro `192.168.7.20`, via a DOCKER-USER block in ufw `after.rules` |
+| Dashboard / Swagger | `http://<box>:3010/dashboard` (user `oriol`, `WAHA_DASHBOARD_PASSWORD`; the dashboard also needs the API key in its server entry) · Swagger UI at `/`, raw spec at `/-json` (basic auth `WHATSAPP_SWAGGER_*`) |
+| Secrets | `/srv/waha/env` on each box (one key per box), copied by `deploy.sh` to `~/.config/waha/<session>.env` on minisforum with `WAHA_URL`. Never print them; parse with grep/cut |
+| Local state on minisforum | `~/.local/share/waha/`: `downloads/`, `scheduled/`, `sent.jsonl` (wa.py send log) |
+| Version | WAHA Core `2026.9.2`, image `devlikeapro/waha:latest-<ver>` pinned in `hosts/<box>.env`; upgrade = bump the tag, `make upgrade HOST=<box>` (~30 s, logins survive: verified 2026-10-10 on minisforum). Engine WEBJS (Chromium + [whatsapp-web.js](https://github.com/wwebjs/whatsapp-web.js)), ~1.2-1.3 GB RAM per instance with one session |
 
-From another machine, the script needs `WAHA_URL=http://minisforum-um880:3010`
-and `WAHA_API_KEY` in the environment (the key file is not on the laptops).
+From a laptop, copy the session file from minisforum or export `WAHA_URL`
+and `WAHA_API_KEY`; the laptop must be on the LAN as fw13pro, or on the
+tailnet with accept-routes (arrives as minisforum).
+
+**Moving a session between instances** (done 2026-10-18, no QR needed):
+`POST /api/sessions/<s>/stop` on the old one (NEVER `logout` or `DELETE`:
+both unlink the device, and the copy runs on that same login); copy
+`sessions/webjs/<s>/` (tar over ssh, as root: the files are root's); on the
+new instance `POST /api/sessions/<s>/start` (it finds the session by its
+directory; `waha.sqlite3` is only a cache, do not copy it); verify WORKING,
+`me`, a read and a send; then remove the old container's copy. Never two
+instances on one login at the same time.
 
 ## The client: `scripts/wa.py`
 
-Stdlib Python, key from `$WAHA_API_KEY` or `~/.config/waha/env`.
+Stdlib Python. `WAHA_SESSION=personal|bikecrm` reads `WAHA_URL` + `WAHA_API_KEY` from `~/.config/waha/<session>.env`; with one such file it may be left unset; the env vars override the file.
 
 ```sh
 W=~/git/oriolj/LLM_SKILLS/skills/whatsapp-waha/scripts/wa.py
@@ -206,21 +228,31 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
      next to WAHA, with `selfChatMode` and `dmPolicy: allowlist`. It works,
      but two unofficial clients on one number doubles the ban exposure. Every
      inbound chat also reaches the agent unless the allowlist is tight.
-  3. **Outbound only through WAHA**: give petraclaw `wa.py` and the key.
-     Petraclaw must first join the DOCKER-USER tailnet allow-list, and the key
-     rotation touches one more place. There is no inbound path until WAHA
-     webhooks are wired.
+  3. **Outbound only through WAHA**: give the claw `wa.py` and the key of
+     the WAHA on its own box (since 2026-10-18 the instance runs next to the
+     agent, `http://localhost:3010`, so no firewall change is needed). The
+     key rotation touches one more place. There is no inbound path until
+     WAHA webhooks are wired. Not done for any agent yet: Oriol's call.
 
 ## Monitoring and restarts
 
 - Gatus group `whatsapp-waha` on status.enacast.com probes
-  `/api/sessions/personal` every 5 min from internal-1 and pages after ~15 min
-  of not `WORKING` (container down, minisforum off, phone unlinked). An alert
-  = check `wa.py status`, then `docker logs waha`, then re-link.
+  `/api/sessions/personal` (pep) and `/api/sessions/bikecrm` (bruno) every
+  5 min from internal-1 and pages after ~15 min of not `WORKING` (container
+  or box down, phone unlinked). internal-1 does not accept minisforum's LAN
+  route, so it probes through a Caddy status relay on minisforum's tailnet
+  IP (`100.102.47.34:3010`, only those two paths; hq `homelab/whatsapp/relay/`):
+  minisforum off also turns both red. An alert = `WAHA_SESSION=<s> wa.py
+  status`, then `ssh root@<box> docker logs waha`, then re-link.
 - Reboots are safe: docker enabled at boot, `restart: unless-stopped`, the
-  session resumes by itself in ~10 s without a QR (tested 2026-09-26).
-- Rotating `WAHA_API_KEY` touches three places — see hq
+  session resumes by itself in ~10 s without a QR (tested 2026-09-26 on
+  minisforum; not yet by a reboot of a claw).
+- Rotating a box's `WAHA_API_KEY` touches four places — see hq
   `homelab/whatsapp/CLAUDE.md`.
+- **DOCKER-USER rules need `--ctdir ORIGINAL`** (2026-10-18): a rule matching
+  `--ctorigdst <ip> --ctorigdstport 3010` also matches the container's reply
+  packets (same conntrack entry), so the catch-all DROP dropped every reply
+  and allowed clients timed out.
 
 ## Troubleshooting
 
@@ -249,5 +281,5 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
 ## Keep this current
 
 Verified facts first recorded 2026-09-26 (install, auth, spec, QR, dry-run
-guard). Linked 2026-09-26 (session `personal`, WORKING). Second session `bikecrm` linked 2026-09-28 by relaying the QR image to Enric over WhatsApp (each QR is re-fetched right after `POST /api/sessions/bikecrm/restart` so it has the ~60 s first-code life); send and receive between the two sessions verified the same minute (`wa.py read` on each side shows the other's message). Verified the same day: `wa.py chats` lists the account's chats. First real send verified 2026-09-26 (`wa.py send` to Oriol's own number; the returned id was `true_<n>@lid_<hex>_out` — WhatsApp answered with the chat's `@lid`, not the `@c.us` we sent to). First media send verified 2026-09-27 (an mp4 as a document to Oriol's own number, see API facts). Not yet verified: media download and transcription on
+guard). Linked 2026-09-26 (session `personal`, WORKING). Second session `bikecrm` linked 2026-09-28 by relaying the QR image to Enric over WhatsApp (each QR is re-fetched right after `POST /api/sessions/bikecrm/restart` so it has the ~60 s first-code life); send and receive between the two sessions verified the same minute (`wa.py read` on each side shows the other's message). Verified the same day: `wa.py chats` lists the account's chats. First real send verified 2026-09-26 (`wa.py send` to Oriol's own number; the returned id was `true_<n>@lid_<hex>_out` — WhatsApp answered with the chat's `@lid`, not the `@c.us` we sent to). First media send verified 2026-09-27 (an mp4 as a document to Oriol's own number, see API facts). Moved 2026-10-18 to one instance per account (`personal` → pep, `bikecrm` → bruno) by stop + directory copy + start: both came back WORKING without a QR, and a send to each number's own chat went through. Not yet verified: media download and transcription on
 a live linked account — record the first successful run of each here.

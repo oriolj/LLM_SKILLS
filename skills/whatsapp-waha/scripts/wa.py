@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """wa.py — agent CLI for a local WAHA (WhatsApp HTTP API) instance.
 
-Stdlib only. Reads the key from $WAHA_API_KEY or ~/.config/waha/env and the
-base URL from $WAHA_URL (default http://localhost:3010).
+Stdlib only. One WAHA per WhatsApp account since 2026-10-18 (session personal
+on pep, bikecrm on bruno), so the session picks the instance: WAHA_SESSION=<s>
+reads WAHA_URL + WAHA_API_KEY from ~/.config/waha/<s>.env (written by hq
+homelab/whatsapp/deploy.sh). With exactly one such file, WAHA_SESSION may be
+left unset. $WAHA_URL / $WAHA_API_KEY in the environment override the file.
 
   wa.py status                         session state + linked account
   wa.py qr [--out FILE]                save the pairing QR (PNG)
@@ -23,8 +26,21 @@ import argparse, base64, json, os, re, shutil, subprocess, sys, time, unicodedat
 import urllib.error, urllib.parse, urllib.request
 from pathlib import Path
 
-URL = os.environ.get("WAHA_URL", "http://localhost:3010").rstrip("/")
-SESSION = os.environ.get("WAHA_SESSION")  # unset = the one WORKING session (Oriol's is "personal")
+CONF = Path.home() / ".config/waha"
+SESSION = os.environ.get("WAHA_SESSION")
+if not SESSION and len(_files := sorted(CONF.glob("*.env"))) == 1:
+    SESSION = _files[0].stem
+
+
+def _session_conf(session):
+    f = CONF / f"{session}.env"
+    if not session or not f.exists():
+        return {}
+    return dict(line.split("=", 1) for line in f.read_text().splitlines() if "=" in line and not line.startswith("#"))
+
+
+CFG = _session_conf(SESSION)
+URL = (os.environ.get("WAHA_URL") or CFG.get("WAHA_URL") or "http://localhost:3010").strip().rstrip("/")
 DATA = Path.home() / ".local/share/waha"
 SENT_LOG = DATA / "sent.jsonl"
 PERSONAS = {"pep": "Pep", "enzo": "Enzo", "bruno": "Bruno", "oriol": "Oriol", "enric": "Enric"}  # Pep/Enzo/Bruno were Petra/Emma/Blake until 2026-10-15
@@ -36,15 +52,10 @@ SESSION_PERSONA = {"bikecrm": "bruno"}
 
 
 def api_key():
-    k = os.environ.get("WAHA_API_KEY")
+    k = os.environ.get("WAHA_API_KEY") or CFG.get("WAHA_API_KEY", "").strip()
     if k:
         return k
-    env = Path.home() / ".config/waha/env"
-    if env.exists():
-        for line in env.read_text().splitlines():
-            if line.startswith("WAHA_API_KEY="):
-                return line.split("=", 1)[1].strip()
-    sys.exit("no WAHA_API_KEY (env var or ~/.config/waha/env)")
+    sys.exit(f"no WAHA_API_KEY: set WAHA_SESSION=personal|bikecrm (reads {CONF}/<session>.env) or export WAHA_URL + WAHA_API_KEY")
 
 
 def call(method, path, params=None, body=None, raw=False, accept="application/json"):
