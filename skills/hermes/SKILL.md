@@ -268,6 +268,48 @@ hq `shared/docs/agents.md` § Voice notes and audio. Mechanics:
   account gets silence. Allowed users get full tool/terminal access:
   allowlist Oriol only. Source: `website/docs/user-guide/messaging/discord.md`.
 
+## A2A: agents calling each other (bundled plugin, v0.22)
+
+Hermes ships an A2A (Agent2Agent v1.0) plugin, `plugins/platforms/a2a/`,
+doc `website/docs/user-guide/messaging/a2a.md`. Inbound: Agent Card at
+`/.well-known/agent-card.json`, JSON-RPC at `POST /`; the task runs in the
+LIVE gateway session (same memory and tools) and the reply is the result.
+Outbound: toolset `a2a` (`a2a_call`, `a2a_discover`, `a2a_list`,
+`a2a_history`, `a2a_orchestrate`), peers in `config.yaml` `a2a_agents`.
+Set up on the claws 2026-10-18 (hq `shared/docs/agents.md` § A2A). Mechanics
+learned:
+
+- **Inbound turns on with `A2A_PORT` in `~/.hermes/.env`** (the plugin's
+  `is_connected` reads it); our config keeps platforms at top-level
+  `platforms:`, not the doc's `gateway.platforms`, so no YAML edit is needed.
+- **The env is read once at gateway start**, and the order is enforced:
+  `A2A_HOST` is ignored (localhost bind, warning) unless `A2A_PEER_TOKENS`
+  or `A2A_BEARER_TOKEN` is set, and a non-loopback bind with no
+  `A2A_TRUSTED_PEERS` serves but 403s every task. Write all of `A2A_PORT`,
+  `A2A_HOST=<LAN IP>`, `A2A_AGENT_NAME`, `A2A_PUBLIC_URL`,
+  `A2A_PEER_TOKENS=name:tok,…`, `A2A_TRUSTED_PEERS=name,…`, then restart
+  once. Proof: `agent.log` `A2A: serving … (REMOTE (bearer auth)) as '<name>'`
+  and `ss -ltn | grep 9900`. Some boxes already had a stray
+  `A2A_AGENT_NAME` line: check `grep ^A2A_ .env` before appending.
+- **Caller tokens**: `auth: {type: bearer, token: "${A2A_TOKEN_TO_X}"}` in
+  `a2a_agents` works: `load_config` expands `${VAR}` from `.env`. Writing
+  that block from a shell: `$(…)` strips trailing newlines, so concatenated
+  peer blocks fused lines and broke `config.yaml` (pep, 2026-10-18, restored
+  from the backup at once). Write the block from a file and parse
+  `config.yaml` with `yaml.safe_load` right after.
+- **Outbound is per platform**: `hermes tools enable a2a --platform <cli|telegram|slack>`.
+  Never `--platform a2a` unless you want an inbound task to call further
+  peers (chaining with no person in the loop).
+- Hermes runs on the host: plain ufw rules (`allow from <caller IP> to any
+  port 9900`) restrict who connects. Test: card readable, wrong token 401,
+  right token 200 (`GetTask` with a bogus id is a harmless probe), a
+  non-caller times out; then one `a2a_call` per edge.
+- Security built in: per-peer identity from the token, untrusted-peer
+  framing and prompt-injection filtering, credential-shaped strings scrubbed
+  from replies, audit `~/.hermes/a2a_audit.jsonl`, anti-loop
+  `A2A_MAX_PINGPONG_TURNS` (5). It does NOT know scopes: the "a peer is not
+  Oriol" rule lives in each agent's SOUL.md § Boundaries.
+
 ## MCP servers (remote, OAuth)
 
 `hermes mcp catalog` lists Nous-approved entries (manifests under the install tree,

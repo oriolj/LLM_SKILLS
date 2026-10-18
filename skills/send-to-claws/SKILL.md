@@ -16,6 +16,12 @@ Four Hermes agents, one per scope plus Patri for Panotxa, each in an LXC contain
 | **Bruno** | `bruno` | SmartupSoft / BikeCRM: bike shops, BikeCRM customers, billing, support |
 | **Patri** | `patri` | Panotxa only, shared with Anna (nutritionist): **nothing of Oriol's private life**, since Anna has the same access to the agent |
 
+The agents can also reach each other directly over A2A since 2026-10-18
+(Pep → Bruno, Enzo, Patri; Bruno ↔ Enzo; hq `shared/docs/agent-interaction.md`).
+That is the agents' own channel: from a Claude Code session, keep using the
+ssh send below, and ask one agent to pass something on only when Oriol wants
+the hand-off to go through it.
+
 ## Rules
 
 - **Send only when asked** (by Oriol, or by a task that says to). Ask which
