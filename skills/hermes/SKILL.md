@@ -276,9 +276,17 @@ writes the entry. From a non-interactive ssh the install's tool probe fails ("MC
 non-interactive environment and no cached tokens") but the entry IS saved, enabled, with no
 tool filter. The owner then runs `hermes-<agent> mcp login <name>` (prints the authorization
 link; over ssh it explains the callback / paste-the-redirect step) or uses the dashboard's
-Authorize. After login: `hermes mcp configure <name>` to drop write tools (the agent acts with
-the authorizing user's permissions), and a NEW session to load the tools (`/reload-mcp` in a
-running one). Verified on bruno 2026-10-17 (install + saved entry; login pending).
+Authorize. After login, drop write tools (the agent acts with the authorizing user's
+permissions). `hermes mcp configure <name>` is an interactive checklist; from a script append
+`tools: {exclude: [...]}` under `mcp_servers.<name>` in `config.yaml` instead (names or globs;
+`include` wins over `exclude`), then `hermes mcp list` shows "-N excluded". `hermes mcp test
+<name>` lists the server's tools non-interactively. Then restart the gateway and use a NEW
+session (`/reload-mcp` in a running one). **Sentry's MCP** has 15 tools: exclude `update_issue`
+(status/assignment), `analyze_issue_with_seer` (starts a paid Seer run) AND the generic pair
+`search_sentry_tools` + `execute_sentry_tool` (a dispatcher that can call any catalog tool,
+writes included, so excluding `update_issue` alone is not read-only). Verified on bruno
+2026-10-17 (install) and 2026-10-18 (login by Oriol, the four excluded, read from a fresh
+session: org, projects, latest issue, no status tool).
 
 ## From a dev machine: CLI wrappers and Hermes Desktop
 
