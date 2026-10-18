@@ -667,3 +667,10 @@ keep the alarm so unresolved cases stay visible.
   too). Media URLs pointing at the production host can be served from the local media volume with `page.route`.
   Stop a dev server you started with TaskStop, never `pkill -f "<its command>"`: the pattern also matches the
   Bash process running pkill, which kills your own shell (exit 144).
+- **A production acceptance script must assert the precondition before its next request** (2026-10-18): a
+  Django test-client multipart PATCH built with `c._encode_data(..., content_type="multipart/form-data;
+  boundary=X")` uses Django's own boundary, so the body parsed empty and the API answered 200 having changed
+  nothing; the script's next request (a "refused trim") then queued a REAL re-cut of the test episode. Use
+  `encode_multipart(BOUNDARY, data)` + `MULTIPART_CONTENT`, and `assert` the state the next step depends on
+  (here `cut_source == "replaced"`) before sending it. Run acceptance on the test tenant only, and record any side
+  effect in the deploy record.
