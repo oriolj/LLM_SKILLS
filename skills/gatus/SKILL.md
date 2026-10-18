@@ -94,6 +94,14 @@ Endpoint keys (`<group>_<name>`) must be unique estate-wide
   **literal `100.x` address** from the container: MagicDNS does not
   resolve inside a container (verified 2026-09-13 on internal-1). That is
   one of the two sanctioned exceptions to the MagicDNS-names rule.
+- **Home-LAN targets (`192.168.7.x`, the claws) are unreachable from
+  internal-1**: it does not accept minisforum's subnet route, so the probe
+  times out (`context deadline exceeded`, 2026-10-18; the target's firewall
+  counters stayed at 0). Probe them through a relay on a tailnet host on the
+  LAN: the WAHA sessions go through a path-limited Caddy on minisforum
+  `100.102.47.34:3010` (hq `homelab/whatsapp/relay/`). Do not flip
+  accept-routes on internal-1 for one probe: it changes routing for the
+  whole production box.
 - **An origin behind a CDN with `stale-if-error` needs its own probe past the CDN**: through
   the CDN, a dead origin keeps answering 200 from cache for as long as `stale-if-error` allows
   (a day for enacast-astro). Probe the origin by its tailnet `100.x` address straight to its

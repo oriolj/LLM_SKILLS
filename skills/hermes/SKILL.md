@@ -416,6 +416,10 @@ and say "run as one plain bash command". Check each block before installing:
   boxes) and `USER.md` (`user_char_limit`, 1375), entries joined by `"\n§\n"`
   (`ENTRY_DELIMITER` in `tools/memory_tool_store.py`). Persona is
   `~/.hermes/SOUL.md`.
+- **A one-shot turn from Claude Code does not edit skills** (2026-10-18,
+  pep and bruno: "this session's instructions prohibit editing skills"; the
+  cause in Hermes was not traced). Write the skill from outside and let the
+  agent review it (the self-review section above).
 - **`memory.write_approval: false` on every claw, and on every new one**
   (Oriol, 2026-10-17: "memory write approval should be off"). With `true`
   the agent's own memory tool waits for an approval, and on bruno

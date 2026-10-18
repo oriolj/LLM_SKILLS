@@ -52,6 +52,16 @@ printf '%s\n' "From a Claude Code session for Oriol: <the message>" |
   asking the agent to review those files read-only.
 - Never pass `--yolo`. If the agent should remember something durably, say so in
   the message and check the reply says where it saved it.
+- **A `--oneshot --source claude-code` turn will not edit its own skills**
+  (pep and bruno, 2026-10-18: "this session's instructions prohibit editing
+  skills"; nothing was saved). Writing a fact into a skill is therefore our
+  install, not a send: back the file up, write it over ssh, run the
+  `skills_guard` scan (`hermes` skill § Memory), then ask the agent for the
+  read-only self-review. Copy the file with `scp` or `cat >> file` over ssh;
+  never pipe the content into `ssh … "python3 - <<'PY' … /dev/stdin"`: the
+  heredoc IS python's stdin, the piped content is lost, and a
+  read-modify-write script then saves the file without it (it cut a section
+  that way, restored the same minute).
 - Where the dev machine has them, `hermes-pep` / `hermes-enzo` / `hermes-bruno`
   wrap the same `ssh <host> ~/.local/bin/hermes …` for interactive use.
 

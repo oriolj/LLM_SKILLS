@@ -74,6 +74,8 @@ automation, not Meta's Cloud API): treat it as Oriol typing, at human pace.
    --timer-property=Persistent=false <script>`. `Persistent=false` means
    that if the box was off, the message is not sent late at an odd hour.
    The script logs to LeadHunter and mails Oriol "Sent" or "FAILED".
+   It must export `WAHA_SESSION` (since 2026-10-18 the session picks the box
+   and key); scripts written before that date do not.
    Cancel with `systemctl --user stop wa-<…>.timer`. Never repeat a reminder unasked.
 4. **Reading** chats and **transcribing** voice notes is read-only and
    needs no confirmation — but don't mark chats as read (`sendSeen`,
