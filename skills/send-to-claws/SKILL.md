@@ -1,11 +1,11 @@
 ---
 name: send-to-claws
-description: Hand a message, a task or a file to one of Oriol's own AI agents (the "claws", Hermes Agent on the home LAN) — Pep (personal), Enzo (Enantena/EnaCast) or Bruno (SmartupSoft/BikeCRM) — from a Claude Code or Codex session on a dev machine. Use only when Oriol asks ("send this to Pep", "tell Enzo…", "pass it to Bruno", "give the claw this file") or a task explicitly says to hand something to an agent. Covers which agent gets what, the one ssh command that sends a message (named thread, stdin, no quoting traps), sending files, and what never to send.
+description: Hand a message, a task or a file to one of Oriol's own AI agents (the "claws", Hermes Agent on the home LAN) — Pep (personal), Enzo (Enantena/EnaCast), Bruno (SmartupSoft/BikeCRM) or Patri (Panotxa, shared with Anna) — from a Claude Code or Codex session on a dev machine. Use only when Oriol asks ("send this to Pep", "tell Enzo…", "pass it to Bruno", "notify Patri", "give the claw this file") or a task explicitly says to hand something to an agent. Covers which agent gets what, the one ssh command that sends a message (named thread, stdin, no quoting traps), sending files, and what never to send.
 ---
 
 # Send to the claws
 
-Three Hermes agents, one per scope, each in an LXC container on the home LAN
+Four Hermes agents, one per scope plus Patri for Panotxa, each in an LXC container on the home LAN
 (state and setup: hq `shared/docs/agents.md`; operating Hermes itself: the
 `hermes` skill).
 
@@ -14,6 +14,7 @@ Three Hermes agents, one per scope, each in an LXC container on the home LAN
 | **Pep** | `pep` | personal (oriolj): Oriol's life, home, family, health, side projects |
 | **Enzo** | `enzo` | Enantena / EnaCast: radio, streaming, podcasts, the company's books and team |
 | **Bruno** | `bruno` | SmartupSoft / BikeCRM: bike shops, BikeCRM customers, billing, support |
+| **Patri** | `patri` | Panotxa only, shared with Anna (nutritionist): **nothing of Oriol's private life**, since Anna has the same access to the agent |
 
 ## Rules
 
