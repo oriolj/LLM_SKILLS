@@ -16,7 +16,7 @@ tests/       # Offline tests for shared ticket tooling and packaging
 
 ### Skills (human-led coding agents)
 
-- **[development-tickets](skills/development-tickets/SKILL.md)** — shared Obsidian/Markdown ticket protocol, human-led development, evidence-based lifecycle, private project configuration and optional safe create/check/list helper. Read [the protocol](skills/development-tickets/references/protocol.md); `ready` never authorizes implementation. Offline tests: `python -m unittest discover -s tests -v` (Python 3 + PyYAML).
+- **[development-tickets](skills/development-tickets/SKILL.md)** — shared Obsidian/Markdown ticket protocol, native Base template (Inbox/Active/All), human-led development, evidence-based lifecycle, private project configuration and optional safe create/check/list helper. Read [the protocol](skills/development-tickets/references/protocol.md); `ready` never authorizes implementation. Offline tests: `python -m unittest discover -s tests -v` (Python 3 + PyYAML).
 
 ### Bots (proactive capture, not autonomous development)
 

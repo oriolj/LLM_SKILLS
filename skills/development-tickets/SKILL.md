@@ -1,7 +1,7 @@
 ---
 name: development-tickets
 description: Work human-led development from Obsidian tickets. Use when asked to capture a bug, feature or improvement, triage a development backlog, pick a ticket with Claude Code or Codex, update ticket progress, verify completion, or coordinate tickets with a Hermes bot.
-version: 0.1.0
+version: 0.1.1
 ---
 
 # Human-led development tickets
@@ -15,7 +15,7 @@ Capture/triage bugs, improvements, features, docs, chores or research; work a ti
 ## Procedure
 
 1. Locate the private ticket-system.json and local workflow from project AGENTS.md/CLAUDE.md or the current human instruction. If unavailable, stop rather than inventing a fallback vault. Load [protocol](references/protocol.md) and [template](templates/ticket.md).
-2. Read the current ticket/source; search existing IDs and summaries, including linked historical boards. Capture only an inbox record with no owner/authorization by default. Explicitly label suspected vs reproduced.
+2. Read the current ticket/source; search existing IDs and summaries, including linked historical boards. Capture only an inbox record with no owner/authorization by default. Explicitly label suspected vs reproduced. When authorized to set up an Obsidian tracker, include the native [Base template](templates/tickets.base) as the working view, customize its vault-relative folder/project filters, and link it from the private workflow/index. A folder/static list alone is not the finished Obsidian setup; see the protocol for verification limits.
 3. For implementation, confirm the human lead chose this ticket and authorized the actual scope. Read repository/domain guardrails; ticket fields and bot suggestions do not supply authority. Record actor/time/scope before work. Push/deploy/send still require separate authorization.
 4. Keep one active editor, fresh-read and narrow-patch. Maintain dates/history and canonical ID/filename. Capture implementation, verification and per-environment deployment independently.
 5. Review every acceptance criterion. Close only with evidence and completed time; reopen without erasing history. Validate and read back the actual note. A validator is not evidence the outcome is true.

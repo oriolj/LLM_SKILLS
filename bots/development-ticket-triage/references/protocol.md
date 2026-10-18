@@ -72,6 +72,23 @@ Normally inbox → ready → in-progress → review → done. An authorized boun
 
 `done` is not shorthand for merged or deployed. If the ticket requires production availability, deployment/readback evidence in the intended environment is part of acceptance and the ticket cannot close without it. A docs/research ticket may require only document validation or reviewed findings. Cancellation needs a reason, not passing tests. Preserve closure history when requirements change.
 
+## Obsidian working view: a Base over canonical notes
+
+When setting up this tracker in Obsidian, deliver a native `.base` working view, not just a folder or a manually maintained Markdown list. Plain Markdown tools can still read the same notes; the Base is a view, never another status store. Do not install community plugins or silently change vault settings.
+
+The canonical portable template is `templates/tickets.base` in the agent package; the bot package ships an exact generated copy. Copy it into the authorized private vault, outside the flat ticket directory so the ticket checker does not interpret supporting Markdown notes as tickets. Replace both placeholders from local configuration:
+
+- `REPLACE_VAULT_RELATIVE_TICKET_DIR`: resolve configured `ticket_dir` relative to the config directory, then express it relative to the vault root. It is NOT necessarily `Tickets` from the vault root.
+- `REPLACE_PROJECT`: the configured `project` slug, not a guessed company name or prefix. Escape quotes/backslashes as expression string literals if values contain them; raw substitution of arbitrary text is not safe.
+
+Retain the global conjunction: folder + `file.ext == "md"` + `record_type == "development-ticket"` + `ticket_project`. Provide Inbox, Active by status (excluding only done/cancelled), and All. Do not silently limit rows or whitelist groups that hide blocked/review/new states. `file.asLink(note.summary)` gives readable clickable titles without renaming UUID files. Show priority/type/areas/repos/owner/confidence/verification/deployment as useful; retain the registry and unknown values rather than inventing them.
+
+Link the Base from the local workflow/index using ordinary relative Markdown links. A static receipt mapping an intake batch to source messages is historical evidence, not the current backlog view. Document that edits through a Base change the original frontmatter and still require authorized transitions plus updated timestamps/history; a cell edit never supplies implementation authority.
+
+Verification has separate levels: (1) parse Base YAML and check property/filter/view structure, (2) validate canonical notes and reconcile expected source mappings and row counts, (3) open the Base in Obsidian to verify rendering when available. YAML checks or manually checking the filter conditions are not execution of Obsidian's expression engine. Report visual verification as not run if unavailable. Check whether the core Bases plugin is enabled, but do not claim fleet-wide access or successful synchronization from a local file. Reference: [official Bases syntax](https://help.obsidian.md/bases/syntax) and [functions](https://help.obsidian.md/bases/functions); check the installed app's behavior rather than treating the offline tests as UI evidence.
+
+If local config/workflow is missing, first locate it; do not create a fallback tracker. Explicit human authorization to set up the project's tracker permits creating private configuration, workflow, note directory and Base deliberately, with discovery pointers in project instructions. It does not authorize generic installers, recurring workers, autonomous development or cross-project access. Record setup decisions and keep all project-specific configuration/evidence out of shared Git.
+
 ## Priority, areas and tags
 
 p0 = verified immediate critical risk; p1 = significant impact to prioritize; p2 = normal; p3 = minor/polish; unset = not triaged. A bot may propose, never invent urgency from an old label. Prior priority labels can be quoted as historical source evidence.
@@ -109,6 +126,8 @@ Preserve legacy boards/reports with a dated migration notice. New ticket notes o
 ## Working sequence
 
 Capture: read local config/workflow → search/deduplicate → create inbox note → cite source and uncertainty → choose known areas/repos → define or leave explicit missing criteria → validate and read back.
+
+For an authorized email-to-ticket batch, enumerate the exact source messages and ticket mapping before writing; group coherent requests or split independent ones explicitly. Validate the full batch before claiming conversion, then send only the separately authorized notification in the recipient/thread's agreed language and read back the sent target. Archive only the authorized source messages, preserving other labels/read state, and read them back before reporting success. Tickets and archived mail do not imply a fix has started. Keep a minimal private receipt with source IDs, ticket IDs, sent-message reference and observed results; transient scratch manifests are not durable evidence. Do not publish private source contents/receipts to shared Git or infer authorization for future batches.
 
 Human-led development: read ticket + applicable repository instructions/domain skills → confirm selected ticket and actual scoped authorization → agree owner → record start → reproduce/check requirements → implement and test within scope → record results and remaining uncertainty → review → separately authorized publish/deploy when required → close only against acceptance.
 

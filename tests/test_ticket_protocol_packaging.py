@@ -17,7 +17,7 @@ class ProtocolPackagingTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_copied_bot_protocol_and_template_match_canonical(self):
-        for rel in ["references/protocol.md", "templates/ticket.md"]:
+        for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
             self.assertEqual((ROOT / "skills/development-tickets" / rel).read_bytes(),
                              (ROOT / "bots/development-ticket-triage" / rel).read_bytes())
 
@@ -29,7 +29,7 @@ class ProtocolPackagingTests(unittest.TestCase):
         spec.loader.exec_module(module)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for rel in ["references/protocol.md", "templates/ticket.md"]:
+            for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
                 source = root / "skills/development-tickets" / rel
                 source.parent.mkdir(parents=True, exist_ok=True)
                 source.write_text("canonical")
@@ -54,7 +54,7 @@ class ProtocolPackagingTests(unittest.TestCase):
         for dangling in (False, True):
             with self.subTest(dangling=dangling), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                for rel in ["references/protocol.md", "templates/ticket.md"]:
+                for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
                     source = root / "skills/development-tickets" / rel
                     source.parent.mkdir(parents=True, exist_ok=True)
                     source.write_text("canonical")
@@ -81,7 +81,7 @@ class ProtocolPackagingTests(unittest.TestCase):
         spec.loader.exec_module(module)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for rel in ["references/protocol.md", "templates/ticket.md"]:
+            for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
                 canonical = root / "skills/development-tickets" / rel
                 copy = root / "bots/development-ticket-triage" / rel
                 canonical.parent.mkdir(parents=True, exist_ok=True)
@@ -92,6 +92,52 @@ class ProtocolPackagingTests(unittest.TestCase):
             self.assertEqual((root / "bots/development-ticket-triage/references/protocol.md").read_text(), "old")
             self.assertEqual(module.synchronize(root, check=False), 0)
             self.assertEqual(module.synchronize(root, check=True), 0)
+
+
+    def test_base_only_drift_is_detected_without_repair(self):
+        spec = importlib.util.spec_from_file_location("sync_base_drift", SYNC)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
+                canonical = root / "skills/development-tickets" / rel
+                copy = root / "bots/development-ticket-triage" / rel
+                canonical.parent.mkdir(parents=True, exist_ok=True)
+                copy.parent.mkdir(parents=True, exist_ok=True)
+                canonical.write_text("canonical")
+                copy.write_text("old base" if rel.endswith(".base") else "canonical")
+            self.assertEqual(module.synchronize(root, check=True), 1)
+            target = root / "bots/development-ticket-triage/templates/tickets.base"
+            self.assertEqual(target.read_text(), "old base")
+            self.assertEqual(module.synchronize(root, check=False), 0)
+            self.assertEqual(module.synchronize(root, check=True), 0)
+
+    def test_unsafe_third_pair_prevents_earlier_pair_writes(self):
+        spec = importlib.util.spec_from_file_location("sync_base_preflight", SYNC)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
+                canonical = root / "skills/development-tickets" / rel
+                canonical.parent.mkdir(parents=True, exist_ok=True)
+                canonical.write_text("canonical")
+            package = root / "bots/development-ticket-triage"
+            for rel in ["references/protocol.md", "templates/ticket.md"]:
+                target = package / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("old copy")
+            unrelated = root / "unrelated.base"
+            unrelated.write_text("must survive")
+            (package / "templates/tickets.base").symlink_to(unrelated)
+            with self.assertRaises(ValueError):
+                module.synchronize(root, check=False)
+            self.assertEqual(unrelated.read_text(), "must survive")
+            for rel in ["references/protocol.md", "templates/ticket.md"]:
+                self.assertEqual((package / rel).read_text(), "old copy")
 
 
 if __name__ == "__main__":

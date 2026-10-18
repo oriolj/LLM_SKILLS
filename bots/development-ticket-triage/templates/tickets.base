@@ -1,0 +1,88 @@
+# Copy beside the project's ticket directory in the PRIVATE vault.
+# Replace BOTH placeholders from the local ticket-system.json:
+# - REPLACE_VAULT_RELATIVE_TICKET_DIR: path from vault root, not config root
+# - REPLACE_PROJECT: configured project slug
+# Keep the conjunction: folder + record type + project + extension.
+# This file is a view, never an independent ticket/status database.
+filters:
+  and:
+    - 'file.inFolder("REPLACE_VAULT_RELATIVE_TICKET_DIR")'
+    - 'file.ext == "md"'
+    - 'note.record_type == "development-ticket"'
+    - 'note.ticket_project == "REPLACE_PROJECT"'
+formulas:
+  ticket: 'file.asLink(note.summary)'
+properties:
+  formula.ticket:
+    displayName: Ticket
+  note.status:
+    displayName: Status
+  note.priority:
+    displayName: Priority
+  note.kind:
+    displayName: Kind
+  note.areas:
+    displayName: Areas
+  note.repos:
+    displayName: Repositories
+  note.owner:
+    displayName: Owner
+  note.confidence:
+    displayName: Confidence
+  note.verification:
+    displayName: Verification
+  note.deployment:
+    displayName: Deployment
+  note.updated:
+    displayName: Updated
+  note.id:
+    displayName: ID
+views:
+  - type: table
+    name: Inbox
+    filters:
+      and:
+        - 'note.status == "inbox"'
+    order:
+      - formula.ticket
+      - note.kind
+      - note.areas
+      - note.priority
+      - note.confidence
+      - note.updated
+      - note.id
+  - type: table
+    name: Active by status
+    filters:
+      and:
+        - 'note.status != "done"'
+        - 'note.status != "cancelled"'
+    groupBy:
+      property: note.status
+      direction: ASC
+    order:
+      - formula.ticket
+      - note.status
+      - note.priority
+      - note.kind
+      - note.areas
+      - note.repos
+      - note.owner
+      - note.verification
+      - note.deployment
+      - note.updated
+  - type: table
+    name: All
+    order:
+      - formula.ticket
+      - note.status
+      - note.priority
+      - note.kind
+      - note.areas
+      - note.repos
+      - note.owner
+      - note.confidence
+      - note.verification
+      - note.deployment
+      - note.updated
+      - note.id

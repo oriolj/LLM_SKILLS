@@ -9,9 +9,9 @@ def synchronize(root: Path, check: bool = True) -> int:
     root = root.resolve()
     different = []
     copies = []
-    # Preflight both pairs before any write. A symlinked ancestor is as unsafe
+    # Preflight every pair before any write. A symlinked ancestor is as unsafe
     # as a symlink at the leaf, even when it resolves elsewhere inside root.
-    for relative in ("references/protocol.md", "templates/ticket.md"):
+    for relative in ("references/protocol.md", "templates/ticket.md", "templates/tickets.base"):
         source = root / "skills/development-tickets" / relative
         target = root / "bots/development-ticket-triage" / relative
         for path in (source, target):
