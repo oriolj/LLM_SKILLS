@@ -656,3 +656,14 @@ keep the alarm so unresolved cases stay visible.
   `mock.patch.object(Podcast, "cut_and_mark")` to see whether a re-cut is enqueued.
 - Trap: `-p no:cacheprovider` on the enacast pytest breaks the repo's `--ff` addopt ("unrecognized
   arguments"); run with `-p no:stepwise --no-cov` only.
+- The fix (same day): an explicit provenance value set at the moment of replacement (`cut_source="replaced"`),
+  internal writers marking their own saves, the guard keyed on the label alone (no filesystem stat, so a missing
+  file never re-opens the old path), the background job publishing by compare-and-swap on the file it started
+  from. Reading the S3 side found a worse sibling: the replaced file kept the old cut's remote key, so it was never
+  uploaded. Whenever a "replace" path leaves derived fields alone, check every field that describes the OLD object
+  (offsets, durations, remote keys, sync flags), not only the one the user sees.
+- Headless walk traps: the editor saves through `window.confirm`, which Playwright dismisses by default (no request,
+  no error): add `page.on('dialog', d => d.accept())` and log `d.message()` (it showed the confirm text was wrong
+  too). Media URLs pointing at the production host can be served from the local media volume with `page.route`.
+  Stop a dev server you started with TaskStop, never `pkill -f "<its command>"`: the pattern also matches the
+  Bash process running pkill, which kills your own shell (exit 144).
