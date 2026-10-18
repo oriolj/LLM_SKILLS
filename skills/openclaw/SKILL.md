@@ -11,7 +11,7 @@ description: Operate the estate's OpenClaw agent VMs (pep = personal, enzo = Ena
 > three; the runtime is Hermes (`hermes` skill).
 
 **What OpenClaw is, the risks and the estate state live in hq
-[`shared/docs/openclaw.md`](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/openclaw.md)**;
+[`shared/docs/bots.md`](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#appendix-openclaw-retired-2026-10-15)**;
 per-box facts in `hq/docs/servers/<name>.md`
 ([pep](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/pep.md),
 [enzo](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/docs/servers/enzo.md),
@@ -29,11 +29,11 @@ behaves differently.
 | bruno | SmartupSoft / BikeCRM | `192.168.7.187` | Telegram + SmartupSoft Slack (app Blake; DMs Oriol + Enric, `#seaotter2026` no-mention, `#general` on mention) |
 
 Current versions, models and login state per box live in hq
-[shared/docs/openclaw.md](../../../../../Syncthing/Syncthing-mobile-docs/hq/shared/docs/openclaw.md#what-is-actually-on-our-boxes-verified-2026-09-17-updated-2026-10-03)
+[shared/docs/bots.md](../../../../../Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#what-is-actually-on-our-boxes-verified-2026-09-17-updated-2026-10-03)
 and the server files (read them before acting; this skill is mechanics).
 Each VM ALSO runs **Hermes Agent** (Nous Research, `~/.hermes/`, user unit
 `hermes-gateway.service`) with its OWN Codex login; see § Hermes and hq
-[shared/docs/hermes.md](../../../../../Syncthing/Syncthing-mobile-docs/hq/shared/docs/hermes.md).
+[shared/docs/bots.md](../../../../../Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#runtime-hermes).
 enzo is the only one that
 also loads secrets from a unit drop-in (`openclaw-gateway.service.d/
 override.conf` → `EnvironmentFile=~/.openclaw/secrets/openclaw.env`:
@@ -388,7 +388,7 @@ previous configuration"*) — restart the gateway.
 
 Hermes Agent runs on the same three VMs and is the runtime going forward
 (Oriol, 2026-10-15). Its mechanics are the **`hermes` skill**
-(`skills/hermes/SKILL.md`); the estate page is hq `shared/docs/agents.md`.
+(`skills/hermes/SKILL.md`); the estate page is hq `shared/docs/bots.md`.
 
 ## Pre-flight: a stranded Codex login (enzo, since 2026-09-25)
 

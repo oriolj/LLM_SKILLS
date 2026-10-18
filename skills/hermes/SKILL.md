@@ -1,6 +1,6 @@
 ---
 name: hermes
-description: Operate Hermes Agent (Nous Research) on the estate's agent containers ("claw agents" — the personal, EnaCast and BikeCRM/SmartupSoft agents on the home Proxmox host, formerly petraclaw/emmaclaw/blakeclaw) — install shape, the CLI per user (not root), updating on the v0.22 stable channel (first-run dependency build, launcher rewrite), model and fallback switch, voice (NaN Whisper STT with a local fallback, TTS), built-in memory limits (MEMORY.md/USER.md char caps) and where larger knowledge goes, importing from OpenClaw (`hermes claw migrate` and the underlying script with --include, the overflow trap, cron jobs it cannot see), Discord and WhatsApp, the dashboard and Hermes Desktop, OS upgrades of the containers, Sign in with ChatGPT, healthchecks. Use when the user mentions Hermes, `hermes-gateway`, `hermes update`, `hermes claw migrate`, the agents' memory or skills, Pep/Enzo/Bruno (or the old Petra/Emma/Blake), a claw agent container, or connecting an agent to Discord/Telegram/Slack/email through Hermes.
+description: Operate Hermes Agent (Nous Research) on the estate's bots ("claws", the proactive agents — the personal, EnaCast, BikeCRM/SmartupSoft and Panotxa bots on the home Proxmox host, formerly petraclaw/emmaclaw/blakeclaw) — install shape, the CLI per user (not root), updating on the v0.22 stable channel (first-run dependency build, launcher rewrite), model and fallback switch, voice (NaN Whisper STT with a local fallback, TTS), built-in memory limits (MEMORY.md/USER.md char caps) and where larger knowledge goes, importing from OpenClaw (`hermes claw migrate` and the underlying script with --include, the overflow trap, cron jobs it cannot see), Discord and WhatsApp, the dashboard and Hermes Desktop, OS upgrades of the containers, Sign in with ChatGPT, healthchecks. Use when the user mentions Hermes, `hermes-gateway`, `hermes update`, `hermes claw migrate`, the agents' memory or skills, Pep/Enzo/Bruno (or the old Petra/Emma/Blake), a claw agent container, or connecting an agent to Discord/Telegram/Slack/email through Hermes.
 ---
 
 # Hermes — the agent runtime on the claw agents
@@ -8,8 +8,8 @@ description: Operate Hermes Agent (Nous Research) on the estate's agent containe
 **Hermes is THE runtime** (Oriol, 2026-10-15); OpenClaw was stopped and
 disabled on all three boxes that day (its mechanics, kept for reference and
 rollback: the `openclaw` skill). Estate state lives in hq: start page
-[`shared/docs/agents.md`](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/agents.md),
-runtime state [`shared/docs/hermes.md`](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/hermes.md),
+[`shared/docs/bots.md`](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md),
+runtime state [`shared/docs/bots.md`](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#runtime-hermes),
 per-box facts in `hq/docs/servers/<box>.md`. This skill is the *mechanics*;
 update it the same turn a step behaves differently.
 
@@ -151,7 +151,7 @@ Then check `agent.log` for `model=gpt-6.1-sol provider=openai-codex`.
   Verified on all three claws 2026-10-15: one shared ChatGPT **Pro** login
   (same plan, same window, same reset on every box).
 - **Sign in with ChatGPT**: Hermes support is open PR #128926, not released;
-  verdict in hq `shared/docs/openclaw.md` § Sign in with ChatGPT (not yet;
+  verdict in hq `shared/docs/bots.md` § Sign in with ChatGPT (not yet;
   the device code stays).
 
 ## Custom model providers (NaN as an option)
@@ -168,7 +168,7 @@ XML (NaN's Qwen/Gemma).
 ## Voice: speech-to-text and text-to-speech
 
 Box-level config (provider, vocabulary lists, key file, TTS voice per agent):
-hq `shared/docs/agents.md` § Voice notes and audio. Mechanics:
+hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
 
 - **Hermes STT providers**: `local` (faster-whisper), `groq`, `openai`,
   `mistral`, `xai`, `elevenlabs`, `deepinfra`; `stt.providers.<name>: {type:
@@ -276,7 +276,7 @@ doc `website/docs/user-guide/messaging/a2a.md`. Inbound: Agent Card at
 LIVE gateway session (same memory and tools) and the reply is the result.
 Outbound: toolset `a2a` (`a2a_call`, `a2a_discover`, `a2a_list`,
 `a2a_history`, `a2a_orchestrate`), peers in `config.yaml` `a2a_agents`.
-Set up on the claws 2026-10-18 (hq `shared/docs/agents.md` § A2A). Mechanics
+Set up on the claws 2026-10-18 (hq `shared/docs/bots.md` § A2A). Mechanics
 learned:
 
 - **Inbound turns on with `A2A_PORT` in `~/.hermes/.env`** (the plugin's
@@ -335,7 +335,7 @@ session: org, projects, latest issue, no status tool).
 Setup: hq `homelab/ansible/roles/development/tasks/hermes-desktop.yml`, run
 with the no-sudo `ansible-playbook playbooks/hermes-desktop.yml -l <host>`
 (`-c local` on the controller; `--tags hermes-desktop` in site.yml does the
-same but asks the sudo password), and `shared/docs/agents.md`. Traps:
+same but asks the sudo password), and `shared/docs/bots.md`. Traps:
 
 - **`hermes-pep` / `hermes-enzo` / `hermes-bruno`** (hq dotfiles
   `local-bin/hermes-claw`): `ssh [-t|-T] <host> '~/.local/bin/hermes <args>'`

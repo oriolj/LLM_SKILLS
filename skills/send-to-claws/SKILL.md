@@ -1,12 +1,12 @@
 ---
 name: send-to-claws
-description: Hand a message, a task or a file to one of Oriol's own AI agents (the "claws", Hermes Agent on the home LAN) — Pep (personal), Enzo (Enantena/EnaCast), Bruno (SmartupSoft/BikeCRM) or Patri (Panotxa, shared with Anna) — from a Claude Code or Codex session on a dev machine. Use only when Oriol asks ("send this to Pep", "tell Enzo…", "pass it to Bruno", "notify Patri", "give the claw this file") or a task explicitly says to hand something to an agent. Covers which agent gets what, the one ssh command that sends a message (named thread, stdin, no quoting traps), sending files, and what never to send.
+description: Hand a message, a task or a file to one of Oriol's bots (the "claws", his proactive AI agents, Hermes Agent on the home LAN) — Pep (personal), Enzo (Enantena/EnaCast), Bruno (SmartupSoft/BikeCRM) or Patri (Panotxa, shared with Anna) — from a Claude Code or Codex session on a dev machine. Use only when Oriol asks ("send this to Pep", "tell Enzo…", "pass it to Bruno", "notify Patri", "give the claw this file") or a task explicitly says to hand something to an agent. Covers which agent gets what, the one ssh command that sends a message (named thread, stdin, no quoting traps), sending files, and what never to send.
 ---
 
 # Send to the claws
 
 Four Hermes agents, one per scope plus Patri for Panotxa, each in an LXC container on the home LAN
-(state and setup: hq `shared/docs/agents.md`; operating Hermes itself: the
+(state and setup: hq `shared/docs/bots.md`; operating Hermes itself: the
 `hermes` skill).
 
 | Agent | ssh host | Scope — send it |
@@ -17,7 +17,7 @@ Four Hermes agents, one per scope plus Patri for Panotxa, each in an LXC contain
 | **Patri** | `patri` | Panotxa only, shared with Anna (nutritionist): **nothing of Oriol's private life**, since Anna has the same access to the agent |
 
 The agents can also reach each other directly over A2A since 2026-10-18
-(Pep → Bruno, Enzo, Patri; Bruno ↔ Enzo; hq `shared/docs/agent-interaction.md`).
+(Pep → Bruno, Enzo, Patri; Bruno ↔ Enzo; hq `shared/docs/bots.md`).
 That is the agents' own channel: from a Claude Code session, keep using the
 ssh send below, and ask one agent to pass something on only when Oriol wants
 the hand-off to go through it.
