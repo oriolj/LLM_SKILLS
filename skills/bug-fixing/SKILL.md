@@ -674,3 +674,26 @@ keep the alarm so unresolved cases stay visible.
   `encode_multipart(BOUNDARY, data)` + `MULTIPART_CONTENT`, and `assert` the state the next step depends on
   (here `cut_source == "replaced"`) before sending it. Run acceptance on the test tenant only, and record any side
   effect in the deploy record.
+
+### "The search doesn't find it, but it's there" — a save-time-only index writer (2026-10-18, EnaCast news search)
+
+- Report: a word in an article's body found an older article but not the new one; the obvious theory
+  ("search covers titles only") was wrong. Before reading search code, ask the index directly: query the search
+  engine with the article's own headline. Absent = an indexing bug, not a matching bug. Then diff the database
+  against the index **by id** for each tenant's newest N rows (a slug match is fine for a first pass): the gap
+  was 1/3 of one radio's recent articles and every radio had some.
+- **An index written only from `post_save` misses everything that becomes eligible on a clock**: scheduled items,
+  and "publish now" items whose time came from a browser clock ahead of the server (Studio sent `new Date()`; the
+  POST's own `?ts=` cache-buster showed the browser 1.5 s ahead of the access-log time). Fix as three layers: a
+  per-minute job for rows that became due since the last run and were last saved before it
+  (`modified <= publish_at`), a nightly id-level reconcile (also covers lost after-commit dispatches), and a
+  server-owned "publish now" flag. Look for a twin job already crossing the same boundary (here the cache-purge
+  job ran every minute for the same articles and never touched search).
+- A reconcile writes from a snapshot: re-read the rows it touched after writing and hand the ones that changed
+  to the normal sync (an editor's unpublish landed between read and write in a Codex reproduction). Diff every
+  mirror collection on its own, cap deletions, and make the command exit non-zero on failures. The backfill
+  also found 41 unpublished drafts still publicly searchable: a sync that swallowed delete errors as "skipped".
+- **Check what an API field really is before reasoning from it**: `created` in the news API was
+  `source='datetime_to_publish'`; "created == publish time, so it was not scheduled" was a wrong deduction.
+- `pgrep -f "<pattern>"` in a wait loop matches the loop's own command line and never ends; inside a container
+  `grep` over `/proc/*/cmdline` matches itself too. Match with a bracket (`[b]in/pytest`) or check the port/pid.
