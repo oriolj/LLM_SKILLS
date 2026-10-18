@@ -52,7 +52,7 @@ Use YAML frontmatter with the following fields. Quote timestamps as timezone-qua
 | deployment | unknown, not-required, not-deployed, deployed; unknown by default |
 | related | ticket ID list; cross-project IDs do not grant access to evidence |
 | duplicate_of | null or different ticket ID; never self; retain original note/history |
-| tags | optional discovery labels; not a second status/priority/area system |
+| tags | required list field, allowed to be empty; thematic discovery labels are optional, not a second status/priority/area system |
 
 New tickets start inbox/unset/unowned/not-run/unknown, with no implementation authorization. Do not guess due dates, effort, severity, owners, affected versions or completion times. Add extra fields only through an agreed schema/tooling change: the current helper rejects unknown fields rather than silently accepting unvalidated extensions.
 
