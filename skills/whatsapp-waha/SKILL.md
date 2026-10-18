@@ -105,7 +105,7 @@ session in another scope's WAHA.
 | | |
 |---|---|
 | Source | hq `homelab/whatsapp/` ([README](../../../../../Syncthing/Syncthing-mobile-docs/hq/homelab/whatsapp/README.md)): one `docker-compose.yml`, `hosts/<box>.env`, `deploy.sh` (`make deploy HOST=<box>` copies to `/srv/waha/` on the box, writes the firewall block, `compose up`) |
-| On the box | `/srv/waha/` as root: `env` (secrets), `sessions/webjs/<session>/` (the linked login — whoever holds it IS the account; not synced, not in git), `media/`. Docker is root-only there on purpose (the Hermes agent runs as `oriol`; the docker group would be root for it) |
+| On the box | `/srv/waha/` as root: `env` (secrets), `sessions/webjs/<session>/` (the linked login — whoever holds it IS the account; not synced, not in git), `media/`. `oriol`, the Hermes agent's user, is in the docker group (Oriol, 2026-10-18) |
 | Who reaches 3010 | `127.0.0.1` on the box, and on the LAN IP only minisforum `192.168.7.48` (also the tailnet subnet router, SNAT: tailnet peers with accept-routes arrive as `.48`) and fw13pro `192.168.7.20`, via a DOCKER-USER block in ufw `after.rules` |
 | Dashboard / Swagger | `http://<box>:3010/dashboard` (user `oriol`, `WAHA_DASHBOARD_PASSWORD`; the dashboard also needs the API key in its server entry) · Swagger UI at `/`, raw spec at `/-json` (basic auth `WHATSAPP_SWAGGER_*`) |
 | Secrets | `/srv/waha/env` on each box (one key per box), copied by `deploy.sh` to `~/.config/waha/<session>.env` on minisforum with `WAHA_URL`. Never print them; parse with grep/cut |
@@ -229,10 +229,12 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
      but two unofficial clients on one number doubles the ban exposure. Every
      inbound chat also reaches the agent unless the allowlist is tight.
   3. **Outbound only through WAHA**: give the claw `wa.py` and the key of
-     the WAHA on its own box (since 2026-10-18 the instance runs next to the
-     agent, `http://localhost:3010`, so no firewall change is needed). The
-     key rotation touches one more place. There is no inbound path until
-     WAHA webhooks are wired. Not done for any agent yet: Oriol's call.
+     the WAHA on its own box. **Done 2026-10-18 for Pep and Bruno** (Oriol):
+     `~/.config/waha/<session>.env` (`http://localhost:3010`), `~/.local/bin/wa`
+     (a copy of this skill's `wa.py`: re-copy after a change), Hermes skill
+     `messaging/whatsapp` with these rules (source hq
+     `homelab/tools/hermes-skills/<agent>/whatsapp/`). A key rotation touches
+     that file too. There is no inbound path until WAHA webhooks are wired.
 
 ## Monitoring and restarts
 
