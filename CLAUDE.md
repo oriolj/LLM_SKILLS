@@ -4,7 +4,9 @@ This repo is a personal collection of Claude Code skills and slash commands auth
 
 ## Repo layout
 
-- `skills/<name>/SKILL.md` — skill body with YAML frontmatter (`name`, `description`). Optional `references/` folder for supporting docs the skill loads on demand.
+- `skills/<name>/SKILL.md` — human-led coding-agent skill body with YAML frontmatter (`name`, `description`). Optional `references/` folder for supporting docs the skill loads on demand. Existing paths remain compatible.
+- `bots/<name>/SKILL.md` — proactive bot skills (Hermes/similar); not included in the existing Claude installer glob. Registration remains runtime-specific and requires authorization.
+- `skills/development-tickets/references/protocol.md` — canonical tool-neutral ticket workflow; generated identical protocol/template copies ship with `bots/development-ticket-triage/`. Run `python scripts/sync_ticket_protocol.py --check` before committing; regenerate explicitly after canonical edits. No private tickets or local vault configs belong in this repository.
 - `commands/<name>.md` — slash command, invoked as `/<name>`. Frontmatter sets `name`, `description`, and `user_invocable`.
 
 ## Conventions when editing

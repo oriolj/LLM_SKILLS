@@ -1,17 +1,28 @@
 # LLM_SKILLS
 
-Personal collection of Claude Code skills and slash commands.
+Personal collection of skills and slash commands for human-led coding agents (Claude Code/Codex), plus a separate `bots/` section for proactive Hermes/similar bots. Shared workflow contracts must not drift between these roles.
 
 ## Layout
 
 ```
-skills/      # Skills — auto-loaded when their description matches the user's request
+skills/      # Human-led coding-agent skills (existing paths retained)
+bots/        # Proactive bot skills (Hermes/similar; registration is separate)
 commands/    # Slash commands — invoked explicitly with /<name>
+scripts/     # Explicit repository maintenance helpers; no auto-install hooks
+tests/       # Offline tests for shared ticket tooling and packaging
 ```
 
 ## Contents
 
-### Skills
+### Skills (human-led coding agents)
+
+- **[development-tickets](skills/development-tickets/SKILL.md)** — shared Obsidian/Markdown ticket protocol, human-led development, evidence-based lifecycle, private project configuration and optional safe create/check/list helper. Read [the protocol](skills/development-tickets/references/protocol.md); `ready` never authorizes implementation. Offline tests: `python -m unittest discover -s tests -v` (Python 3 + PyYAML).
+
+### Bots (proactive capture, not autonomous development)
+
+- **[development-ticket-triage](bots/development-ticket-triage/SKILL.md)** — Hermes/similar bots capture and clarify bugs, UI/UX issues, docs gaps and feature requests, then hand off to the human-led session. Uses the same versioned protocol; generated copies are checked with `python scripts/sync_ticket_protocol.py --check`. See [bot packaging/registration](bots/README.md).
+
+### Existing coding-agent skills
 
 - **[oj-review](skills/oj-review/SKILL.md)** — `/oj-review [scope] [focus]`: the whole review ladder on the changes in scope (scope in words: "today's commits", "last 7 days", "since master", "last 3 commits" -> a base commit): `simplify` -> `code-review --fix` -> an adversarial Codex review in a herdr pane (`oj-codex review`, headless outside herdr) running while `security-review` reports. Scope words resolved by `oj-codex scope`; the Codex pane closes once it has delivered its review. Model-invocable too.
 - **[herdr/oj-codex-review](skills/herdr/oj-codex-review/SKILL.md)** — `/oj-codex-review [scope] [focus]`: adversarial QA by Codex in a herdr pane next to yours; the review comes back to the session when Codex finishes. Needs herdr and `oj-codex`. Model-invocable too.

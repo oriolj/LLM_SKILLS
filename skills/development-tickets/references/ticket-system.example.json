@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "project": "example",
+  "prefix": "DEMO",
+  "ticket_dir": "Tickets",
+  "repos": [
+    "app-api",
+    "app-ui"
+  ],
+  "areas": [
+    "ui",
+    "ux",
+    "docs",
+    "api",
+    "security",
+    "performance"
+  ],
+  "developer": "human-lead"
+}
