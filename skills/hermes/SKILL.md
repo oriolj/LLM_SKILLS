@@ -550,6 +550,15 @@ The order that worked, about 40 minutes of wall time:
    import transcribe_audio as t; print(t("<the TTS clip>"))'` → `provider: nan`
    and the text. Restart the gateway.
 
+9. **Docker, with `oriol` in the docker group** (Oriol, 2026-10-18: "on all
+   4 hermes hosts the user oriol needs docker access"): the `claw_agent` role
+   (docker.com repo as a deb822 `docker.sources`, `usermod -aG docker oriol`).
+   Docker CE works in the unprivileged CT with `nesting=1` alone (overlayfs,
+   no `keyctl`). The group is root-equivalent for whoever drives the agent.
+   A running gateway sees the group only after `systemctl restart
+   user@1000.service` as root (check `active_agents` = 0 first; gateway,
+   dashboard and timers come back by themselves, verified on all four).
+
 ## Tailscale on the claws (2026-10-17)
 
 An unprivileged LXC container has no `/dev/net/tun`: `pct set <ct> --dev0
