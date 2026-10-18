@@ -636,3 +636,23 @@ keep the alarm so unresolved cases stay visible.
 - Ask for independent reviews after the first fix round: an adversarial agent and an outside model
   each found real data-loss paths the first round had introduced or missed (a synchronous focus that
   turned "45" + typing 60 into 4560; a product pick that also created a phantom line).
+
+### "I replaced the audio and the editor still shows the old one" — a replacement that never detached the source (2026-10-18, EnaCast)
+
+- Report (Enric): replaced an already-cut episode's audio with another 24H clip; the cutter still shows the
+  original. Not a failed save: a replacement (24H clip via `remote_audio_url`, or an uploaded file, both
+  `cuttedaudiofile`) writes ONLY the cut slot. Listeners get the new clip; the editor keeps loading the
+  recording (`audio_recorded_url`) and draws `[old cutted_offset_seconds, + new duration]` over it. A
+  markers-only save survives; **moving a handle re-cuts from the old recording and silently discards the
+  replacement**; a longer replacement makes even a plain save 400 ("past the recording duration").
+- Ask of every "replace X" feature with a derived/source pair: which fields describe the SOURCE the editor
+  reads, and does the replacement reset them? The audio studio had already hit this (`cut_source='studio'`
+  guard); the generic upload path had not. Don't key a guard on `cut_source == 'upload'`: legacy cuts get
+  that label on their next unrelated save.
+- Repro in minutes, no browser, no 24H: `module_audio_studio/test/test_cutter_guard.py`'s setup with
+  `cut_source=user`, offset 10, recording 60 s / cut 30 s (ffmpeg sines at different frequencies), PATCH
+  `/api/v3/podcast/<id>/?radio=` with `remote_audio_url` while `programes.serializers.download_remote_audio`
+  is mocked to copy clip B, then POST `cut_and_mark` with the editor's window (moved and unmoved) and
+  `mock.patch.object(Podcast, "cut_and_mark")` to see whether a re-cut is enqueued.
+- Trap: `-p no:cacheprovider` on the enacast pytest breaks the repo's `--ff` addopt ("unrecognized
+  arguments"); run with `-p no:stepwise --no-cov` only.
