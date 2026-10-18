@@ -3,7 +3,7 @@ name: hermes
 description: Operate Hermes Agent (Nous Research) on the estate's bots ("claws", the proactive agents — the personal, EnaCast, BikeCRM/SmartupSoft and Panotxa bots on the home Proxmox host, formerly petraclaw/emmaclaw/blakeclaw) — install shape, the CLI per user (not root), updating on the v0.22 stable channel (first-run dependency build, launcher rewrite), model and fallback switch, voice (NaN Whisper STT with a local fallback, TTS), built-in memory limits (MEMORY.md/USER.md char caps) and where larger knowledge goes, importing from OpenClaw (`hermes claw migrate` and the underlying script with --include, the overflow trap, cron jobs it cannot see), Discord and WhatsApp, the dashboard and Hermes Desktop, OS upgrades of the containers, Sign in with ChatGPT, healthchecks. Use when the user mentions Hermes, `hermes-gateway`, `hermes update`, `hermes claw migrate`, the agents' memory or skills, Pep/Enzo/Bruno (or the old Petra/Emma/Blake), a claw agent container, or connecting an agent to Discord/Telegram/Slack/email through Hermes.
 ---
 
-# Hermes — the agent runtime on the claw agents
+# Hermes — the runtime of the bots (the claws)
 
 **Hermes is THE runtime** (Oriol, 2026-10-15); OpenClaw was stopped and
 disabled on all three boxes that day (its mechanics, kept for reference and
@@ -316,7 +316,7 @@ learned:
 e.g. `sentry` → `https://mcp.sentry.dev/mcp`, `auth: oauth`); `hermes mcp install <name>`
 writes the entry. From a non-interactive ssh the install's tool probe fails ("MCP OAuth …
 non-interactive environment and no cached tokens") but the entry IS saved, enabled, with no
-tool filter. The owner then runs `hermes-<agent> mcp login <name>` (prints the authorization
+tool filter. The owner then runs `hermes-<bot> mcp login <name>` (prints the authorization
 link; over ssh it explains the callback / paste-the-redirect step) or uses the dashboard's
 Authorize. After login, drop write tools (the agent acts with the authorizing user's
 permissions). `hermes mcp configure <name>` is an interactive checklist; from a script append

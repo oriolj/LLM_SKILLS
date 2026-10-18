@@ -1,41 +1,41 @@
 ---
 name: send-to-claws
-description: Hand a message, a task or a file to one of Oriol's bots (the "claws", his proactive AI agents, Hermes Agent on the home LAN) — Pep (personal), Enzo (Enantena/EnaCast), Bruno (SmartupSoft/BikeCRM) or Patri (Panotxa, shared with Anna) — from a Claude Code or Codex session on a dev machine. Use only when Oriol asks ("send this to Pep", "tell Enzo…", "pass it to Bruno", "notify Patri", "give the claw this file") or a task explicitly says to hand something to an agent. Covers which agent gets what, the one ssh command that sends a message (named thread, stdin, no quoting traps), sending files, and what never to send.
+description: Hand a message, a task or a file to one of Oriol's bots (the "claws", his proactive AI agents, Hermes Agent on the home LAN) — Pep (personal), Enzo (Enantena/EnaCast), Bruno (SmartupSoft/BikeCRM) or Patri (Panotxa, shared with Anna) — from a Claude Code or Codex session on a dev machine. Use only when Oriol asks ("send this to Pep", "tell Enzo…", "pass it to Bruno", "notify Patri", "give the claw this file") or a task explicitly says to hand something to a bot. Covers which bot gets what, the one ssh command that sends a message (named thread, stdin, no quoting traps), sending files, and what never to send.
 ---
 
 # Send to the claws
 
-Four Hermes agents, one per scope plus Patri for Panotxa, each in an LXC container on the home LAN
+Four Hermes bots, one per scope plus Patri for Panotxa, each in an LXC container on the home LAN
 (state and setup: hq `shared/docs/bots.md`; operating Hermes itself: the
 `hermes` skill).
 
-| Agent | ssh host | Scope — send it |
+| Bot | ssh host | Scope — send it |
 |---|---|---|
 | **Pep** | `pep` | personal (oriolj): Oriol's life, home, family, health, side projects |
 | **Enzo** | `enzo` | Enantena / EnaCast: radio, streaming, podcasts, the company's books and team |
 | **Bruno** | `bruno` | SmartupSoft / BikeCRM: bike shops, BikeCRM customers, billing, support |
-| **Patri** | `patri` | Panotxa only, shared with Anna (nutritionist): **nothing of Oriol's private life**, since Anna has the same access to the agent |
+| **Patri** | `patri` | Panotxa only, shared with Anna (nutritionist): **nothing of Oriol's private life**, since Anna has the same access to the bot |
 
-The agents can also reach each other directly over A2A since 2026-10-18
+The bots can also reach each other directly over A2A since 2026-10-18
 (Pep → Bruno, Enzo, Patri; Bruno ↔ Enzo; hq `shared/docs/bots.md`).
-That is the agents' own channel: from a Claude Code session, keep using the
-ssh send below, and ask one agent to pass something on only when Oriol wants
+That is the bots' own channel: from a Claude Code session, keep using the
+ssh send below, and ask one bot to pass something on only when Oriol wants
 the hand-off to go through it.
 
 ## Rules
 
 - **Send only when asked** (by Oriol, or by a task that says to). Ask which
-  agent when the scope is not obvious; never guess.
+  bot when the scope is not obvious; never guess.
 - **Accounts follow the scope**: never send one scope's data to another scope's
-  agent (no personal health to Enzo, no EnaCast books to Bruno).
+  bot (no personal health to Enzo, no EnaCast books to Bruno).
 - **No secrets** (keys, tokens, passwords) in a message or a file you send.
-  Giving an agent a credential is a separate install, never a send: stream the
+  Giving a bot a credential is a separate install, never a send: stream the
   one key it needs over ssh into `~/.config/<tool>/agent.env` (`umask 077`,
   no overwrite), give it a wrapper in `~/.local/bin/` that reads the key as data,
   and tell it only the path and the command. Its skill says what the key may do.
 - LAN only: `ssh pep` works from the dev machines at home. If it fails
   (away, box down), say so and stop; no workarounds.
-- Quote the agent's reply back to Oriol. The agent may act on what you send
+- Quote the bot's reply back to Oriol. The bot may act on what you send
   (it has tools), so phrase requests exactly as Oriol meant them.
 
 ## Send a message (one command)
@@ -53,16 +53,16 @@ printf '%s\n' "From a Claude Code session for Oriol: <the message>" |
   the second send resumes the thread). Use a new thread name for a new topic.
 - `--source claude-code` (or `codex`) tags the session so Oriol can tell it apart.
 - The reply prints on stdout, then `session_id: …`. A turn can take minutes.
-- If what you send changes the agent's lasting instructions (memory, persona,
+- If what you send changes the bot's lasting instructions (memory, persona,
   a skill), finish with the `hermes` skill's self-review step: a fresh one-shot
-  asking the agent to review those files read-only.
-- Never pass `--yolo`. If the agent should remember something durably, say so in
+  asking the bot to review those files read-only.
+- Never pass `--yolo`. If the bot should remember something durably, say so in
   the message and check the reply says where it saved it.
 - **A `--oneshot --source claude-code` turn will not edit its own skills**
   (pep and bruno, 2026-10-18: "this session's instructions prohibit editing
   skills"; nothing was saved). Writing a fact into a skill is therefore our
   install, not a send: back the file up, write it over ssh, run the
-  `skills_guard` scan (`hermes` skill § Memory), then ask the agent for the
+  `skills_guard` scan (`hermes` skill § Memory), then ask the bot for the
   read-only self-review. Copy the file with `scp` or `cat >> file` over ssh;
   never pipe the content into `ssh … "python3 - <<'PY' … /dev/stdin"`: the
   heredoc IS python's stdin, the piped content is lost, and a
@@ -71,7 +71,7 @@ printf '%s\n' "From a Claude Code session for Oriol: <the message>" |
 - Where the dev machine has them, `hermes-pep` / `hermes-enzo` / `hermes-bruno`
   wrap the same `ssh <host> ~/.local/bin/hermes …` for interactive use.
 
-## Typing into Oriol's open agent pane (herdr)
+## Typing into Oriol's open bot pane (herdr)
 
 When Oriol says "the hermes agent on the right panel" (or similar), he has
 an interactive `hermes-pep|enzo|bruno` session open in a herdr pane next to
@@ -91,12 +91,12 @@ herdr pane read <pane> --lines 80     # its answer, in the ╭─ ◆ Pep box
 - `wait-output` returns as soon as the idle prompt is on screen. It is on
   screen before you press Enter too, so read the pane after it to check
   the turn really ended.
-- The agent cannot answer back into your pane (no herdr control from
+- The bot cannot answer back into your pane (no herdr control from
   its ssh session): ask it to write results to files on its box
   (`~/inbox/<topic>/REPORT.txt`, a JSON, a manifest with sha256), then
   `ssh <host> cat …` / `scp` them into an empty scratchpad folder and
   verify the checksums.
-- When an agent hits an access blocker (a disabled Google API, no
+- When a bot hits an access blocker (a disabled Google API, no
   signed-in browser), it reports it and stops. Put the fix in hq's
   USER_TODO, and remove the item once a later run gets through.
 
@@ -108,5 +108,5 @@ scp ./report.pdf pep:inbox/from-agents/
 ```
 
 Then send a message naming the path (`~/inbox/from-agents/report.pdf`) and what
-to do with it. Audio is fine: the agents transcribe it themselves (NaN Whisper,
+to do with it. Audio is fine: the bots transcribe it themselves (NaN Whisper,
 any of English/Catalan/Spanish).
