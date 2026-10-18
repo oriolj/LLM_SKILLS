@@ -697,3 +697,25 @@ keep the alarm so unresolved cases stay visible.
   `source='datetime_to_publish'`; "created == publish time, so it was not scheduled" was a wrong deduction.
 - `pgrep -f "<pattern>"` in a wait loop matches the loop's own command line and never ends; inside a container
   `grep` over `/proc/*/cmdline` matches itself too. Match with a bracket (`[b]in/pytest`) or check the port/pid.
+
+### "The image I set doesn't show" after an image-service migration — URL text and path guards (2026-10-18, EnaCast)
+
+- **Never decide ownership from the text of a thumbnail URL.** The site hid an episode's own image because it
+  tested `url.includes('logos_podcast/')`; after the move to imgproxy the path is base64 inside the URL, so the test
+  was always false, and a library image under another folder never matched even before. Look for a field the API
+  already sends (`logo_url` was null exactly when the episode had no image of its own) or add an explicit flag
+  (`has_custom_image`), keep the old guess only for payloads without the field (zod: optional, NO default, so
+  absent stays distinguishable from false), and grep every `includes('<folder>/')` on media URLs.
+- **`..` inside a file name is not traversal.** A signer that refused any `..` substring answered 400 to every
+  upload stored as `name..jpg` (the player's artwork was an empty box). Check segments decoded once (`.`/`..`/empty,
+  also `%2e%2e` and `.%2e`; encoded `/`/`\`; malformed and double escapes); the substring test had also let
+  `%2e%2e/` through. Check what the origin server really resolves before calling a name dangerous.
+- **Verify the handoff's identifiers.** The episode id in the report was a sibling copy (a news-embed episode with
+  the same audio); the page's own id came from the page's embedded data. Fetch the reported page and read its ids
+  before tracing the API.
+- **"Too much padding" can be two layers.** A server-padded 2:1 thumbnail inside a 16:9 card with `object-contain`
+  is letterboxed again: four-sided bands. Request the unpadded image fitted inside a bounded box and pad once in
+  CSS; measure natural size vs box per card in the browser (`naturalWidth/Height` vs `getBoundingClientRect`).
+- Before/after against production data without touching the shared dev server: rsync the checkout to the
+  scratchpad, its own Redis DB, the real image-signing config read from the secrets file in Python, then swap
+  `git show HEAD:<file>` versions in and out of the copy for the "before" run.
