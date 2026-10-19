@@ -558,7 +558,9 @@ The order that worked, about 40 minutes of wall time:
    passing `--dev0` at create time was not tried).
    Note the ed25519 host-key fingerprint it prints: the NAS pull compares it.
 2. UniFi reservation + local DNS record + `static-dns` `<box>.localdomain`
-   (`unifi` skill), `ssh` hosts.conf `Host … <box>`, both inventories.
+   (`unifi` skill), `ssh` hosts.conf `Host … <box>` plus its own `Host <box>` block
+   with `HostName <LAN IP>` + `HostKeyAlias <box>` (works away from home over
+   the subnet route), both inventories.
 3. As root: user `oriol` (uid 1000, **no sudo** when someone other than Oriol
    will talk to the agent), copy the keys, `loginctl enable-linger oriol`,
    `Prompt=lts`, mask `netplan-configure.service`, full-upgrade.
