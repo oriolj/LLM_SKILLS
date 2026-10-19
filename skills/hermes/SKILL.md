@@ -248,6 +248,10 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
   shows the shortest `model.aliases` / `model_aliases` key that maps to the
   running model id. That is a `/model` alias pressed into service as a label, and
   it vanishes as soon as the model changes.
+  Wanted when it becomes possible (Oriol, 2026-10-19; rejected the alias as too
+  hacky): an icon per agent first in the bar, Pep 👤, Enzo 🎤, Bruno 🚲,
+  Patri 🌽, Maia 👧. Parked in hq `homelab/tools/hermes-skins/README.md`;
+  after a `hermes update`, check whether skins gained a status-bar icon/prefix.
 - **Messaging needs the `messaging` extra**: without it a pairing QR prints
   "QR code unavailable … run: hermes pm install --extra messaging". Install
   with `hermes pm install --extra messaging`, restart the gateway (done on all
