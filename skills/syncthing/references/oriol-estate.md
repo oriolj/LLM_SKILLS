@@ -15,6 +15,7 @@ Versioning `keep=5` / `cleanoutDays=30` (a cap, not a promise of every version).
 | `BikeCRM-docs` | `Obsidian_bikecrm/BikeCRM` | 12 | `.git` synced |
 | `Syncthing-docs` (`qvvzc-ywzzd`) | none | 9 | — |
 | `panotxa-vault` (id = label, 2026-10-17) | `Obsidian-panotxa` (Panotxa, shared with Anna) | patri (`~/panotxa-vault`, the always-on hub), minisforum (`~/Syncthing/panotxa-vault`), truenas-enantena (`~/panotxa-vault`); offered to Fold7-fork and truenas-personal | none; per-device `.stignore` drops `.obsidian/workspace*.json` |
+| `maia-vault` (id = label, 2026-10-19) | `Obsidian-maia` (Laia's own vault, her bot Maia) | maia (`~/maia-vault`, the always-on hub), truenas-enantena (`~/maia-vault`, at 100 % the same day), truenas-personal (listed on maia; its Syncthing app was down, joins when back), Laia's devices later. **Not** on minisforum or Oriol's phone (Oriol's decision) | none |
 
 Thirty devices on the mobile share — phones (`Fold7`, `S21`, `FoldZ5`),
 tablets, an e-reader (`Boox`), a dozen laptops — is why its daily notes

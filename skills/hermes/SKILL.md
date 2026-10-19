@@ -1,6 +1,6 @@
 ---
 name: hermes
-description: Operate Hermes Agent (Nous Research) on the estate's bots ("claws", the proactive agents — the personal, EnaCast, BikeCRM/SmartupSoft and Panotxa bots on the home Proxmox host, formerly petraclaw/emmaclaw/blakeclaw) — install shape, the CLI per user (not root), updating on the v0.22 stable channel (first-run dependency build, launcher rewrite), model and fallback switch, voice (NaN Whisper STT with a local fallback, TTS), built-in memory limits (MEMORY.md/USER.md char caps) and where larger knowledge goes, importing from OpenClaw (`hermes claw migrate` and the underlying script with --include, the overflow trap, cron jobs it cannot see), Discord and WhatsApp, the dashboard and Hermes Desktop, OS upgrades of the containers, Sign in with ChatGPT, healthchecks. Use when the user mentions Hermes, `hermes-gateway`, `hermes update`, `hermes claw migrate`, the agents' memory or skills, Pep/Enzo/Bruno (or the old Petra/Emma/Blake), a claw agent container, or connecting an agent to Discord/Telegram/Slack/email through Hermes.
+description: Operate Hermes Agent (Nous Research) on the estate's bots ("claws", the proactive agents — the personal, EnaCast, BikeCRM/SmartupSoft and Panotxa bots plus Laia's Maia on the home Proxmox host, formerly petraclaw/emmaclaw/blakeclaw) — install shape, the CLI per user (not root), updating on the v0.22 stable channel (first-run dependency build, launcher rewrite), model and fallback switch, voice (NaN Whisper STT with a local fallback, TTS), built-in memory limits (MEMORY.md/USER.md char caps) and where larger knowledge goes, importing from OpenClaw (`hermes claw migrate` and the underlying script with --include, the overflow trap, cron jobs it cannot see), Discord and WhatsApp, the dashboard and Hermes Desktop, OS upgrades of the containers, Sign in with ChatGPT, healthchecks. Use when the user mentions Hermes, `hermes-gateway`, `hermes update`, `hermes claw migrate`, the agents' memory or skills, Pep/Enzo/Bruno (or the old Petra/Emma/Blake), a claw agent container, or connecting an agent to Discord/Telegram/Slack/email through Hermes.
 ---
 
 # Hermes — the runtime of the bots (the claws)
@@ -28,7 +28,8 @@ and dashboard auth).
 - Ubuntu LXC containers on the home Proxmox host (`192.168.7.179`),
   one per scope: CT 100 **pep** (personal), CT 102 **enzo** (Enantena/EnaCast),
   CT 101 **bruno** (SmartupSoft/BikeCRM), plus CT 103 **patri** (Panotxa,
-  shared with Anna, 2026-10-17). `ssh oriol@<box>` by name from the
+  shared with Anna, 2026-10-17) and CT 104 **maia** (Laia's own bot,
+  2026-10-19). `ssh oriol@<box>` by name from the
   workstations; each also joins a tailnet (below). Each box holds only its
   scope's (or project's) keys; never copy a token between them.
 - Hermes is installed **per user (`oriol`)**. As root `hermes` is "command
@@ -544,9 +545,26 @@ and say "run as one plain bash command". Check each block before installing:
 - `hermes claw cleanup` renames `~/.openclaw` to `.openclaw.pre-migration`
   (undoable). Run it only once nothing is left to recover from OpenClaw.
 
-## A new claw container (patri, 2026-10-17)
+## A new claw container (patri 2026-10-17, maia 2026-10-19)
 
-The order that worked, about 40 minutes of wall time:
+The order and checklist (decisions, estate, records) is hq
+`shared/docs/bots.md` § "Adding a new bot (the recipe)"; these are the
+commands. The order that worked, 40-60 minutes of wall time (maia: the
+installer alone ~15 min). Traps found on maia:
+
+- `--dev0 /dev/net/tun` set with `pct set` **before the first `pct start`**
+  works and saves the Tailscale reboot.
+- `fallback_providers` is a list `hermes config set` cannot write: append the
+  block to `config.yaml` (`grep -q '^fallback_providers'` first). The
+  managed Python run as `-I` with `hermes_bootstrap` could not `import yaml`
+  on a fresh v0.22.2 box, so no Python YAML edit there.
+- `truenas-rsync-sizes.sh` runs ON the target: `ssh root@<box> 'bash -s' <
+  homelab/tools/truenas-rsync-sizes.sh`. Run bare, it measures the machine
+  you are sitting on (it did, minisforum, read-only).
+- NAS Syncthing env files quote their values: strip the quotes when you
+  parse them (`cut -d= -f2- | tr -d "'\""`), or curl gets a URL starting
+  with `'` and fails silently (code 000).
+
 
 1. Host: `pveam update && pveam download local ubuntu-26.04-standard_26.04-1_amd64.tar.zst`;
    `pct create <ct> local:vztmpl/… --hostname <box> --cores 2 --memory 4096

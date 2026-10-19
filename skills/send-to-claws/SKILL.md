@@ -1,11 +1,11 @@
 ---
 name: send-to-claws
-description: Hand a message, a task or a file to one of Oriol's bots (the "claws", his proactive AI agents, Hermes Agent on the home LAN) — Pep (personal), Enzo (Enantena/EnaCast), Bruno (SmartupSoft/BikeCRM) or Patri (Panotxa, shared with Anna) — from a Claude Code or Codex session on a dev machine. Use only when Oriol asks ("send this to Pep", "tell Enzo…", "pass it to Bruno", "notify Patri", "give the claw this file") or a task explicitly says to hand something to a bot. Covers which bot gets what, the one ssh command that sends a message (named thread, stdin, no quoting traps), sending files, and what never to send.
+description: Hand a message, a task or a file to one of Oriol's bots (the "claws", his proactive AI agents, Hermes Agent on the home LAN) — Pep (personal), Enzo (Enantena/EnaCast), Bruno (SmartupSoft/BikeCRM), Patri (Panotxa, shared with Anna) or Maia (Laia's own) — from a Claude Code or Codex session on a dev machine. Use only when Oriol asks ("send this to Pep", "tell Enzo…", "pass it to Bruno", "notify Patri", "give the claw this file") or a task explicitly says to hand something to a bot. Covers which bot gets what, the one ssh command that sends a message (named thread, stdin, no quoting traps), sending files, and what never to send.
 ---
 
 # Send to the claws
 
-Four Hermes bots, one per scope plus Patri for Panotxa, each in an LXC container on the home LAN
+Five Hermes bots, one per scope plus Patri for Panotxa and Maia for Laia, each in an LXC container on the home LAN
 (state and setup: hq `shared/docs/bots.md`; operating Hermes itself: the
 `hermes` skill).
 
@@ -15,9 +15,10 @@ Four Hermes bots, one per scope plus Patri for Panotxa, each in an LXC container
 | **Enzo** | `enzo` | Enantena / EnaCast: radio, streaming, podcasts, the company's books and team |
 | **Bruno** | `bruno` | SmartupSoft / BikeCRM: bike shops, BikeCRM customers, billing, support |
 | **Patri** | `patri` | Panotxa only, shared with Anna (nutritionist): **nothing of Oriol's private life**, since Anna has the same access to the bot |
+| **Maia** | `maia` | Laia's own bot (Oriol's wife, its only user): only what Oriol asks to pass to her bot; **nothing of Oriol's private data or keys** |
 
 The bots can also reach each other directly over A2A since 2026-10-18
-(Pep → Bruno, Enzo, Patri; Bruno ↔ Enzo; hq `shared/docs/bots.md`).
+(Pep → Bruno, Enzo, Patri; Bruno ↔ Enzo; Maia is outside the mesh; hq `shared/docs/bots.md`).
 That is the bots' own channel: from a Claude Code session, keep using the
 ssh send below, and ask one bot to pass something on only when Oriol wants
 the hand-off to go through it.
