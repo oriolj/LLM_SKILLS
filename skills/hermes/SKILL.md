@@ -239,6 +239,15 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
   source hq `homelab/tools/hermes-skins/`. Check:
   `RT 'from hermes_cli import skin_engine as s; s.init_skin_from_config({"display":{"skin":"pep"}}); print(s.get_active_skin().name)'`
   → `pep`.
+  **The status bar is not skinnable** (v0.22.2, checked 2026-10-19): the classic
+  CLI (the default; `display.interface: tui` picks the Ink one) hardcodes
+  ` ☤ <model>` as its first segment (`_status_bar_segments` in
+  `hermes_cli/cli_status_bar_mixin.py`). `branding.agent_name` does not reach it,
+  whatever the skins docs suggest, and `display.status_bar.fields` only hides
+  segments; their order is fixed. The only config lever is the model label: it
+  shows the shortest `model.aliases` / `model_aliases` key that maps to the
+  running model id. That is a `/model` alias pressed into service as a label, and
+  it vanishes as soon as the model changes.
 - **Messaging needs the `messaging` extra**: without it a pairing QR prints
   "QR code unavailable … run: hermes pm install --extra messaging". Install
   with `hermes pm install --extra messaging`, restart the gateway (done on all
