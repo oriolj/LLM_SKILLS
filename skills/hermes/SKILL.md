@@ -342,6 +342,14 @@ same but asks the sudo password), and `shared/docs/bots.md`. Traps:
   `local-bin/hermes-claw`): `ssh [-t|-T] <host> '~/.local/bin/hermes <args>'`
   as oriol, `-t` only when stdin AND stdout are ttys, so `hermes-pep chat -Q
   -q "…"` is clean in scripts. Use them instead of hand-rolled ssh quoting.
+- **`hermes-<bot>-ssh`** (hq dotfiles `local-bin/hermes-claw-ssh`): `mosh
+  oriol@<host>`. mosh on a claw needs ufw `60000:61000/udp` and a UTF-8
+  locale matching the client's `LANG`: the Ubuntu containers ship only
+  `C.utf8`, so mosh-server dies with "needs a UTF-8 native locale" until
+  `locale-gen en_US.UTF-8` (generate only; leave the system `LANG`, the
+  gateway's env, alone). Testing mosh headless: give `script` a sized pty
+  (`stty rows 40 cols 120`, else mosh-client asserts `s_height > 0`), a
+  `TERM`, and `</dev/null` (it eats a heredoc's remaining lines).
 - **Hermes Desktop on Linux is a source install** (`scripts/install.sh
   --include-desktop`; no Linux package is released: the platform-support doc
   says Linux desktop packaging is disabled in the release workflow).
