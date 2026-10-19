@@ -553,7 +553,8 @@ commands. The order that worked, 40-60 minutes of wall time (maia: the
 installer alone ~15 min). Traps found on maia:
 
 - `--dev0 /dev/net/tun` set with `pct set` **before the first `pct start`**
-  works and saves the Tailscale reboot.
+  works and saves the Tailscale reboot (maia: `/dev/net/tun` present,
+  `tailscaled` on a kernel `tailscale0` interface, not userspace networking).
 - `fallback_providers` is a list `hermes config set` cannot write: append the
   block to `config.yaml` (`grep -q '^fallback_providers'` first). The
   managed Python run as `-I` with `hermes_bootstrap` could not `import yaml`
