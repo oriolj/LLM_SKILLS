@@ -56,6 +56,20 @@ got an EMPTY list; failed recordings vanished for editors. Rules:
   gating on `published` alone leaks scheduled items by id.
 - Opt-in flags like `?include_scheduled=true` need a **tenant** check, not an
   "is authenticated" check — otherwise any user lists another tenant's drafts.
+- **A switched-off row must stay reachable by its editors on detail actions,
+  with no flag** (EnaCast 2026-10-19: modular pages, banners, banner groups,
+  gallery albums). The backoffice sends opt-ins (`include_disabled`,
+  `include_unpublished`) on its LISTS, not on GET/PATCH/DELETE of one row; a
+  detail lookup that filters `enabled=True` unless the flag is present 404s
+  the editor who just switched the row off ("Pàgina no trobada", "can't
+  re-enable"). Detail actions: tenant check alone. Lists: tenant check AND
+  the flag. Non-editors: the flag does nothing. Children follow the parent
+  (pictures of an unpublished album, menu items to a disabled page).
+- **Singleton flags** (home page, active design) move by setting them on
+  another row, in one transaction locking the tenant's rows (locking only the
+  rows that carry the flag lets two hand-overs both commit), and the API
+  refuses switching off or deleting the current one; check prod for zero/two
+  before shipping and repair in a data migration.
 - Per-object writes for the sub-admin role: swap the permission class per
   action (`get_permissions`: editors may update assigned objects; create and
   delete stay with admins) — don't clone the viewset.
