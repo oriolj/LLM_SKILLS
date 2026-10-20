@@ -363,6 +363,13 @@ Read it in this order:
    btrfs subvolume as `/dev/dm-1[/@home]`, which no `-b` test matches
    (it now tests the part before `[`). A DEVICE GONE on a mount that
    `ls` reads fine is worth a second look before anything is unmounted.
+   **Docker's containerd image store** (Docker 29+) mounts each running
+   container at `/var/lib/docker/rootfs/overlayfs/<id>` and keeps layers in
+   `/var/lib/containerd`: the mounts are a default exclude in hq's registry
+   since 2026-10-20 (coolify-ovh-vps-1), `/var/lib/containerd` is copied.
+   **After adding, changing or retiring a host, update the NAS's
+   host-by-host inventory** (hq `docs/servers/truenas-enantena.md`, "What
+   the NAS holds, host by host"; Oriol, 2026-10-20) in the same turn.
    **A second local disk and a moved Docker root are measured too** (since
    2026-10-15: storage-1's 4.4 TB array on `/srv/data` and its Docker root
    `/srv/data/docker` had gone unmeasured). A moved Docker root is not
