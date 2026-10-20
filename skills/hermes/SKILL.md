@@ -352,9 +352,12 @@ with the no-sudo `ansible-playbook playbooks/hermes-desktop.yml -l <host>`
 same but asks the sudo password), and `shared/docs/bots.md`. Traps:
 
 - **`hermes-pep` / `hermes-enzo` / `hermes-bruno`** (hq dotfiles
-  `local-bin/hermes-claw`): `ssh [-t|-T] <host> '~/.local/bin/hermes <args>'`
-  as oriol, `-t` only when stdin AND stdout are ttys, so `hermes-pep chat -Q
-  -q "…"` is clean in scripts. Use them instead of hand-rolled ssh quoting.
+  `local-bin/hermes-claw`): when stdin AND stdout are ttys, `mosh <host> --
+  sh -c 'exec "$HOME/.local/bin/hermes" "$@"'` (2026-10-20; mosh-server execs
+  without a shell, so no `~` and no login PATH); otherwise `ssh -T <host>
+  '~/.local/bin/hermes <args>'` as oriol, so `hermes-pep chat -Q -q "…"` is
+  clean in scripts and keeps its exit code (mosh needs a terminal and drops
+  it). `HERMES_SSH=1` forces ssh. Use them instead of hand-rolled ssh quoting.
 - **`hermes-<bot>-ssh`** (hq dotfiles `local-bin/hermes-claw-ssh`): `mosh
   oriol@<host>`. mosh on a claw needs ufw `60000:61000/udp` and a UTF-8
   locale matching the client's `LANG`: the Ubuntu containers ship only
