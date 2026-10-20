@@ -217,7 +217,14 @@ Same archive/upload lane; the rest is ASC metadata work. Common rejection
 traps to check before submitting: **in-app account deletion** is required if
 the app has accounts; **Sign in with Apple is required when other social
 sign-ins (Google) are present**; privacy questionnaire must match what the
-app actually collects.
+app actually collects. **Every screen that sells a subscription must say what
+it unlocks** (3.1.2(c)): name, duration, full renewal price (the most prominent
+price; savings subordinate and computed from the store's own prices), the
+content or service provided, restore, and Terms + Privacy links — the
+checklist on [Apple's subscriptions page](https://developer.apple.com/app-store/subscriptions/).
+Plan cards with price + period + terms alone were rejected (Panotxa,
+2026-10-20); put the feature list in the shared plan-picker component so
+every entry point gets it, and list only what a purchase really gates.
 
 ## Known gotchas
 
