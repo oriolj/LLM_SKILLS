@@ -231,6 +231,7 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
 
 ## Dashboard, look and messaging
 
+- **Posting to a platform from a script or a `--oneshot` CLI turn: `hermes send`** (`--to slack:<channel or DM id>` / `telegram` / `slack:#name`, `--file`, `--json`; `hermes send --list slack` lists the targets, DMs included). It reuses the gateway's bot credentials, needs no LLM and no running gateway. A `chat --oneshot --source claude-code` turn has NO native send-message tool: Enzo then reached for the Nous Portal Slack connector and stopped at its OAuth link (2026-10-21). Never authorise that connector to get around it; have the bot write the text to a file and run `hermes send` (verified 2026-10-21 on enzo: two Slack DMs, `success: true` + `message_id`).
 - **Web dashboard**: `hermes dashboard` (default `127.0.0.1:9119`; `--host`,
   `--port`, `--no-open`); a non-loopback bind always requires an auth
   provider (password or OAuth). Our `hermes-dashboard.service` binds
