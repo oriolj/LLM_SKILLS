@@ -315,6 +315,11 @@ loki.write "hub" {
 `loki.write`'s WAL keeps logs through hub restarts and network blips; an
 outage longer than its retention truncates oldest-first — acceptable, alert
 on the outage itself, don't size the WAL for days.
+**Alloy ≥ 1.21 gates that WAL** behind `--stability.level=experimental`; without
+the flag the agent dies at load with `enabling wal requires stability.level flag
+to be experimental` (EnaCast streamer, apt-installed v1.21.0, 2026-10-21; v1.19.2
+ran the same config without it). Add the flag to the agent's command line
+before bumping any agent to 1.21 (hq `observability_agent` pins v1.18.1).
 
 ## 3a. Host-health canary — steal/PSI + nightly microbench on VPS (2026-10-06)
 

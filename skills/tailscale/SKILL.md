@@ -418,3 +418,9 @@ LAN and `:port` tailnet access stay open until you change the bind.
   the same step. Cause of the difference with coolify-ovh-vps-2 not established
   (that machine name may have been edited by hand earlier, which turns
   auto-generate off).
+- **Third case, cause visible** (EnaCast streamer, 2026-10-21): OS hostname `radiolaveu`,
+  tailnet name `streamer-radiolaveu`, so the machine name had been typed in the console.
+  `tailscale set --hostname=streamer-emunfmradio` changed `Self.HostName` but `DNSName`
+  stayed `streamer-radiolaveu.…`, and the new name did not resolve. Compare the two
+  fields in `tailscale status --json` (`.Self.HostName` vs `.Self.DNSName`): when they
+  differ after a `set`, the console rename is the only way (no API key in hq).
