@@ -104,6 +104,17 @@ Traps:
   references unknown toolset `hermes-homeassistant` (Home Assistant moved to
   a catalog plugin in v0.22). Harmless while unused; `hermes tools`
   reconfigures it.
+- **Home Assistant = the official catalog plugin `homeassistant`**
+  (2.0.1, `hermes plugins install homeassistant --yes-deps --enable`; the
+  gateway hot-reloads plugins, tools arrive next session). The four tools
+  (`ha_list_entities`, `ha_get_state`, `ha_list_services`, `ha_call_service`)
+  appear only once `HASS_TOKEN` is in `.env` (`HASS_URL` defaults to
+  `http://homeassistant.local:8123`); then `hermes tools` per platform. The
+  same token also enables the gateway platform, but it forwards no
+  `state_changed` events until `platforms.homeassistant.extra` has
+  `watch_domains` / `watch_entities` / `watch_all`. `ha_call_service` blocks
+  `shell_command`, `command_line`, `python_script`, `pyscript`, `hassio`,
+  `rest_command`; give the bot a non-admin HA user's token. (Pep, 2026-10-21.)
 
 **Pre-0.22 boxes (legacy, none left on 2026-10-15).** A v0.19–v0.21.5 box
 compares against `main` ("13012 commits behind"): never a bare `hermes
