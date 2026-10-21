@@ -151,6 +151,14 @@ exceptions; preserve existing rules and any leading `#escape=` directive.
 Use UTF-8, `//` for comments, and avoid a trailing slash when matching the
 folder itself. Do not use `(?d)` on data or metadata that must be preserved.
 
+To keep only some files of a folder (e.g. `!/dir/**.enc` then `/dir/**`), do
+**not** add `!/dir/sub` for a subfolder: Syncthing expands every pattern to
+`pattern/**` too, so a folder exception un-ignores everything inside it
+(2026-10-21, a plaintext stopped being ignored for a minute). An include
+pattern with a `/` already makes the scanner walk ignored folders, so the
+nested `.enc` files are found without it. Verify every file with
+`GET /rest/db/file` (`local.ignored`), not a sample.
+
 Read existing rules, then update using
 `POST /rest/db/ignores?folder=<id>` with `{"ignore": ["..."]}`. Re-read the
 response and effective expansion and check for parse errors. Updating config

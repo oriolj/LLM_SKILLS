@@ -81,6 +81,12 @@ recordings off it. Copies synced before stay where they are (ignoring never
 deletes). Check a path's effective state with `GET /rest/db/file` (`local.ignored`);
 minisforum's GUI/API is `127.0.0.1:8080`, key in `~/.config/syncthing/config.xml`.
 
+**The secrets plaintext is excluded too** (Oriol, 2026-10-21): `.stignore-hq`
+syncs only the `*.enc` files under `hq/homelab/secrets/` (`!/hq/homelab/secrets/**.enc`
+then `/hq/homelab/secrets/**`); each host decrypts what it needs. A device
+without the `#include` still sends and receives the plaintext: pep had none
+until that day and held every scope's secrets.
+
 Per-device state, 2026-09-12: minisforum (git owner, ignore verified),
 xps13wc (ignore verified, `.git` removed, recovery copy under
 `~/.local/state/hq-git-recovery/`), fw13pro and Mac mini (ignore installed
