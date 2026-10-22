@@ -1223,7 +1223,7 @@ already forbid videos, iframes and forms. The pattern that works:
   Serif + Geist, the kernel mark from the generated `panotxa-mark.svg`, always on its tile), a `make new`
   template, Postiz on the **personal** account (`postiz-oriolj.env`), Instagram `@panotxa.app` in Spanish,
   provider **`instagram-standalone`** (an Instagram without a Facebook page: same settings as `instagram`,
-  `__type: instagram-standalone`). Launch-day Reel (2026-10-22, the App Store release):
+  `__type: instagram-standalone`; verified by the first post, 2026-10-22, PUBLISHED ~8 min after its slot). Launch-day Reel (2026-10-22, the App Store release):
   `content-creation/videos/2026-10-22-launch/`, the site launch video's verified scenes slowed to reading
   pace by a time map (`MAP` in `scene.js`, mirrored in `soundtrack.py`) between a launch intro and a store
   outro with the site's badges; 37 s, es + ca, 9:16 + 16:9. Reusing a published, verified video through a
