@@ -540,7 +540,7 @@ and say "run as one plain bash command". Check each block before installing:
 Read from the v0.22.2 code on enzo (`d923a5eb`) and the v0.22.4 docs,
 2026-10-22. The estate's rules built on these facts (drift, poisoning, one
 source for Enzo and Bruno) are hq
-[bots.md § Running the bots well](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#running-the-bots-well-drift-poisoning-one-source-2026-10-22).
+[bots.md § Running the bots well](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#running-the-bots-well-drift-poisoning-shared-behaviours-2026-10-22).
 
 **Cron** (`~/.hermes/cron/jobs.json`, ticker = a thread in the gateway, 60 s;
 gateway down = nothing fires):
