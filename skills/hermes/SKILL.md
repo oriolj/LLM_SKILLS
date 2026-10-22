@@ -575,7 +575,10 @@ gateway down = nothing fires):
 - Load order on a name clash: project dirs, `~/.hermes/skills`,
   `skills.create_dir`, `skills.external_dirs`. **External dirs are NOT
   write-protected**: `skill_manage` edit/patch works there; only file
-  permissions stop it (a root-owned, read-only dir does).
+  permissions stop it. On our bots `oriol` is in the docker group, which is
+  root inside the container, so root ownership stops accidents, not the bot.
+  The approval gate also lives only in `skill_manage`: a skill written with
+  the file tools or the shell is not gated.
 - `skill_manage` (create/edit/patch/delete/write_file/remove_file).
   **`skills.write_approval: true` on all our bots** (seen 2026-10-22; memory's
   is false): every write, foreground (`origin: assistant_tool`) or background
