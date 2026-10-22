@@ -535,6 +535,87 @@ and say "run as one plain bash command". Check each block before installing:
   topic. Keep it current there, not in the overflow files. Imported OpenClaw
   skills land in `~/.hermes/skills/openclaw-imports/`.
 
+## Cron, skills, background review, curator: how they really work
+
+Read from the v0.22.2 code on enzo (`d923a5eb`) and the v0.22.4 docs,
+2026-10-22. The estate's rules built on these facts (drift, poisoning, one
+source for Enzo and Bruno) are hq
+[bots.md § Running the bots well](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#running-the-bots-well-drift-poisoning-one-source-2026-10-22).
+
+**Cron** (`~/.hermes/cron/jobs.json`, ticker = a thread in the gateway, 60 s;
+gateway down = nothing fires):
+- The agent creates, edits, pauses and removes jobs from any chat with the
+  `cronjob_manage` tool (renamed from `cronjob` in v0.22.0), **with no
+  approval**. The only checks: an injection scan of the prompt, scripts must sit
+  in `~/.hermes/scripts/`, a credential-exfil `base_url` guard. `paused=true` /
+  `hermes cron create --paused` is opt-in. Inside a cron run the tool is denied
+  unless `cron.allow_agent_scheduling: true` (default false; ours: default).
+- A job is `{prompt, skills, script, no_agent, deliver, schedule, model,
+  enabled_toolsets, workdir, …}`; no per-job timezone (top-level
+  `timezone:`, ours `Europe/Madrid`). **The prompt is a frozen copy written
+  when the job was made**: it does not follow later skill or memory changes,
+  and it often restates who gets the result (bruno's "Pendientes" prompt says
+  Telegram while `deliver` is a Slack channel, 2026-10-22).
+- An agent run is a fresh session with SOUL + MEMORY/USER, the attached
+  `skills` loaded in full before the prompt, toolsets from
+  `platform_toolsets.cron` (or the job's `enabled_toolsets`), never
+  `messaging`/`clarify`/`cronjob`, `approvals.cron_mode: deny`, no background
+  review. The final answer is delivered (`[SILENT]` suppresses it).
+- `no_agent` + `script`: no LLM; non-empty stdout is delivered verbatim,
+  empty = silent success, non-zero exit = a watchdog alert.
+- Missed runs: one catch-up run, then the schedule (`cron.catch_up_missed`).
+- Inspect: `hermes cron list|status|runs|doctor`; output in
+  `cron/output/<id>/*.md`. Change jobs with the CLI or tool, not by editing
+  `jobs.json` (the docs say so; the gateway rewrites it).
+
+**Skills** (`~/.hermes/skills/<category>/<name>/SKILL.md`, agentskills.io format):
+- The prompt carries only the index (name + description); `skill_view`
+  loads the body. `skills.auto_load: [..]` pins bodies into every session.
+  So the **description decides whether a skill is ever used**.
+- Load order on a name clash: project dirs, `~/.hermes/skills`,
+  `skills.create_dir`, `skills.external_dirs`. **External dirs are NOT
+  write-protected**: `skill_manage` edit/patch works there; only file
+  permissions stop it (a root-owned, read-only dir does).
+- `skill_manage` (create/edit/patch/delete/write_file/remove_file).
+  **`skills.write_approval: true` on all our bots** (seen 2026-10-22; memory's
+  is false): every write, foreground (`origin: assistant_tool`) or background
+  (`background_review`), is staged in `~/.hermes/pending/skills/<id>.json` and
+  waits. Review only with slash commands, in a CLI/TUI chat or a messaging
+  chat: `/skills pending`, `/skills diff <id>`, `/skills approve <id|all>`,
+  `/skills reject <id|all>`. No expiry, no dashboard route. Not gated:
+  `write_file`/`patch` on the files directly (issue #117818), and our own scp.
+- Bundled skills sync at gateway start and update; a locally edited one is
+  skipped forever (`.bundled_manifest` hashes), a deleted one stays deleted.
+- Agent-written skills are scanned only with `skills.guard_agent_created:
+  true` (default false); skill bodies are never scanned at load. Run the
+  scanner yourself on what you install (Memory section above).
+
+**Background review** (the self-improvement loop): a forked agent after a
+delivered turn, every `memory.nudge_interval` user turns (10) and when a turn
+used `skills.creation_nudge_interval` tool calls (ours 15) without a skill
+write. It writes memory and proposes skills. **Memory `patch`/`remove` from it
+are staged in `pending/memory/` even with `memory.write_approval: false`**;
+only `add` lands. Off: set the interval to 0. Not run for cron.
+
+**Curator** (default on, every 168 h): archives (never deletes) skills marked
+`created_by: agent` in `.usage.json` after 14/30 days unused; pinned skills and
+skills named by a cron job are protected; ours, hub and external skills are
+untouched. `hermes curator status|pin|restore|rollback`; every skill change by
+any actor is in `skills/.curator_ledger.jsonl` (missing on bruno, 2026-10-22).
+
+**Injection scanning**: memory writes (blocked) and memory at load (dropped
+from the prompt), context files (AGENTS.md etc. from a checkout: blocked;
+SOUL.md and files in HERMES_HOME: warning only, still loaded), cron prompts
+(blocked). Tool output from `web_*`, `browser_*`, `mcp_*` is wrapped as
+untrusted; **`terminal` and file reads are not** (issue #98587), so a vault
+note read with `cat` reaches the model as plain text. Hermes's own SECURITY.md:
+the only real boundary is the OS; scanners and approvals are heuristics.
+
+**Prompt order**: SOUL, guidance, `auto_load` skills, platform hints;
+then context files; then the skills index, MEMORY, USER, the memory
+provider's block, plugin sections, the date. Built once per session (a
+running chat does not see edits: `/new`).
+
 ## Importing from OpenClaw
 
 `hermes claw migrate [--dry-run] [--preset user-data|full]` (guide:
