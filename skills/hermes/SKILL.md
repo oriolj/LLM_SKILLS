@@ -642,6 +642,102 @@ then context files; then the skills index, MEMORY, USER, the memory
 provider's block, plugin sections, the date. Built once per session (a
 running chat does not see edits: `/new`).
 
+## Profiles: several agents on one install
+
+Read from the installed docs on enzo (v0.22.2:
+`website/docs/user-guide/{profiles,multi-profile-gateways,profile-distributions}.md`,
+`reference/profile-commands.md`) and the A2A plugin code, 2026-10-22. No
+profile has been created on our bots yet: all five run only `default`.
+**When we use them** (the estate rule): hq
+[bots.md § Profiles](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#profiles-several-agents-on-one-bot-box-2026-10-22).
+
+**What a profile is.** A separate Hermes home, `~/.hermes/profiles/<name>/`
+(the default profile is `~/.hermes` itself). It has its own `config.yaml`,
+`.env`, `SOUL.md`, `memories/`, sessions and `state.db`, `skills/`, `cron/`,
+logs, `plugins/` and gateway state. The switch is just
+`HERMES_HOME=~/.hermes/profiles/<name>`. Code, the managed runtime and
+plugin dependencies are shared: `hermes update` updates them once and syncs
+bundled skills into every profile. A profile whose `config.yaml` does not
+parse breaks dependency preparation for the whole install.
+
+**What a profile is NOT: a sandbox.**
+- Same UNIX user, so the agent's terminal and file tools can read every
+  other profile's `.env`, memory and sessions, and the default's
+  `auth.json`.
+- Tool subprocesses keep the real `HOME` (`terminal.home_mode: auto`), so
+  `~/.ssh`, `gh`, `gws` and the git credentials are shared. Opt out per
+  profile with `terminal.home_mode: profile`, which runs tools with
+  `HOME=<profile>/home`; you then set those up again inside it.
+- Only a separate box or UNIX user is a boundary. Inside the gateway the
+  isolation is per profile (`.env` scope, allowlists, outbound bot, MCP
+  connections), but that protects against mix-ups, not against a hostile
+  agent.
+
+**Commands** (`hermes -p <name> <anything>`, or the alias `<name> <anything>`
+in `~/.local/bin/`):
+
+| Command | What it does |
+|---|---|
+| `hermes profile create <name>` | Blank profile, bundled skills seeded; then `hermes -p <name> setup` |
+| `hermes profile create <name> --clone` | Copies `config.yaml`, `.env`, `SOUL.md`, skills, `MEMORY.md`/`USER.md` and `plugins/` (with the memory provider's config). Sessions, `state.db` and cron start empty. `--clone-from <src>` picks the source |
+| `--clone-all` | Everything except history, `state.db`, backups, checkpoints and **cron** (never cloned: two gateways would run every job twice) |
+| any clone | Never copies **messaging channels**: bot tokens, allowlists, `platforms:`, pairing. `--clone-channels` overrides, but one token can only be polled by one profile |
+| `hermes profile list` / `show <name>` / `use <name>` | `use` is a sticky default for plain `hermes`, like `kubectl use-context`: avoid it on a bot box, where scripts assume default |
+| `hermes profile rename` | Renames a profile. Renaming `default` only sets a display name |
+| `hermes profile delete <name>` | Stops it, removes service and alias, **deletes its data**; asks for the name |
+| `hermes profile export <name>` / `import <file>` | A `.tar.gz` with keys stripped |
+| `hermes profile install <git-url>` / `update` | Profile distributions: SOUL, config, skills, cron (installed paused) and MCP from a git repo. Unsigned; not for us |
+
+**Logins.** Codex / Claude / xAI OAuth tokens are single-use refresh tokens,
+so they are **shared, never copied**:
+- a profile reads the root `~/.hermes/auth.json`, and its refreshes are
+  written back there;
+- all profiles therefore draw on the same ChatGPT subscription;
+- `hermes -p <name> auth add <provider>` gives a profile its own login;
+- static API keys are copied by a clone.
+
+**Gateways.** Since v0.22 **one gateway process serves every profile**
+(`gateway.multiplex_profiles`).
+- **Default and how it switches on:** an unset flag means on, written as
+  `true` once two or more profiles exist (patri and maia already carry
+  `true`). The old per-profile units are no longer the norm: `gateway install`
+  on a named profile refuses without `--force`.
+- **Same unit:** our `hermes-gateway.service` and the healthcheck keep
+  covering everything.
+- **Its own bot tokens per profile:** each profile needs its own Telegram,
+  Slack or Discord token. The same token in two profiles is parked as
+  `duplicate_credential`. `gateway.profile_routes` can route chats of ONE
+  shared bot (by `user_id`, `chat_id`, `guild_id`) to different profiles.
+- **Sessions:** keyed `agent:<profile>:…`; the default keeps `agent:main:…`.
+- **HTTP inbound** (`api_server`, webhooks) comes in on the default's
+  listener under `/p/<profile>/…`.
+- **A2A is the exception:** it is not on that listener. A profile's own
+  `A2A_PORT` in its own `.env` binds its own port (scoped read; issue
+  #122126). It needs its own port, its own ufw rule, and its own
+  `A2A_PEER_TOKENS` / `A2A_TRUSTED_PEERS`.
+- **Cron:** each served profile's own cron runs in the one process.
+  `hermes -p <name> cron status` names the host gateway.
+- **Restarts:** restarting the default gateway restarts every profile's
+  bots. `hermes -p <name> gateway stop|start` parks or unparks just one.
+
+**Dashboard.** It works at machine level, with a profile switcher
+(`?profile=<name>` in the URL). Our basic-auth login therefore manages every
+profile on the box.
+
+**Same-machine collaboration** between profiles is done with delegation or
+the kanban board (`hermes profile create … --description` feeds kanban
+routing). The docs keep A2A for crossing machines.
+
+**Our own things that assume `default`.** Check each one before a profile
+relies on it:
+- the catch-up scripts (`runtime.profile_guard`,
+  `slack_boundary.configured_api`) and Enzo's time-tracking plugin refuse a
+  non-default home;
+- skills we scp into `~/.hermes/skills/` exist only in default;
+- `~/.config/<tool>/agent.env` files are shared through `HOME`, so they are
+  visible to every profile;
+- the `hermes-<bot>` wrappers target default (pass `-p <name>`).
+
 ## Importing from OpenClaw
 
 `hermes claw migrate [--dry-run] [--preset user-data|full]` (guide:
