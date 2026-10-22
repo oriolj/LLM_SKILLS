@@ -494,6 +494,14 @@ this section keeps the rules and the lessons.
    `Content-creation` share, and the content repo's `work/` folders are links into `~/not-important/`
    (local, its own never-snapshotted subvolume) while `raw/` and `renders/` are links to the NAS.
    EnaCast's `scripts/work_links.sh` makes them from every `make` target; do the same in any content repo.
+   **Two traps that keep bulky files in the repo** (Panotxa, 2026-10-22): a `make check` run while the NAS was
+   unmounted created a real `renders/` folder (the build `mkdir`s it even in check mode), and `work_links.sh`
+   skips any existing `renders/`, so it never became the NAS link again (fixed in Panotxa's kit: no `renders/`
+   in check mode, an existing real one is linked or warned about; EnaCast's and BikeCRM's kits still have it).
+   And an extension-by-extension `.gitignore` lets `.webm`, `.mkv`, `.mp3`, `.mxf` and stray stills through:
+   **deny every media file by default** (case-insensitive patterns), allow back only the small source assets
+   (`!shared/assets/**/*.jpg`…), and run a `make check-bulk` before committing that fails on media tracked or
+   staged outside the assets folder and on anything over 1 MB (Panotxa's `content-creation/Makefile`).
    **Footage and renders live on the company NAS, truenas-enantena, for every work-related
    project, personal ones included** (Oriol, 2026-10-11: "the correct and final place", then
    "we will share that for all work related projects, even personal ones"):
@@ -1209,6 +1217,17 @@ already forbid videos, iframes and forms. The pattern that works:
   feature-video renderer and build, brand outro/question card/thumbnail scenes, episode stings,
   Lexend). September 2026: Sprint Bike interview (episode + 10 shorts) and V1–V5 + compilation,
   all scheduled in Postiz (BikeCRM's account; hq `shared/docs/postiz-cloud.md`).
+- **Panotxa** (`~/git/JLUV-smallbets/NutriLens`, a monorepo: content in **`content-creation/`**, not a separate
+  repo, Oriol 2026-10-22; the site's own media stay in `comercial-website/content-sources/`): EnaCast's
+  feature-video kit ported and re-branded (deep green `#1B4C36`, corn `#E3A857`, cream `#F7F5F0`, Instrument
+  Serif + Geist, the kernel mark from the generated `panotxa-mark.svg`, always on its tile), a `make new`
+  template, Postiz on the **personal** account (`postiz-oriolj.env`), Instagram `@panotxa.app` in Spanish,
+  provider **`instagram-standalone`** (an Instagram without a Facebook page: same settings as `instagram`,
+  `__type: instagram-standalone`). Launch-day Reel (2026-10-22, the App Store release):
+  `content-creation/videos/2026-10-22-launch/`, the site launch video's verified scenes slowed to reading
+  pace by a time map (`MAP` in `scene.js`, mirrored in `soundtrack.py`) between a launch intro and a store
+  outro with the site's badges; 37 s, es + ca, 9:16 + 16:9. Reusing a published, verified video through a
+  time map is the fast way to a new cut: no claim to re-verify except the new intro and outro.
 - **BikeCRM** (`~/git/BikeCRM`): brand `#ff5722` / `#1f1f1f`, Lexend headings,
   Roboto UI; isologos in `bikecrm-web-comercial/public/svg/`
   (`isologo_BikeCRM_white.svg` = white wordmark + orange bike, for dark
