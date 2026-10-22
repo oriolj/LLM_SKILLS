@@ -36,6 +36,11 @@ PY
 (model `SM-F966B`, presumably the Syncthing-Fork app), added on minisforum
 2026-10-09 with introducer and auto-accept off and no folders shared yet.
 
+`YSNXGLH`=annas-mba is Anna's MacBook Air (Panotxa collaborator), added on
+minisforum (REST) and the mac mini (app-bundle `cli`) on 2026-10-22 at
+Oriol's request, introducer and auto-accept off, no folders shared; not yet
+connected that day (her side has to add our devices back).
+
 Known offenders: `QKSA3OR`=Fold7 (phone), `UQBVM7N`=xps13wc, `R42IZ47`=Boox,
 `HO7OJKA`=fw13pro, `M5CTZCN`=minisforum, `E4CQLHF`=X1yogaG9. IDs that resolve
 to nothing (`77GSROW`, `XW7CVUO`) are removed devices; their conflicts date
