@@ -564,6 +564,29 @@ gateway down = nothing fires):
 - `no_agent` + `script`: no LLM; non-empty stdout is delivered verbatim,
   empty = silent success, non-zero exit = a watchdog alert.
 - Missed runs: one catch-up run, then the schedule (`cron.catch_up_missed`).
+- **Changing a job from outside** (used 2026-10-22, enzo and bruno):
+  - `hermes cron create "<cron>" "<prompt>" --name … --script <rel> [--no-agent] --deliver … --failure-deliver … --workdir … --paused --paused-reason "…"`
+    and `hermes cron edit <id> --prompt "$(cat file)"`.
+  - Neither command has a toolsets flag. Set `enabled_toolsets` with the
+    job API in the runtime:
+    `RT 'from cron.jobs import update_job; print(update_job("<id>", {"enabled_toolsets": ["file"]})["enabled_toolsets"])'`.
+  - `hermes cron remove <id>` deletes a job.
+  - A Slack DM target for `deliver` is `slack:D…`: take the `D…` part of
+    the `dm` entry for that person in `~/.hermes/channel_directory.json`
+    (`platforms.slack`, id `D…:<thread>`).
+- **Pattern for a job whose model reads untrusted text: split it.**
+  - The agent job gets `enabled_toolsets: ["file"]` and only writes a
+    draft plus a marker file.
+  - A `no_agent` script job sends whatever the marker names, then
+    verifies it.
+  - The model can then read Slack, notes or mail without a terminal or a
+    send tool.
+  - Reference: hq `homelab/tools/bot-workflows/catchup/` (the company
+    digest on Enzo and Bruno).
+- Ad-hoc Python on a box: the managed runtime started with `-I` has no
+  `python-dotenv`; `~/.hermes/hermes-agent/venv/bin/python` (the v0.21
+  leftover) has the project dependencies. Which interpreter the scheduler
+  uses for `no_agent` scripts was not traced.
 - Inspect: `hermes cron list|status|runs|doctor`; output in
   `cron/output/<id>/*.md`. Change jobs with the CLI or tool, not by editing
   `jobs.json` (the docs say so; the gateway rewrites it).
