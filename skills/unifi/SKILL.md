@@ -391,6 +391,24 @@ The controller is a free link tester; read it before touching cables
   `2` BPS balanced (default), `3` LP aggressive — set via
   `/etc/modprobe.d/iwlmld.conf` (`options iwlmld power_scheme=1`), and
   the module is `iwlmld`, not the `iwlmvm` most guides name.
+- **"Is the WAN down?" on a dual-WAN gateway** *(verified 2026-10-22,
+  UCG-Fiber, Network 10.x; WAN1 behind an ISP router whose IPv4 died
+  upstream, WAN2 Starlink as failover)*: `stat/device` type `udm` →
+  `last_wan_status` (`{"WAN":"offline","WAN2":"online"}`), `wan1`/`wan2`
+  (port, link `speed`, `ip`, `up`; **`up: true` + a DHCP lease does not
+  mean internet**, only that the link and lease exist) and `uplink.comment`
+  (which WAN carries traffic now). `stat/health` subsystem `wan` →
+  `uptime_stats.<WAN|WAN2>` holds the per-WAN probe availability
+  (`ping.ui.com`, DNS to `1.1.1.1`/`8.8.8.8`) and `downtime` in seconds.
+  `rest/networkconf` `purpose: wan` gives name, `wan_failover_priority`,
+  `wan_load_balance_type` (`weighted` / `failover-only`), VLAN and IPv6
+  mode. `cmd/devmgr speedtest` runs on the **active** WAN: the result's
+  `interface_name` / `wan_networkgroup` say which; a run while the primary
+  is down returns `status_summary: 3`, zero throughput on that interface.
+  The gateway cannot traceroute over the API, so locate the break from a
+  client plugged straight into the ISP router (`tracepath -4`, and
+  `curl -4` vs `curl -6`: IPv6 alive with IPv4 dead points at the ISP's
+  IPv4/CG-NAT path, not the line).
 - **Separate radio from client with a LAN iperf3** before blaming the AP:
   `iperf3 -s -D` on a wired 2.5G host, then from the client `iperf3 -c
   <host>` (client TX) and `-R` (client RX). A negotiated 2.4 Gbps link
