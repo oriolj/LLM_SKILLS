@@ -151,6 +151,15 @@ Mechanics:
   continue with the next row instead of aborting *(2026-09-12: the Mac
   mini's historical `.67` and the fallback `.66` were both live leases of
   other devices)*.
+- **Two NICs of one host can share ONE lease** *(verified 2026-10-23, TrueNAS
+  SCALE 25.10 with two DHCP interfaces)*: both send the same DHCP client
+  identity, and dnsmasq keys leases on it, so the onboard port and a USB
+  NIC both showed `last_ip` `.156`, and reserving `.156` for one of them
+  failed with `FixedIpAlreadyUsedByClient` naming the other one's MAC.
+  Give each NIC its own reservation on a free address; the MAC-keyed
+  reservation then wins on the next request. Same host, same subnet, two
+  NICs also means ARP flux (one MAC answering for both addresses) until
+  `arp_ignore=1` / `arp_announce=2` are set on the host.
 - **Local DNS record semantics** *(verified 2026-09-12)*: the record is
   served exactly as written — `nuc8i7` answers `nuc8i7` and the PTR
   becomes `nuc8i7.`; `nuc8i7.localdomain` answers the FQDN and the PTR
