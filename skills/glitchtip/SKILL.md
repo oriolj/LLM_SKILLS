@@ -193,6 +193,32 @@ Further calls need the `Mcp-Session-Id` response header from `initialize`.
   origin moved: **log in at the https URL** (cookies are Secure now; the
   http origin fails CSRF on login).
 
+## Alert rules — and the instance cannot mail yet (2026-10-23)
+
+- **Until 2026-10-23 no project on the instance had an alert rule** (`GET
+  /api/0/projects/<org>/<project>/alerts/` → `[]` everywhere checked). Errors
+  were captured and nobody was told: Panotxa's Gemini 402 outage sat in
+  GlitchTip for 3 h unseen. Every project that matters needs a rule.
+- **Create one by API** (verified 2026-10-23, `oriolj/panotxa`, rule id 1):
+  `POST /api/0/projects/<org>/<project>/alerts/`
+  `{"name": "...", "timespanMinutes": 10, "quantity": 1, "uptime": false,
+  "alertRecipients": [{"recipientType": "email", "url": ""}]}` → 201. The rule
+  fires per ISSUE that reaches `quantity` events in the window; `quantity: 1`
+  = notify on every new issue. Other recipient types: `webhook` (Slack-shaped
+  JSON), `discord`, `googlechat`.
+- 🔴 **Email alerts go nowhere today**: the web container runs with
+  `EMAIL_URL=consolemail://`, and Django's effective `EMAIL_BACKEND` is
+  `django.core.mail.backends.console.EmailBackend` (`MAILGUN_API_KEY` is set
+  but unused). Alert mail is printed into the container log. Check before
+  trusting any email rule: `docker exec <web> python manage.py shell -c "from
+  django.conf import settings as s; print(s.EMAIL_BACKEND)"`. Fix = a real
+  `EMAIL_URL` (Resend SMTP) + a `DEFAULT_FROM_EMAIL` on a verified domain on
+  the Coolify service, then restart (brief ingest gap for all realms).
+- **Write error logs with `%s` arguments, not f-strings.** The Sentry logging
+  integration groups by the message template; `logger.error(f"... {dish_id}")`
+  opens one issue per id (Panotxa 2026-10-23: ~25 one-event issues for one
+  outage), so neither the issue count nor a `quantity > 1` rule ever moves.
+
 ## Wiring apps (pointers)
 
 SDK setup, `environment` = `oj.env`, `release` = git SHA, DSN as a
