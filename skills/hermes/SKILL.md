@@ -574,15 +574,70 @@ gateway down = nothing fires):
   - A Slack DM target for `deliver` is `slack:D…`: take the `D…` part of
     the `dm` entry for that person in `~/.hermes/channel_directory.json`
     (`platforms.slack`, id `D…:<thread>`).
-- **Pattern for a job whose model reads untrusted text: split it.**
-  - The agent job gets `enabled_toolsets: ["file"]` and only writes a
-    draft plus a marker file.
-  - A `no_agent` script job sends whatever the marker names, then
-    verifies it.
-  - The model can then read Slack, notes or mail without a terminal or a
-    send tool.
-  - Reference: hq `homelab/tools/bot-workflows/catchup/` (the company
-    digest on Enzo and Bruno).
+- **Pattern for a job whose model reads untrusted text: split it, and give
+  the model purpose-built tools only** (2026-10-22, tightened 2026-10-23 after
+  Bruno's review):
+  - The agent job gets a plugin toolset of its own and nothing else:
+    `enabled_toolsets: ["<toolset>", "no_mcp"]`. In the catch-up, that is
+    "read the evidence" (paged) and "submit the draft" (once). `["file"]`
+    is not enough: `write_file` reaches anything `oriol` can write, this
+    job's own scripts included, and the next `no_agent` run executes them.
+  - **`no_mcp` is required.** Without it, a per-job toolset list gets every
+    enabled MCP server merged in (`_merge_mcp_into_per_job_toolsets`).
+    Bruno's `["file"]` job was quietly getting Sentry. `[]` means zero
+    toolsets, with no MCP either.
+  - **Gate the tools to the job in code.** `registry.dispatch` passes
+    `task_id` to a handler that accepts it. In a cron run it is
+    `cron:<job id>:<execution>`. The session ContextVar
+    `HERMES_CRON_SESSION` is `"1"` (`get_session_env`), and it reaches the
+    tool threads (`DaemonThreadPoolExecutor` copies the context). Require
+    both, and keep the model's arguments apart from them. The model cannot
+    set either, but this gates "runs of that job", not one execution.
+  - Trusted code picks the target (file, report). A tool takes no path,
+    and refuses unknown arguments in the handler: a schema's
+    `additionalProperties: false` alone is not enforcement.
+  - Put only a gate in the gateway. Do the work in a subprocess with the
+    venv python and a fixed cwd: it stays testable, and generic module
+    names (`digest`, `runtime`) do not collide inside the gateway.
+  - A `no_agent` script job sends what was submitted, then verifies it.
+  - Reference: hq `homelab/tools/bot-workflows/catchup/` (plugin
+    `catchup-draft`, `scripts/draft_tool.py`, `plugin/verify_dispatch.py`),
+    on Enzo and Bruno.
+- **Plugin toolsets are ON by default on every platform** (v0.22,
+  `_enabled_plugin_toolsets`): one is off only when it is listed in
+  `known_plugin_toolsets.<platform>` and absent from that platform's
+  `platform_toolsets` list. That is how `enacast_time_tracking` stays out of
+  everything but Slack.
+  - **`hermes plugins enable <name>` also adds the toolset to every
+    platform list in `platform_toolsets`.** It still matters: it is what
+    makes the running gateway load the plugin ("Gateway reloaded plugins",
+    no restart; tools reach the next session).
+  - **Do not fix that with `hermes tools disable --platform …`.** It rewrites
+    the lists. Composites such as `hermes-discord` / `hermes-signal` become
+    frozen explicit lists, it adds a `cron:` list, and it moves other plugin
+    toolsets between lists. Seen on enzo, 2026-10-23.
+  - What worked: back up `config.yaml` first. Run `plugins enable`. Then
+    restore the backup, adding only the plugin to `plugins.enabled` and the
+    toolset to `known_plugin_toolsets` for cli, slack, telegram, discord,
+    cron, a2a, api_server and webhook. A config with comments needs a text
+    edit, because `yaml.safe_dump` drops them; check that the edit loads
+    equal to the intended dict.
+  - Verify without a model, on the box, from `~/.hermes/hermes-agent` with
+    the venv python:
+    `cron.scheduler._resolve_cron_enabled_toolsets(job, cfg)`, then
+    `model_tools.get_tool_definitions(..., skip_tool_search_assembly=True)`
+    for the real tool names. `_get_platform_tools(cfg, platform)` gives
+    each platform's set. Call the tools with
+    `registry.dispatch(name, args, task_id=…)`, setting
+    `gateway.session_context._VAR_MAP["HERMES_CRON_SESSION"]` for a cron
+    caller.
+  - **Plugin tools reach the model through the tool-search bridge**
+    (`tool_search` / `tool_describe` / `tool_call`). The bridge is scoped
+    to the session's grant: from a catch-up-only scope, `tool_call` on
+    `terminal`, `write_file` or `read_file` answers "a directly-listed
+    tool", and on `a2a_call` it answers "not available in this session".
+    Verified with `handle_function_call(..., enabled_toolsets=…)` on enzo,
+    2026-10-23.
 - Ad-hoc Python on a box: the managed runtime started with `-I` has no
   `python-dotenv`; `~/.hermes/hermes-agent/venv/bin/python` (the v0.21
   leftover) has the project dependencies. Which interpreter the scheduler
