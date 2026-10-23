@@ -879,7 +879,7 @@ installer alone ~15 min). Traps found on maia:
    with `visudo -cf` before installing (Oriol, 2026-10-23: his preferred setup
    on every claw, including bots someone else drives; the hq `claw_agent` role
    writes it too), copy the keys, `loginctl enable-linger oriol`,
-   `Prompt=lts`, mask `netplan-configure.service`, full-upgrade.
+   `Prompt=lts`, mask `netplan-configure.service`, full-upgrade, then `apt-get install -y --no-install-recommends libnspr4 libnss3` (Oriol, 2026-10-23: every claw, at creation and on every run of the hq `claw_agent` role).
 4. As oriol, Hermes: `curl -fsSL https://hermes-agent.nousresearch.com/install.sh`
    to a file, run it in tmux with `--branch release/X.Y.Z --commit vX.Y.Z
    --non-interactive`; wait on `tmux has-session`, not on a string in the
