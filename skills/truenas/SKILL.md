@@ -314,6 +314,42 @@ on an idle NAS, not across the hourly snapshot. Details and the per-option reaso
 - A share whose dataset is locked is absent from `rclone lsd old:` (and
   answers "Network Name Not Found"); that is not an empty share.
 
+## 6b. Network interfaces: a second NIC on the same subnet
+
+Learned 2026-10-23 on truenas-personal (25.10.7), moving it to a USB
+2.5 GbE NIC (Realtek RTL8156B, `r8152`, works) and keeping `eno2` as a
+backup. *(verified over root SSH with `midclt`)*
+
+- **With no interface configured in the UI, TrueNAS runs DHCP at boot only
+  on ports that have a link.** A cable plugged in later gets nothing; the
+  box keeps its boot-time address on the old port. A reboot (or configuring
+  the interface) is what makes it ask.
+- **UI changes stay pending until committed.** `interface.has_pending_changes`
+  says so; a reboot with pending changes is a gamble. Commit with a rollback
+  timer and check in from the NEW address:
+  `midclt call interface.commit '{"rollback":true,"checkin_timeout":90}'`
+  (run it detached: your session can drop), then over the new IP
+  `midclt call interface.checkin`. Jobs need `midclt call -j <method>`
+  (`-job` is parsed as `-j ob` and refused).
+- **One DHCP interface per box**: give the backup NIC a static alias
+  (`interface.update eno2 '{"aliases":[{"type":"INET","address":"…","netmask":24}]}'`).
+- **Two NICs on one /24 = two connected routes, and the first one wins for
+  every reply**, including traffic addressed to the other NIC's IP: SMB
+  reads left through the 1G port until it was fixed. Check
+  `ip route get <client> from <primary-ip>`; it must name the fast NIC.
+  Fix that survives reboots: an init script (`initshutdownscript.create`,
+  `type COMMAND`, `when POSTINIT`) running
+  `ip addr change <ip>/24 dev eno2 noprefixroute; ip route del <net>/24 dev eno2; ip route add <net>/24 dev eno2 src <ip> metric 100`.
+  The middleware can re-add the address without the flag after a network
+  change in the UI: re-check after one.
+- **ARP flux**: also set sysctl tunables `net.ipv4.conf.all.arp_ignore=1` and
+  `arp_announce=2` (`tunable.create`, type SYSCTL, a job), or the box answers
+  ARP for the primary IP with the backup NIC's MAC and clients send to it.
+- A backup NIC on a different IP is a way into the UI, **not failover**:
+  SMB clients point at the primary IP.
+- **A reboot locks every passphrase dataset** (the Syncthing app on one then
+  stays STOPPED): warn the owner before rebooting, they must unlock.
+
 ## 7. Rsync pull tasks: backing up other machines to the NAS
 
 The estate's rule (Oriol, 2026-10-12): truenas-enantena pulls the whole
