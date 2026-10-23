@@ -246,6 +246,28 @@ every entry point gets it, and list only what a purchase really gates.
   should print `xcodebuild -version` and the archive's `DTSDKName`, and refuse
   an `iphoneos27*` SDK without a scene manifest; read `DTXcode` in a crash
   report's build before blaming the code.
+- **Adopting UIScene with a regenerated `ios/` (Capacitor 8.5, done for
+  Panotxa 2026-10-23).** Don't run `migrate-uiscene` on a disposable tree:
+  upgrade core/cli/ios to ≥8.5 and fit the scripts to the new template.
+  (1) The template's `SceneDelegate.scene(_:willConnectTo:)` builds the window
+  in code with `CAPBridgeViewController()`; a project that registers
+  app-local plugins in a `CAPBridgeViewController` subclass must patch THAT
+  line (marker-guarded, abort if the template line is missing). Re-pointing
+  `Main.storyboard`, the Capacitor ≤8.4 hook, no longer creates the window,
+  so the plugins would silently vanish. (2) The same template still names
+  `Main` in `UISceneStoryboardFile` and `UIMainStoryboardFile`: delete both
+  keys so the SceneDelegate is the only root (one `capacitorDidLoad`; log it
+  in Debug and count it). (3) `SceneDelegateProxy` keeps posting the
+  Capacitor 8 notifications (`capacitorOpenURL`, `CDVPluginHandleOpenURL`,
+  `capacitorOpenUniversalLink`), so `appUrlOpen` and plugins listening the
+  old way keep working; cold-start URLs arrive on the first
+  `capacitorViewDidAppear`. APNs token callbacks stay on the AppDelegate.
+  Proof without a phone: `xcrun simctl launch --console-pty <udid> <bundle>`
+  prints Capacitor's own console (`WebView loaded`, plugin calls), which
+  `log stream` does not show. On the Mac mini the iOS 27.1 runtime supports
+  only the "iPhone Duo" device type, and its headless screenshots are black
+  for every app (Settings included): judge it by the console, and check
+  pixels on the 26.5 runtime.
 - **Install the uploaded build on a real device before submitting it.** The
   crash above was found by the developer after the build had already been
   resubmitted to App Review (it was pulled with Cancel Submission → "Developer

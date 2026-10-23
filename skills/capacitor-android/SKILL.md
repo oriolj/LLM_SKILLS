@@ -279,6 +279,16 @@ Build it in this order:
 
 ## Known gotchas
 
+- **`@capacitor/local-notifications` ≥ 8.3 asks for exact alarms by default**
+  (found in Panotxa's Capacitor 8.5 upgrade, 2026-10-23). It merges
+  `SCHEDULE_EXACT_ALARM` into the manifest and defaults every notification to
+  `isExactNotification: true`; on Android 12+ without exact-alarm access,
+  `schedule()` opens the system "Alarms & reminders" settings screen. Google
+  Play allows that permission only for alarm and calendar apps. For reminders
+  that can be a few minutes late, pass `isExactNotification: false` on every
+  notification and strip the permission (`tools:node="remove"`). Diff the
+  built APK's permissions (`aapt dump permissions`) against the previous
+  build after any plugin upgrade: a plugin bump is a manifest change.
 - **Runtime orientation lock** (required; the manifest pin is optional on
   top, ground rule 1). Install `@capacitor/screen-orientation`,
   `npx cap sync`, and lock once at app start, native only:
