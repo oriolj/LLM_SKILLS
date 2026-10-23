@@ -874,8 +874,11 @@ installer alone ~15 min). Traps found on maia:
    (`unifi` skill), `ssh` hosts.conf `Host … <box>` plus its own `Host <box>` block
    with `HostName <LAN IP>` + `HostKeyAlias <box>` (works away from home over
    the subnet route), both inventories.
-3. As root: user `oriol` (uid 1000, **no sudo** when someone other than Oriol
-   will talk to the agent), copy the keys, `loginctl enable-linger oriol`,
+3. As root: user `oriol` (uid 1000) with **passwordless sudo**,
+   `/etc/sudoers.d/oriol` = `oriol ALL=(ALL:ALL) NOPASSWD: ALL`, 0440, checked
+   with `visudo -cf` before installing (Oriol, 2026-10-23: his preferred setup
+   on every claw, including bots someone else drives; the hq `claw_agent` role
+   writes it too), copy the keys, `loginctl enable-linger oriol`,
    `Prompt=lts`, mask `netplan-configure.service`, full-upgrade.
 4. As oriol, Hermes: `curl -fsSL https://hermes-agent.nousresearch.com/install.sh`
    to a file, run it in tmux with `--branch release/X.Y.Z --commit vX.Y.Z
