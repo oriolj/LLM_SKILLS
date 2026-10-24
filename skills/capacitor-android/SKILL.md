@@ -283,10 +283,14 @@ Build it in this order:
   (found in Panotxa's Capacitor 8.5 upgrade, 2026-10-23). It merges
   `SCHEDULE_EXACT_ALARM` into the manifest and defaults every notification to
   `isExactNotification: true`; on Android 12+ without exact-alarm access,
-  `schedule()` opens the system "Alarms & reminders" settings screen. Google
-  Play allows that permission only for alarm and calendar apps. For reminders
-  that can be a few minutes late, pass `isExactNotification: false` on every
-  notification and strip the permission (`tools:node="remove"`). Diff the
+  `schedule()` opens the system "Alarms & reminders" settings screen.
+  `SCHEDULE_EXACT_ALARM` is user-granted and denied by default since
+  Android 14; don't confuse it with `USE_EXACT_ALARM` (auto-granted, which
+  Play reserves for alarm, timer and calendar apps). For reminders that don't
+  need minute precision, pass `isExactNotification: false` on every
+  notification and strip the permission (`tools:node="remove"`). The cost:
+  an inexact alarm on Android 12+ fires up to ~1 h late, later under Doze or
+  battery saver — test one on a locked, idle phone. Diff the
   built APK's permissions (`aapt dump permissions`) against the previous
   build after any plugin upgrade: a plugin bump is a manifest change.
 - **Runtime orientation lock** (required; the manifest pin is optional on
