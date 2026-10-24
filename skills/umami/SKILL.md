@@ -43,6 +43,17 @@ description: The estate's ONE self-hosted Umami web analytics instance (stats.or
   `POST /api/websites/{id}/transfer {"teamId": …}`. Add a member with `POST
   /api/teams/{id}/users {userId, role: team-manager|team-member|team-view-only}`;
   `POST /api/teams {name}` returns `[team, membership]` (an array, not an object).
+- **Project teams for scoped readers** (2026-10-24): a website belongs to ONE
+  team, so read access for a single project (a bot, a collaborator) = a team
+  holding only that project's sites (`agent` team-owner, `admin`
+  team-manager so Oriol's dashboard keeps them, the reader `team-view-only`)
+  and a user with global role `view-only`. First one: team «Panotxa» for the
+  bot Patri (hq `oriolj/docs/umami.md`). Verified refusals for that user: other
+  teams' sites, `/api/admin/*`, `POST /api/websites`, edits and deletes all 401.
+  **Team → team transfer is refused (401)** even for the owner of both teams:
+  transfer to the `agent` user first (`{"userId": …}`), then to the new team
+  (`{"teamId": …}`). `umami-site.py` lists every team in its `TEAMS` dict;
+  `add --team <name>`.
 - Naming: one website per public hostname, `«Product · landing|site|docs|app»`.
   Apps behind a login get a site too (cookieless).
 
@@ -112,6 +123,14 @@ those words in URLs. Umami can also rename `script.js`
   `{id}`, `DELETE /api/websites/{id}`.
 - Stats: `GET /api/websites/{id}/stats?startAt=<ms>&endAt=<ms>` →
   `{pageviews, visitors, visits, bounces, totaltime, comparison}`.
+- **Breakdowns: `/metrics` counts VISITORS per row, not pageviews**
+  (`?type=path|referrer|channel|country|device|…&startAt&endAt&limit`, rows
+  `{x, y}`; panotxa.app `/` = 95 visitors vs 134 pageviews, 2026-10-24: the
+  rows summed to 136 against 196 pageviews and were first misreported as
+  pageviews). `/metrics/expanded` (same params) returns
+  `{name, pageviews, visitors, visits, bounces, totaltime}` per row: use it.
+  Daily series: `/pageviews?unit=day&timezone=Europe/Madrid` →
+  `{pageviews:[{x,y}], sessions:[…]}`; zero days are omitted.
 - Collect: the tag POSTs `/api/send {type:"event", payload:{website, hostname,
   url, title, language, screen, referrer}}` with a real browser User-Agent;
   the same call from curl is the end-to-end test (a `pageviews: 1` in stats
