@@ -32,7 +32,16 @@ description: The estate's ONE self-hosted Umami web analytics instance (stats.or
   `https://stats.enacast.com/script.js` keep collecting without a redeploy.
   **New tags always use `https://stats.oriolj.com/script.js`**; move old
   ones over on the surface's next deploy.
-- **Ownership = the team «Estate»** (`5113853e-f777-45de-9a9c-d29a5d2e80be`,
+- **Ownership = one team per scope since 2026-10-24**: «EnaCast» (EnaSuite +
+  enantena.net), «SmartupSoft» (FichaChat), «Personal» (personal sites),
+  «Panotxa»; each has `agent` team-owner, `admin` team-manager and the scope's
+  bot (Enzo, Bruno, Pep; Patri + Pep on Panotxa) as `team-view-only` through
+  its own `view-only` user. Ids, members and the bots' wrapper: hq
+  `oriolj/docs/umami.md` and hq `shared/docs/bots.md` § Tool accounts. **A new
+  site goes into its scope's team** (`umami-site.py add <domain> --team …`,
+  required): that is what makes the scope's bot see it. «Estate» (below) is
+  empty since then.
+- History: **«Estate»** held every site 2026-09-23 → 2026-10-24 (`5113853e-f777-45de-9a9c-d29a5d2e80be`,
   `agent` team-owner + `admin` team-manager; 2026-09-23). Umami's dashboard
   and `GET /api/websites` list only the caller's OWN websites plus nothing
   from other users — an admin sees the rest only under Settings → Websites
@@ -82,7 +91,7 @@ description: The estate's ONE self-hosted Umami web analytics instance (stats.or
 
 ## Adding a site (the whole job)
 
-1. `hq/homelab/tools/umami-site.py add <domain> --name "<Product> · site"`
+1. `hq/homelab/tools/umami-site.py add <domain> --team enacast|smartupsoft|personal|panotxa --name "<Product> · site"`
    — creates the website and prints the tag. `list` / `tag <domain>` /
    `stats <domain> --days N` / `rm`.
 2. Put the tag in the site's base layout `<head>`. Astro: `is:inline` so it
