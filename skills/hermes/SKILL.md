@@ -922,6 +922,15 @@ installer alone ~15 min). Traps found on maia:
    A running gateway sees the group only after `systemctl restart
    user@1000.service` as root (check `active_agents` = 0 first; gateway,
    dashboard and timers come back by themselves, verified on all four).
+10. **herdr + `h`** (Oriol, 2026-10-24): the same role installs herdr for
+   `oriol` (official `install.sh`, then `herdr update`) and writes `alias
+   h='/home/oriol/.local/bin/hermes'` to `~/.bash_aliases` (full path: the
+   box's `~/.local/bin` is on PATH only in login shells). Then, on minisforum,
+   `herdr machine add <box> --label <box>`: it refuses without a TTY, so from
+   an agent drive it through a Python `pty.fork()`; with herdr already on the
+   box it asks nothing and prints "Remote server is ready". Check `herdr
+   machine status`. On the dev machines `h` is herdr (a fish function);
+   on the boxes it is hermes. The clash is deliberate.
 
 ## Tailscale on the claws (2026-10-17)
 
