@@ -80,8 +80,11 @@ confirm-on-POST) is the global rule in the house CLAUDE.md and the
   Referer of the next request, and so in Loki). Redact the token segment of
   every auth-link route (signup confirm, password reset, magic/invite links,
   plus legacy paths that redirect to them) in ONE helper per app used by the
-  access logger, OTel span attributes and Sentry `before_send`; send
-  `Referrer-Policy: no-referrer` on token pages. Worst when the password is set
+  access logger (Referer field included), OTel span attributes and Sentry
+  `before_send`. Keep `Referrer-Policy: same-origin` on token pages, NOT
+  `no-referrer`: with it browsers send `Origin: null` on the page's own form
+  POST and Django's CSRF origin check refuses it (test clients send no Origin,
+  so tests stay green). Worst when the password is set
   on the confirm page: a log reader can claim the unconfirmed account first.
 
 ## Captcha in production, and testing it
