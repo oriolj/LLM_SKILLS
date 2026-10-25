@@ -512,6 +512,19 @@ for the old host's headers; public resolvers keep asking the old
 nameservers for up to 48 h (`.com` NS TTL), so test through the edge, not
 DNS.
 
+**Mirror the new answers into the OLD zone while resolvers still ask it.**
+After the flip the zone's Universal SSL (Let's Encrypt, `zone` +
+`*.zone`, TXT validation) sat in `pending_validation` for 40 min with the
+wildcard's `_acme-challenge` value pending, plausibly because the CA's
+resolvers still held the old delegation. Writing Cloudflare's two
+`_acme-challenge` TXT values (from `GET ssl/certificate_packs?status=all` →
+`validation_records`) and the new `www` CNAME into the old Route 53 zone
+(TTL 60) unblocked it: active 14 min later, `www` serving again within a
+minute. Keep write access to the old DNS until the NS TTL has passed, and
+plan that mirror as a step of the move. `PATCH certificate_packs/{id}` to
+restart validation answered `1410 Bad response certificate service` and
+was not needed.
+
 ## 2. Custom domain when the zone is NOT on Cloudflare
 
 Zones can live elsewhere (enacast.com DNS is at CDmon). A **subdomain**
