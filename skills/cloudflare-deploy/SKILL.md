@@ -449,9 +449,10 @@ Mechanics (Panotxa `comercial-website/functions/index.js`):
 - **`_headers` does not apply to a Function's response, pass-through
   included.** Once `/` goes through a Function, the home page silently loses
   `X-Content-Type-Options`, `Referrer-Policy`, CSP … unless the Function sets
-  them again. Restate the `/*` block in every Function (the video byte-range
-  one too), from one exported constant, with a build test that it equals
-  `_headers`; append to the asset's `Vary`, never overwrite it; compare
+  them again. Restate the `/*` block on EVERY response of every Function (the
+  302 and the 405, not only the 200 pass-through; the video byte-range one
+  too), from one exported constant, with a build test that it equals
+  `_headers` and that each branch carries it; append to the asset's `Vary`, never overwrite it; compare
   `curl -sI /` with `curl -sI /pricing/` after the deploy.
 - The edge cache ignores `Vary` (except Accept-Encoding, §5), but a Function
   route is not served from the edge cache, so a per-visitor answer is safe;

@@ -40,17 +40,17 @@ export function pickLocale(header, locales) {
  *                        or every redirect costs a second hop)
  *
  * Order: only GET/HEAD on exactly `/`; an explicit `?lang=<served>` wins
- * (it is stripped from the forwarded query); then, on a site whose root IS
- * the default page, an in-site navigation (same-host Referer) is a choice and
- * is served; then Accept-Language; no match → the default.
+ * (only that component is stripped, the rest of the query is kept byte for
+ * byte); then, on a site whose root IS the default page, an in-site
+ * navigation (same-host Referer) is a choice and is served; then
+ * Accept-Language; no match → the default.
  */
 export function rootRedirect(request, { locales, defaultLocale, prefixDefault = false, trailingSlash = true }) {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   const url = new URL(request.url);
   if (url.pathname !== "/") return null;
   const asked = url.searchParams.get("lang")?.toLowerCase();
-  url.searchParams.delete("lang");
-  const query = url.search;
+  const query = withoutLang(url.search);
   const to = (lang) => `/${lang}${trailingSlash ? "/" : ""}${query}`;
   if (asked && locales.includes(asked)) {
     return asked === defaultLocale && !prefixDefault ? null : to(asked);
@@ -58,6 +58,24 @@ export function rootRedirect(request, { locales, defaultLocale, prefixDefault = 
   if (!prefixDefault && isSameHost(request.headers.get("referer"), url)) return null;
   const lang = pickLocale(request.headers.get("accept-language"), locales) ?? defaultLocale;
   return lang === defaultLocale && !prefixDefault ? null : to(lang);
+}
+
+// The query minus its `lang` components, every other byte untouched
+// (URLSearchParams would re-encode `%20` as `+`, `~` as `%7E`).
+function withoutLang(search) {
+  const kept = search
+    .slice(1)
+    .split("&")
+    .filter((part) => part && decodeKey(part.split("=")[0]) !== "lang");
+  return kept.length ? `?${kept.join("&")}` : "";
+}
+
+function decodeKey(key) {
+  try {
+    return decodeURIComponent(key.replace(/\+/g, " "));
+  } catch {
+    return key;
+  }
 }
 
 function isSameHost(referer, url) {

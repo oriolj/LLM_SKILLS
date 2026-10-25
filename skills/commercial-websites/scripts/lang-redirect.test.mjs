@@ -39,6 +39,10 @@ const rootCases = [
   ["ca", "/ca/", { path: "/?lang=xx" }], // unserved value: negotiate
   ["en", "/es/", { path: "/?lang=es", referer: "https://example.org/" }],
   ["ca", "/ca/?utm_source=instagram&utm_medium=bio", { path: "/?utm_source=instagram&utm_medium=bio" }],
+  ["ca", "/ca/?utm_term=hello%20world&x=~&sig=a%2Bb", { path: "/?utm_term=hello%20world&x=~&sig=a%2Bb" }], // raw bytes kept
+  ["en", "/ca/?a=1&b=2", { path: "/?a=1&lang=ca&b=2" }],
+  ["en", "/es/?x=%7E", { path: "/?%6Cang=es&x=%7E" }], // an encoded `lang` key is still `lang`
+  ["ca", "/ca/", { path: "/?" }],
   ["es", null, { path: "/pricing/" }],
   ["es", null, { path: "/index.html" }],
   ["ca", null, { method: "POST" }],

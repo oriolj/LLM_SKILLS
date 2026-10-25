@@ -375,8 +375,9 @@ Rules the helper implements, and why:
   hreflang. No user-agent sniffing, never `cf.country` / GeoIP (language ≠
   country: a Catalan reader in Madrid, a tourist's phone).
 - **An explicit choice wins: `?lang=<served locale>`**, ahead of the header, and
-  is stripped from the forwarded query (`/?lang=ca&utm_source=x` →
-  `/ca/?utm_source=x`); an unserved value is ignored. **The switchers' link to
+  only that component is stripped from the forwarded query, the rest kept byte
+  for byte (`/?lang=ca&utm_term=a%20b` → `/ca/?utm_term=a%20b`; signed or opaque
+  query consumers keep working); an unserved value is ignored. **The switchers' link to
   the default-language home carries it** (`/?lang=en`, Panotxa's `switcherHref`
   in `src/i18n/utils.ts`), so the choice holds even when a browser strips the
   Referer. Canonicals, hreflang and the sitemap keep the clean `/`.
@@ -431,7 +432,8 @@ Never add an adapter or SSR for this.
   Reference: Panotxa `NutriLens/comercial-website/` — `functions/index.js`,
   `src/lib/lang-redirect{,.test}.mjs`, `scripts/test-lang-redirect.mjs` (the
   wiring test), `src/i18n/locales.mjs` (one locale list for the Function and
-  `ui.ts`), `public/_routes.json`. Implemented 2026-10-25; deployment recorded
+  `ui.ts`; `scripts/check-i18n.mjs` fails the build when it differs from the
+  catalogs), `public/_routes.json`. Implemented 2026-10-25; deployment recorded
   in its `DEPLOY.md` §3.3.
 - **Vercel**: Routing Middleware matched to `/` only, but prove it on THIS
   project first: Vercel documents its `proxy`/middleware convention as
