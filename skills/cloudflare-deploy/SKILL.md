@@ -495,6 +495,23 @@ absent.
   [seo skill](../seo/SKILL.md), "Starlight docs sites: favicon and
   `og:image`".
 
+### Moving a site OFF a host that also sits on Cloudflare: release its domains first (bikecrm.com, 2026-10-25)
+
+DigitalOcean App Platform (and Vercel, Render, other Cloudflare-for-SaaS
+customers) attach your domain as a **custom hostname in THEIR Cloudflare
+zone**. While that claim exists it outranks your own zone at Cloudflare's
+edge: after bikecrm.com's NS moved to our Cloudflare zone, `www` through ANY
+Cloudflare IP still answered from DO (`x-do-app-origin`), and the Pages
+custom domain for `www` went `deactivated` / "CNAME record not set" because
+the CA's HTTP check landed on DO. The apex happened to come over (its Pages
+domain validated first). Order for the next move: stage the zone and Pages
+→ **remove the domains from the old host** (needs that provider's access;
+check hq for a token before the day) → flip NS → verify. Probe with
+`curl -sI --resolve <host>:443:<any cloudflare ip> https://<host>/` and look
+for the old host's headers; public resolvers keep asking the old
+nameservers for up to 48 h (`.com` NS TTL), so test through the edge, not
+DNS.
+
 ## 2. Custom domain when the zone is NOT on Cloudflare
 
 Zones can live elsewhere (enacast.com DNS is at CDmon). A **subdomain**
