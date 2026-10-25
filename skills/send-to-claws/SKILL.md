@@ -59,6 +59,12 @@ printf '%s\n' "From a Claude Code session for Oriol: <the message>" |
   asking the bot to review those files read-only.
 - Never pass `--yolo`. If the bot should remember something durably, say so in
   the message and check the reply says where it saved it.
+- **A `--oneshot` turn cannot post to a chat channel either** (patri,
+  2026-10-25, asked to announce something in the Telegram team group): the
+  send needs an approval a one-shot cannot ask for, so the bot replies with
+  the drafted text and posts nothing. Ask it for the draft, show Oriol, and
+  let him approve the post from an interactive `hermes-<bot>` session (or post
+  it himself). Do not reach for `--yolo`.
 - **A `--oneshot --source claude-code` turn will not edit its own skills**
   (pep and bruno, 2026-10-18: "this session's instructions prohibit editing
   skills"; nothing was saved). Writing a fact into a skill is therefore our
