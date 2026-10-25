@@ -69,7 +69,15 @@ source checkouts track the **`stable` channel** (latest `vX.Y.Z`) instead of
 persists, `--plan` previews (changed nothing). `hermes --version`'s
 "N commits behind" on a shallow clone is not local work.
 
-Procedure (pep v0.22.1 → v0.22.2, 2026-10-15), one box at a time:
+Procedure (pep v0.22.1 → v0.22.2, 2026-10-15; all five v0.22.2 → v0.22.5,
+2026-10-25), one box at a time. **Scripted** in
+[scripts/hermes-update-claw.sh](scripts/hermes-update-claw.sh), which does
+steps 2–5 plus a clean-checkout precheck, an archive of `~/.hermes` without
+code, runtimes or caches, and a config diff. Copy it to the box and run it in
+tmux so a dropped ssh cannot interrupt it:
+`tmux new -d -s hermes-upd "bash ~/hermes-update-claw.sh > ~/hermes-upd.log 2>&1"`.
+Then wait for `DONE-OK`/`DONE-FAIL` in the log, run a one-shot turn, and move
+on to the next box only if both are good:
 
 1. Optional for a big jump: Proxmox snapshot of the CT on the host
    (`pct snapshot <ct> pre_hermes_<ver>`).
@@ -95,6 +103,32 @@ Traps:
   `Restart=always` restarts it, and the build starts over in a loop.
   `hermes update --yes` in the foreground is that call. Config migration and
   skills sync then run once per revision on their own.
+- **What v0.22.5's updater does, and costs** (2026-10-25, five boxes):
+  - **Time:** 5–7 min per box with the gateway down.
+  - **Backup:** a "Pre-update snapshot" and then a full
+    `pre-update-*.zip` (≈ 800 MB, ≈ 45 s; restore with `hermes import
+    <zip>`; `updates.pre_update_backup: quick|off` shrinks or skips it).
+    `~/.hermes/backups/` grows by one zip per update (933 MB on pep after two),
+    so prune old zips.
+  - **Fleet check:** it sees the running services ("Fleet: N running
+    service(s)") and has its own gateway-restart follow-up. With the gateway
+    stopped first, as in the procedure, it ends with "Update follow-up
+    'gateway_restart' did not finish" and "Fleet version check returned no
+    rows". Both are harmless when the next step starts the gateway (`hermes
+    gateway status` was clean and NRestarts 0 afterwards).
+  - **Config migration:** `_config_version` 50 → 51, and text-edited keys
+    and their comments survived (`cron.wrap_response`, `display.interface`).
+  - **New Python runtime** (3.14.7 → 3.14.9, a new
+    `~/.hermes/tools/python-*` dir). The old one stays (≈ 400 MB) and still
+    runs every process started before the update: a **long-lived interactive
+    `hermes` (a mosh TUI) keeps the old code until it is reopened**.
+  - It also re-prepares the pinned `cua-driver` (Computer Use) every run.
+- **Bundled skills a bot edited stop receiving upstream updates**: the
+  updater keeps them "user-modified" (pep: 6 on 2026-10-25, among them
+  `hermes-agent`, `google-workspace`, `email-inbox-triage`). Review them with
+  `hermes skills list-modified` / `hermes skills diff <name>`. To take
+  upstream again, run `hermes skills reset <name>` (keeps the bot's copy as
+  the new baseline) or add `--restore` (back to stock).
 - **`hermes update --check` is not read-only**: it installed the "default
   tools" `agent-browser` and `cua-driver` (opt out:
   `hermes pm install --without <tool>`). Use `--plan` to look.
