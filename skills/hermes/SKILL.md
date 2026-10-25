@@ -499,6 +499,18 @@ and say "run as one plain bash command". Check each block before installing:
   pep and bruno: "this session's instructions prohibit editing skills"; the
   cause in Hermes was not traced). Write the skill from outside and let the
   agent review it (the self-review section above).
+- **Never patch Hermes's own code on a claw** (Oriol, 2026-10-25: "i dont
+  want to modify hermes code"). A bot's features live in its plugins
+  (`~/.hermes/plugins/`), scripts and skills, and use only what stock Hermes
+  exposes. `git status --porcelain` in `~/.hermes/hermes-agent` must be empty.
+  Check it before every `hermes update`, because a dirty tree makes the
+  update refuse or drop the changes. On 2026-10-25 enzo had nine changed or
+  new core files: a Slack audio-transcript proof its time-tracking tool
+  imported, written by the bot on 2026-10-23. Reverting meant changing the
+  tool first, because it imported the patched module on every call. Grep
+  `~/.hermes/scripts ~/.hermes/plugins` for the patched module names before
+  you `git checkout`. When a feature truly needs a core hook, it is Oriol's
+  call: an upstream PR or a plugin hook, never a local edit.
 - **`display.interface: tui` on every claw, and on every new one** (Oriol,
   2026-10-25: "set tui as default"). It sits under `display:` in each
   profile's `config.yaml` and is read at launch. With it, a bare `hermes` on
