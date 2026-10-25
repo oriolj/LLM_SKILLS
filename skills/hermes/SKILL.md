@@ -499,6 +499,16 @@ and say "run as one plain bash command". Check each block before installing:
   pep and bruno: "this session's instructions prohibit editing skills"; the
   cause in Hermes was not traced). Write the skill from outside and let the
   agent review it (the self-review section above).
+- **`display.interface: tui` on every claw, and on every new one** (Oriol,
+  2026-10-25: "set tui as default"). It sits under `display:` in each
+  profile's `config.yaml` and is read at launch. With it, a bare `hermes` on
+  a terminal opens the TUI. `--cli` forces the classic REPL, and with no
+  terminal (cron, pipes, `ssh -T`) Hermes always stays classic
+  (`_resolve_use_tui`, `hermes_cli/main_tui_launch.py`, v0.22.2). **Trap:**
+  with a terminal, `chat -q "…"` also opens the TUI, with the query
+  prefilled, and stays open instead of printing and exiting. A one-shot must
+  therefore run without a terminal or with `--cli`. hq's `hermes-claw`
+  wrapper does this by sending `-q`/`-z` calls over `ssh -T`.
 - **`cron.wrap_response: false` on every claw, and on every new one**
   (Oriol, 2026-10-25). By default every cron delivery is wrapped as
   `Cronjob Response: <name>` / `(job_id: …)` / `-------------`, the message,
@@ -901,7 +911,9 @@ installer alone ~15 min). Traps found on maia:
    `script` log (its header echoes the command line). ~1.3 GB in `~/.hermes`.
    `cua-driver` failed to install there and nothing needs it.
 5. `hermes config set` model / provider / base_url, `memory.write_approval
-   false`, the `fallback_providers` block, `hermes pm install --extra
+   false`, the `fallback_providers` block, then as text edits
+   `display.interface: tui` and `cron.wrap_response: false` (both house
+   defaults since 2026-10-25), `hermes pm install --extra
    messaging`, `hermes gateway install --start-on-login --no-start-now`
    + the `10-private-memory.conf` (`UMask=0077`) drop-in, start it.
 6. The model login is Oriol's: `hermes auth add openai-codex --type oauth --no-browser`.
