@@ -339,63 +339,108 @@ Go through this list on every review; each line comes from a real miss.
   translation is a build error, not a silent English fallback; add a build
   check for i18n key parity across catalogs and for em dashes in copy.
 
-### Language on the home page: redirect `/` by `Accept-Language` (house rule)
+### Language on the home page: negotiate `/` by `Accept-Language` (house rule)
 
 Every multi-language site (Oriol, 2026-10-25: "I want all my projects like this"):
-the URL decides the language (`/`, `/es/`, `/ca/` …), and **only the root `/`**
-(the default-language page, which is also the hreflang `x-default`) sends a
-visitor to their browser's language. Panotxa shipped it first.
+the URL decides the language (`/`, `/es/`, `/ca/` …) and **only the root `/`**
+negotiates. Two site shapes:
 
-- **Redirect only on a positive signal**: parse `Accept-Language` with q-values,
-  match the primary subtag (`ca-ES-valencia` → `ca`, `es-419` → `es`), take the
-  highest-q locale the site serves. Redirect only when that winner is a
-  non-default locale. **No header, `*`, English first, nothing served → serve
-  `/` as-is.** Googlebot sends no `Accept-Language` and crawls mostly from the
-  US, so it always gets the default page and every locale stays reachable
-  through hreflang. No user-agent sniffing, never `cf.country` / GeoIP
-  (language ≠ country: a Catalan reader in Madrid, a tourist's phone).
-- **Respect a choice without a cookie**: no redirect when the `Referer` is the
-  same host (the switcher's default-language link IS `/`; without this,
-  clicking "English" bounces back) or when `?lang=…` is present (escape hatch
-  for a stripped Referer). The site stays cookie-free (zero-cookies skill). The
-  known limit: a visitor who chose English and later types the bare domain
-  again is redirected again. That's accepted, and storage would be the fix.
-- **302 + `Cache-Control: private, no-store` + `Vary: Accept-Language`, query
-  string kept** (`/?utm_source=…` → `/ca/?utm_source=…`). Never 301: browsers
-  cache it per user, and the user's later change of language could not undo it.
-- **Only `GET`/`HEAD` on exactly `/`.** Deep pages never move: a shared
-  `/pricing/` link opens what the sender saw.
+- **Root IS the default-language page** (`prefixDefaultLocale: false`; Panotxa,
+  BikeCRM, EnaSuite): `/` redirects only when the browser prefers a served
+  non-default locale; otherwise it serves the default page, which is also the
+  hreflang `x-default`.
+- **Every locale prefixed** (`prefixDefaultLocale: true`; EnaCast): `/` has no
+  content, so it ALWAYS redirects, to the default locale when nothing matches.
+  Delete any client-side `navigator.languages` redirect such a root page had,
+  or the two fight.
+
+**One implementation, vendored.** The decision is
+[scripts/lang-redirect.mjs](scripts/lang-redirect.mjs) (pure: `rootRedirect(request,
+{locales, defaultLocale, prefixDefault, trailingSlash})`, `REDIRECT_HEADERS`,
+`markNegotiated(headers)`) with its behaviour suite
+[scripts/lang-redirect.test.mjs](scripts/lang-redirect.test.mjs) (both shapes).
+Each project copies both files **unchanged** to `src/lib/` and runs the test in
+its build; behaviour changes happen here, `VERSION` bumped, then re-vendored
+everywhere (`diff` against this copy shows drift). The project writes only a
+thin host adapter plus a wiring test (headers, config, the adapter's response).
+
+Rules the helper implements, and why:
+
+- **A positive signal only**: `Accept-Language` parsed with q-values (case-
+  insensitive `q`, values outside 0..1 or malformed drop the entry), primary
+  subtag match (`ca-ES-valencia` → `ca`, `es-419` → `es`), highest q wins, ties
+  keep header order, `*` names no language. **No header → the default.**
+  Googlebot sends no `Accept-Language` and crawls mostly from the US, so it
+  always gets the default page, and every locale stays reachable through
+  hreflang. No user-agent sniffing, never `cf.country` / GeoIP (language ≠
+  country: a Catalan reader in Madrid, a tourist's phone).
+- **An explicit choice wins: `?lang=<served locale>`**, ahead of the header, and
+  is stripped from the forwarded query (`/?lang=ca&utm_source=x` →
+  `/ca/?utm_source=x`); an unserved value is ignored. **The switchers' link to
+  the default-language home carries it** (`/?lang=en`, Panotxa's `switcherHref`
+  in `src/i18n/utils.ts`), so the choice holds even when a browser strips the
+  Referer. Canonicals, hreflang and the sitemap keep the clean `/`.
+- **Root-is-default sites also treat a same-host `Referer` as a choice** (the
+  logo, the footer and the 404 link to `/`). Not on prefixed sites: there is no
+  root page to keep.
+- **Cookie-free** (zero-cookies skill). Known limit: a visitor who chose English
+  and later types the bare domain is negotiated again; accepted, storage would
+  be the fix.
+- **302 + `private, no-store`** on the redirect; **`private, no-cache` +
+  `Vary: Accept-Language, Referer` appended** on a served root (it revalidates
+  every visit, so the negotiation runs again, while 304s and the back-forward
+  cache keep working). Never 301: a browser keeps it per user and a later
+  language change could not undo it. Query string kept.
+- **Only `GET`/`HEAD` on exactly `/`**, enforced inside the helper as well as by
+  the host's routing: deep pages never move (a shared `/pricing/` opens what
+  the sender saw).
+- **Trailing slash follows the host** (`trailingSlash` option): Pages serves
+  `/ca/`, a Vercel project with `trailingSlash: false` serves `/ca`; the wrong
+  one costs every redirected visitor a second hop.
 - **A visible switcher on every page** stays the primary control (Google: "add
   hyperlinks to other language versions").
-- **Test matrix, in the build** (unit cases on the exported decision function)
-  **and live after deploy** with curl: `ca-ES,ca;q=0.9,en;q=0.8` → 302 `/ca/`;
-  `es-MX` → 302 `/es/`; `en-GB,ca;q=0.5` → 200; no header → 200; `ca` +
-  same-site `-e` Referer → 200; `ca` + `?lang=en` → 200; `ca` + `?utm_source=x`
-  → `Location: /ca/?utm_source=x`; `ca` on `/pricing/` → 200. Uptime checks
-  (Gatus) send no header, so they keep seeing 200.
+- **Live check after every deploy** (the helper's suite covers the rest):
+  `curl -sI -H 'Accept-Language: ca-ES,ca;q=0.9,en;q=0.8' <site>/` → 302 to the
+  ca home; `en-GB,ca;q=0.5` and no header → 200 on root-is-default sites, 302
+  to the default on prefixed ones; `?lang=<default>` with a `ca` header → the
+  default; `ca` on a deep page → 200; the served root's headers match a deep
+  page's plus the cache/Vary above. Uptime checks send no header: on a prefixed
+  site assert the root's 302 and the localized page's 200 separately.
 
-Why only the root, and only like this: Google's guidance is "Avoid
-automatically redirecting users from one language version of a site to a
-different language version" ([managing multi-regional sites](https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites))
+Why only the root, and only like this. Google: "Avoid automatically redirecting
+users from one language version of a site to a different language version"
+([managing multi-regional sites](https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites))
 and "the crawler sends HTTP requests without setting `Accept-Language`"
 ([locale-adaptive pages](https://developers.google.com/search/docs/specialty/international/locale-adaptive-pages));
-the x-default for a home page that "dynamically alter[s]" by Accept-Language is
-the [2013 x-default post](https://developers.google.com/search/blog/2013/04/x-default-hreflang-for-international-pages).
-Redirecting only the x-default root, only on an explicit header, keeps every
-language version crawlable and reachable.
+`x-default` covers a home page that "dynamically alter[s]" by Accept-Language
+([2013 post](https://developers.google.com/search/blog/2013/04/x-default-hreflang-for-international-pages)).
+This is Oriol's chosen UX, an accepted SEO trade-off, not Google's
+recommendation: on a root-is-default site an English searcher with a Catalan
+browser landing on `/` is still sent to `/ca/`. Restricting it to the root and
+to an explicit header keeps every version crawlable and reachable. For a NEW
+site prefer the prefixed shape (`/` a pure negotiator, `/en/` a stable
+shareable URL); do not migrate established default-language URLs just for it.
 
-**Where it runs.** Static Astro site on Cloudflare Pages → a Pages Function
-`functions/index.js` (mechanics and traps: the **cloudflare-deploy** skill,
-"Pages Functions next to a static site"). Reference implementation: Panotxa
-`NutriLens/comercial-website/functions/index.js` + `scripts/test-lang-redirect.mjs`
-(the build also checks that the Function's locale list matches `src/i18n/ui.ts`)
-+ `public/_routes.json`. Astro alone cannot do it on a static build:
+**Where it runs (adapters).** Astro alone cannot do it on a static build:
 `Astro.preferredLocale` reads the header only on on-demand (SSR) pages,
 `i18n.routing.redirectToDefaultLocale` always sends `/` to the default locale
-(not the browser's), and a static page only has `<meta http-equiv="refresh">`,
-which cannot read the header. Never add an adapter for this. On Vercel the same logic is Routing Middleware on `/`; a
-client-side `navigator.language` script is the last resort (it flashes the
-default page and runs after first paint).
+(not the browser's), and a static page only has `<meta http-equiv="refresh">`.
+Never add an adapter or SSR for this.
+- **Cloudflare Pages**: `functions/index.js` (mechanics and traps: the
+  **cloudflare-deploy** skill, "Pages Functions next to a static site").
+  Reference: Panotxa `NutriLens/comercial-website/` — `functions/index.js`,
+  `src/lib/lang-redirect{,.test}.mjs`, `scripts/test-lang-redirect.mjs` (the
+  wiring test), `src/i18n/locales.mjs` (one locale list for the Function and
+  `ui.ts`), `public/_routes.json`. Implemented 2026-10-25; deployment recorded
+  in its `DEPLOY.md` §3.3.
+- **Vercel**: Routing Middleware matched to `/` only, but prove it on THIS
+  project first: Vercel documents its `proxy`/middleware convention as
+  incompatible with frameworks that build their own middleware (Astro named),
+  so check the deployed routing artifact with a preview deploy before relying
+  on it. `vercel.json` `has` header conditions cannot rank q-values: not a
+  substitute.
+- A client-side `navigator.language` script is the last resort only (it
+  flashes the default page and runs after first paint).
 
 ## Reviewing a site
 
