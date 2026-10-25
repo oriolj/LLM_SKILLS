@@ -499,6 +499,18 @@ and say "run as one plain bash command". Check each block before installing:
   pep and bruno: "this session's instructions prohibit editing skills"; the
   cause in Hermes was not traced). Write the skill from outside and let the
   agent review it (the self-review section above).
+- **`cron.wrap_response: false` on every claw, and on every new one**
+  (Oriol, 2026-10-25). By default every cron delivery is wrapped as
+  `Cronjob Response: <name>` / `(job_id: …)` / `-------------`, the message,
+  then `To stop or manage this job, send me a new message (e.g. "stop
+  reminder <name>").` (`cron/scheduler_delivery.py`, v0.22.2). One key per
+  profile, not per job; the scheduler rereads `config.yaml` on each delivery,
+  so no restart. Set it as a text edit under `cron:` (`hermes config set`
+  can rewrite the file and drop its comments); check with `hermes config get
+  cron.wrap_response`. A pre-v0.22 install may lack `cron:`, so add the
+  section. Note: the old `~/.hermes/hermes-agent/venv` exists only on boxes
+  installed before v0.22 (pep, enzo, bruno); patri and maia have none, so run
+  one-off Python checks through the `hermes` CLI there.
 - **`memory.write_approval: false` on every claw, and on every new one**
   (Oriol, 2026-10-17: "memory write approval should be off"). With `true`
   the agent's own memory tool waits for an approval, and on bruno
