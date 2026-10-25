@@ -75,6 +75,33 @@ confirm-on-POST) is the global rule in the house CLAUDE.md and the
   `data-exclude-search="true"` + `data-before-send` redacting secret-looking
   segments (mixed case, ≥20-char alnum run, UUID), or swap the token into the
   session and redirect to a tokenless URL (Django's reset view does).
+- **Access logs, traces and error reports record URLs too** (EnaSuite,
+  2026-10-25: live signup tokens sat in gunicorn/Go access lines, in the
+  Referer of the next request, and so in Loki). Redact the token segment of
+  every auth-link route (signup confirm, password reset, magic/invite links,
+  plus legacy paths that redirect to them) in ONE helper per app used by the
+  access logger, OTel span attributes and Sentry `before_send`; send
+  `Referrer-Policy: no-referrer` on token pages. Worst when the password is set
+  on the confirm page: a log reader can claim the unconfirmed account first.
+
+## Captcha in production, and testing it
+
+- **Signup fails closed without the captcha keys in production**: with signup on
+  and the Turnstile secret or site key missing, show «not available yet» and
+  log an ERROR at startup. Keep skip-when-unset only for dev/tests and for staff
+  login/reset (never lock staff out). Skipping silently in prod is the hole that
+  testing-key refusal alone does not close.
+- **Turnstile rejects automated browsers** (Playwright, headed Chrome under Xvfb,
+  scripted clicks: the widget lives in a closed shadow root), and production
+  code should refuse Cloudflare's testing-key verdicts
+  (`metadata.result_with_testing_key`). An end-to-end prod test therefore needs a
+  human to pass the widget; automate on a non-production deployment with the
+  test keys. Throwaway inboxes: mail.tm's API (no key; create inboxes one at a
+  time — parallel creation got 429).
+- **Parse the signup flags identically in every product** that shares an env
+  contract (`SIGNUP_ENABLED`, `GOOGLE_LOGIN_ENABLED`: case-insensitive
+  `1/true/yes/on`): one product accepting `true` and another only `1` turns an
+  operator's `=true` into a silent half-rollout.
 
 ## Trials
 
