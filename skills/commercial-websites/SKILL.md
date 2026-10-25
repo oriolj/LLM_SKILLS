@@ -359,8 +359,11 @@ negotiates. Two site shapes:
 {locales, defaultLocale, prefixDefault, trailingSlash})`, `REDIRECT_HEADERS`,
 `markNegotiated(headers)`) with its behaviour suite
 [scripts/lang-redirect.test.mjs](scripts/lang-redirect.test.mjs) (both shapes).
-Each project copies both files **unchanged** to `src/lib/` and runs the test in
-its build; behaviour changes happen here, `VERSION` bumped, then re-vendored
+Each project copies both files **unchanged** to `src/lib/` (a monorepo keeps ONE
+copy for all its sites: EnaSuite `scripts/`, with a shared Pages adapter
+`lang-redirect-pages.mjs` and one build gate `check-lang-redirect.mjs` that also
+compares each site's Function config with its `astro.config.mjs`) and runs the
+test in its build; behaviour changes happen here, `VERSION` bumped, then re-vendored
 everywhere (`diff` against this copy shows drift). The project writes only a
 thin host adapter plus a wiring test (headers, config, the adapter's response).
 
@@ -435,12 +438,25 @@ Never add an adapter or SSR for this.
   `ui.ts`; `scripts/check-i18n.mjs` fails the build when it differs from the
   catalogs), `public/_routes.json`. Implemented 2026-10-25; deployment recorded
   in its `DEPLOY.md` §3.3.
-- **Vercel**: Routing Middleware matched to `/` only, but prove it on THIS
-  project first: Vercel documents its `proxy`/middleware convention as
-  incompatible with frameworks that build their own middleware (Astro named),
-  so check the deployed routing artifact with a preview deploy before relying
-  on it. `vercel.json` `has` header conditions cannot rank q-values: not a
-  substitute.
+- **Vercel** (proven 2026-10-25 on EnaCast `enacast-comercial-website`, a
+  static Astro build with NO adapter, on a preview deploy): a root
+  `middleware.js` with `export const config = { matcher: '/', runtime: 'nodejs' }`
+  and a default export returning the 302 (or nothing, to continue). The build
+  lists `λ middleware`; no `@vercel/functions` needed. Vercel's `proxy` key in
+  `vercel.json` is the one documented as incompatible with Astro: use the file
+  convention. Prove each new project the same way: a preview deploy of the
+  working tree, then the curl matrix through `npx -y vercel@latest curl <preview
+  url> …` (previews sit behind SSO deployment protection; old CLIs have no
+  `curl`). `vercel.json` `has` header conditions cannot rank q-values: not a
+  substitute. Reference: `middleware.js` + `src/i18n/locales.mjs` +
+  `scripts/test-lang-redirect.mjs` there; its sitemap filters `/` out (a URL
+  that 302s does not belong in a sitemap).
+- **A static host with no server code** (DigitalOcean App Platform static
+  sites, a plain nginx/Coolify static resource, GitHub Pages) cannot run it,
+  and a CDN that caches `/` for everyone (BikeCRM: DO behind Cloudflare,
+  `s-maxage=86400`, `HIT`) makes even an origin-side answer shared. Move the
+  site to Cloudflare Pages (the house rule for static sites) first; do not
+  ship the client-side fallback as a substitute without Oriol's say.
 - A client-side `navigator.language` script is the last resort only (it
   flashes the default page and runs after first paint).
 
