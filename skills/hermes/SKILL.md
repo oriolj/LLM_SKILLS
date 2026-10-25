@@ -507,7 +507,10 @@ and say "run as one plain bash command". Check each block before installing:
   profile, not per job; the scheduler rereads `config.yaml` on each delivery,
   so no restart. Set it as a text edit under `cron:` (`hermes config set`
   can rewrite the file and drop its comments); check with `hermes config get
-  cron.wrap_response`. A pre-v0.22 install may lack `cron:`, so add the
+  cron.wrap_response`. Verified 2026-10-25 on pep with a one-shot test (`hermes cron
+  create --name t --script t.sh --no-agent --deliver telegram --repeat 1 1m`:
+  it ran within a minute, Telegram got only the script line, and the job
+  deleted itself after its one run). A pre-v0.22 install may lack `cron:`, so add the
   section. Note: the old `~/.hermes/hermes-agent/venv` exists only on boxes
   installed before v0.22 (pep, enzo, bruno); patri and maia have none, so run
   one-off Python checks through the `hermes` CLI there.
