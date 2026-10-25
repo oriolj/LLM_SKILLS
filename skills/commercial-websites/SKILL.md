@@ -1,6 +1,6 @@
 ---
 name: commercial-websites
-description: Build, review and fix the commercial (marketing / landing) website of any of our products — the checklist of what a product site must answer and show, how to review one (design critique plus measured evidence), the traps we have hit (SVG mockups rendering in Times, brand-orange contrast, a stale public/ folder, captcha scripts on every page, one-language assets), how to produce its assets with the content-creation skill, how to split the fix across parallel agents without collisions, how to keep every product claim verified against production, and how to ship and verify it. Use when the user says "review the homepage / landing / web comercial", "what would you improve on our site", "fix the landing", "make the marketing site convert", "add a pricing teaser / FAQ / features section", "the site looks old", "prepare the site for launch", or works on any product's public site (BikeCRM, Panotxa, Rutakas, Licita Radar, Humans2Agents, GoalTracker, SpineGuard, BudgetBuddy, oriolj.com, EnaCast sites…). Pairs with seo, core-web-vitals, content-creation, catalan-writing, zero-cookies, eu-law and impeccable.
+description: Build, review and fix the commercial (marketing / landing) website of any of our products — the checklist of what a product site must answer and show, how to review one (design critique plus measured evidence), the traps we have hit (SVG mockups rendering in Times, brand-orange contrast, a stale public/ folder, captcha scripts on every page, one-language assets), how to produce its assets with the content-creation skill, how to split the fix across parallel agents without collisions, how to keep every product claim verified against production, how the home page picks the visitor's language (Accept-Language redirect on `/` only), and how to ship and verify it. Use when the user says "review the homepage / landing / web comercial", "what would you improve on our site", "fix the landing", "make the marketing site convert", "add a pricing teaser / FAQ / features section", "the site looks old", "prepare the site for launch", "detect the browser language / redirect to the right language", or works on any product's public site (BikeCRM, Panotxa, Rutakas, Licita Radar, Humans2Agents, GoalTracker, SpineGuard, BudgetBuddy, oriolj.com, EnaCast sites…). Pairs with seo, core-web-vitals, content-creation, catalan-writing, zero-cookies, eu-law and impeccable.
 ---
 
 # Commercial websites
@@ -338,6 +338,64 @@ Go through this list on every review; each line comes from a real miss.
 - **Type the per-language data** (`Record<Lang, HomeCopy>`) so a missing
   translation is a build error, not a silent English fallback; add a build
   check for i18n key parity across catalogs and for em dashes in copy.
+
+### Language on the home page: redirect `/` by `Accept-Language` (house rule)
+
+Every multi-language site (Oriol, 2026-10-25: "I want all my projects like this"):
+the URL decides the language (`/`, `/es/`, `/ca/` …), and **only the root `/`**
+(the default-language page, which is also the hreflang `x-default`) sends a
+visitor to their browser's language. Panotxa shipped it first.
+
+- **Redirect only on a positive signal**: parse `Accept-Language` with q-values,
+  match the primary subtag (`ca-ES-valencia` → `ca`, `es-419` → `es`), take the
+  highest-q locale the site serves. Redirect only when that winner is a
+  non-default locale. **No header, `*`, English first, nothing served → serve
+  `/` as-is.** Googlebot sends no `Accept-Language` and crawls mostly from the
+  US, so it always gets the default page and every locale stays reachable
+  through hreflang. No user-agent sniffing, never `cf.country` / GeoIP
+  (language ≠ country: a Catalan reader in Madrid, a tourist's phone).
+- **Respect a choice without a cookie**: no redirect when the `Referer` is the
+  same host (the switcher's default-language link IS `/`; without this,
+  clicking "English" bounces back) or when `?lang=…` is present (escape hatch
+  for a stripped Referer). The site stays cookie-free (zero-cookies skill). The
+  known limit: a visitor who chose English and later types the bare domain
+  again is redirected again. That's accepted, and storage would be the fix.
+- **302 + `Cache-Control: private, no-store` + `Vary: Accept-Language`, query
+  string kept** (`/?utm_source=…` → `/ca/?utm_source=…`). Never 301: browsers
+  cache it per user, and the user's later change of language could not undo it.
+- **Only `GET`/`HEAD` on exactly `/`.** Deep pages never move: a shared
+  `/pricing/` link opens what the sender saw.
+- **A visible switcher on every page** stays the primary control (Google: "add
+  hyperlinks to other language versions").
+- **Test matrix, in the build** (unit cases on the exported decision function)
+  **and live after deploy** with curl: `ca-ES,ca;q=0.9,en;q=0.8` → 302 `/ca/`;
+  `es-MX` → 302 `/es/`; `en-GB,ca;q=0.5` → 200; no header → 200; `ca` +
+  same-site `-e` Referer → 200; `ca` + `?lang=en` → 200; `ca` + `?utm_source=x`
+  → `Location: /ca/?utm_source=x`; `ca` on `/pricing/` → 200. Uptime checks
+  (Gatus) send no header, so they keep seeing 200.
+
+Why only the root, and only like this: Google's guidance is "Avoid
+automatically redirecting users from one language version of a site to a
+different language version" ([managing multi-regional sites](https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites))
+and "the crawler sends HTTP requests without setting `Accept-Language`"
+([locale-adaptive pages](https://developers.google.com/search/docs/specialty/international/locale-adaptive-pages));
+the x-default for a home page that "dynamically alter[s]" by Accept-Language is
+the [2013 x-default post](https://developers.google.com/search/blog/2013/04/x-default-hreflang-for-international-pages).
+Redirecting only the x-default root, only on an explicit header, keeps every
+language version crawlable and reachable.
+
+**Where it runs.** Static Astro site on Cloudflare Pages → a Pages Function
+`functions/index.js` (mechanics and traps: the **cloudflare-deploy** skill,
+"Pages Functions next to a static site"). Reference implementation: Panotxa
+`NutriLens/comercial-website/functions/index.js` + `scripts/test-lang-redirect.mjs`
+(the build also checks that the Function's locale list matches `src/i18n/ui.ts`)
++ `public/_routes.json`. Astro alone cannot do it on a static build:
+`Astro.preferredLocale` reads the header only on on-demand (SSR) pages,
+`i18n.routing.redirectToDefaultLocale` always sends `/` to the default locale
+(not the browser's), and a static page only has `<meta http-equiv="refresh">`,
+which cannot read the header. Never add an adapter for this. On Vercel the same logic is Routing Middleware on `/`; a
+client-side `navigator.language` script is the last resort (it flashes the
+default page and runs after first paint).
 
 ## Reviewing a site
 

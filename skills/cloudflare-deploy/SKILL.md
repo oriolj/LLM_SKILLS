@@ -425,6 +425,34 @@ one is in all of them until grepped (`grep -rn localhost */comercial-website/src
 - Early Hints skip a preload that carries extra attributes (fonts with
   `crossorigin`): see static-site-performance rule 19.
 
+### Pages Functions next to a static site (browser-language redirect, 2026-10-25)
+
+The house rule "redirect `/` by `Accept-Language`" (commercial-websites skill,
+"Language on the home page") runs as a Pages Function on a static Astro site.
+No adapter, no SSR. Mechanics (Panotxa `comercial-website/functions/index.js`):
+
+- **`functions/index.js` matches exactly `/`** (`functions/<dir>/index.js`
+  matches `/<dir>`). Export `onRequest`; anything not redirected is
+  `env.ASSETS.fetch(request)`. ASSETS does not re-enter Functions.
+- **Ship an explicit `public/_routes.json`** (`{"version":1,"include":["/","/media/video/*"],"exclude":[]}`).
+  Wrangler generates one from `functions/` when absent, but the committed file
+  is the reviewable invocation list. **Once a project has Functions, every
+  request invokes them unless `_routes.json` excludes it** (billing and the
+  100k/day Free quota), so keep `include` to the routes that need code.
+- **`_headers` does not apply to a Function's response, pass-through
+  included.** Once `/` goes through a Function, the home page silently loses
+  `X-Content-Type-Options`, `Referrer-Policy`, CSP … unless the Function sets
+  them again. Restate them on the pass-through and compare `curl -sI /` with
+  `curl -sI /pricing/` after the deploy.
+- The edge cache ignores `Vary` (except Accept-Encoding, §5), but a Function
+  route is not served from the edge cache, so a per-visitor answer is safe.
+  Still send `Vary: Accept-Language` for browsers and other caches.
+- Export the decision as a pure function (`redirectTarget(request)`) and run
+  the case table with Node's global `Request` in the build (`node
+  scripts/test-lang-redirect.mjs` before `astro build`), then the same cases
+  against `wrangler pages dev dist --port 8788` (runs the real Function and
+  `_routes.json` locally, no credentials) before uploading.
+
 ### First deploy of a new project: order matters
 
 `make website-deploy` ends with `website-verify` against the custom
