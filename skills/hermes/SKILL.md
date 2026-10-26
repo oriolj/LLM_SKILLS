@@ -57,6 +57,12 @@ and dashboard auth).
   ~/.hermes/tools/python-3.*/bin/python3 -I -c 'import sys; sys.path.insert(0, "/home/oriol/.hermes/hermes-agent"); import hermes_bootstrap; <code>'
   ```
 
+  **After an update two runtimes can sit side by side** (pep 2026-10-26:
+  `python-3.14.7…` and `python-3.14.9…`): the glob then expands to two paths
+  and the first python runs the second binary as a script (`SyntaxError:
+  source code cannot contain null bytes`). Pick one:
+  `$(ls -d ~/.hermes/tools/python-3.* | tail -1)/bin/python3`.
+
   Verified on pep 2026-10-15 (`tools.memory_tool_store`,
   `tools.transcription_tools`, `tools.tts_tool`, `tools.skills_guard` import).
   Below, `RT <code>` means this command.
