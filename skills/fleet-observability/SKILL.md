@@ -1946,6 +1946,10 @@ Postgres/Valkey** with exporters as compose services on the tailnet bind). Repo 
   URLs per host + `--tags observability`. After ANY reboot of an agent host whose push URL is the MagicDNS
   name, check the hub: `sum by (host, reason) (rate(loki_write_dropped_entries_total[30m])) > 0`, or
   `docker logs observability-alloy-1 | grep 'server misbehaving'` on the host.
+  **Not Debian-only, and it lasts until someone looks** (mlrtx2, Ubuntu desktop, rebooted 2026-10-22 17:42 UTC →
+  fixed 2026-10-26 08:52 UTC, ~3.5 days and ~1.45 M lines lost): same error, `sent_entries_total` 0, the same two
+  warnings emailed daily and unread. Found only because a backup investigation needed that box's logs. Five
+  hosts now carry the literal-IP override; making it the role default is an open decision for Oriol.
 - 🔴 **A node freshly re-logged into the tailnet can be reachable one way only.** The hub's
   netmap showed the peer with no relay and no path (`tailscale status --json`: `Relay ""`,
   `CurAddr ""`, stale `LastHandshake`) while the node pinged the hub fine — every scrape
