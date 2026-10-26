@@ -2366,7 +2366,13 @@ Other facts from the same window:
 
 For an upstream image that needs a wrapper (real health check, drain, a one-line patch) but has no repo of
 ours: `POST /applications/dockerfile` stores the Dockerfile in Coolify, it builds like any Dockerfile app and
-gets rolling updates. Canonical copy in hq next to the service doc. Verified live, every point:
+gets rolling updates. Verified live, every point below.
+
+**Prefer a small repo of our own over the inline mode, from day one** (Oriol, 2026-10-26, the same day:
+"create a repo … so we can also keep internal docs, intents", "document it with code"). The inline Dockerfile
+cannot be PATCHed on Cloud (below), scripts end up as heredocs in a text box, and there is no push-to-deploy.
+A repo with `Dockerfile` + `ops/` + `make test` + `DEPLOY.md`/`ROADMAP.md` is a git-sourced app (§1c) and
+switching later is a recreate-and-cut-over (§1c), not a PATCH. Reference: `oriolj/link-shortener`.
 
 - **`dockerfile` must be base64** (plain text → 422 "The dockerfile should be base64 encoded").
 - **`ports_exposes` in the create body is ignored**: Coolify derives it from the Dockerfile's `EXPOSE`
@@ -2393,6 +2399,24 @@ gets rolling updates. Canonical copy in hq next to the service doc. Verified liv
   route `/ping` is unreachable over plain http. Don't name a short link, health path or page `ping`.
 - An app whose first run has an open "create the first admin" page: deploy before the DNS record exists and claim
   it through `curl -k --resolve <host>:443:<ip>`, then publish the record.
+- **The wrapper's `start.sh` must supervise every child it starts**, not only `wait` on the app (Codex review,
+  2026-10-26): if the health server dies, PID 1 lives on, every probe fails, Traefik drops the only backend and
+  Docker does not restart a running-but-unhealthy container. busybox `sh` has no `wait -n`: poll both with
+  `kill -0` in a `sleep 1 & wait $!` loop (the `wait` keeps SIGTERM → drain immediate), and when either is gone
+  stop the other and `exit 1` so the restart policy recovers it. Test it: `pkill -f health.js` in the
+  container → exit 1 (`oriolj/link-shortener` `make test`).
+- **Two health paths, two probers**: Traefik's 1 s probe needs only the drain flag (`/ready`, no DB query, no
+  86k lookups a day); the deep check through the database belongs to Coolify's check, the one that gates the
+  swap, and Docker's `HEALTHCHECK`.
+- **A Coolify Postgres resource has ONE role: its `postgres_user`, the superuser** (the official image's
+  `POSTGRES_USER`). With `postgres_user: kutt` there is no `postgres` role at all (checked 2026-10-26), so a
+  restore recipe written against a scratch `postgres:*` container (`pg_restore -U postgres`) fails in
+  production. Restore as the resource's own user into an empty database it owns (`--no-owner` then leaves every
+  object owned by the app's role), and prove recovery by booting the real image on the restored database, not by
+  row counts alone.
+- **Monitor a redirect by its target, not its status**: a deleted, banned or emptied link answers 302 too (Kutt:
+  to `/404`, `/banned`). Gatus with `ignore-redirect: true`: `[BODY] == pat(*<target>*)` next to
+  `[STATUS] == 302` (Express's redirect body names the target); Talaia: assert `Location`.
 
 ## 8. Failure → cause → fix
 
