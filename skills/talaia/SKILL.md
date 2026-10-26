@@ -217,7 +217,10 @@ A status-only request normally needs fresh scheduled results, not another
 invoice-producing run. Use the daily invoice result when it is within cadence,
 and report its timestamp/release. For an authorized one-off production run,
 use `docker exec` in the existing UI container (SSH to
-`root@100.97.219.99`, port `1922`; discover the current container name).
+`root@100.97.219.99`, port `1922`; discover the current container name,
+`docker ps | grep 8611`: it is `ui-<uuid>-<timestamp>`, no "talaia" in it).
+Run **`python -m talaia run <suite>`**: the bare `talaia` console script in that
+container discovers no suites (`Unknown suite … Available:` empty; 2026-10-26).
 Never start a second scheduler with `docker compose run scheduler`. Local
 `uv run` needs `--env-file .env`; it does not load dotenv automatically.
 
