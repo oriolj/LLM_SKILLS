@@ -45,6 +45,8 @@ peers by `Created` on BOTH tailnets before concluding anything (`jq -r
 The newest row answers which tailnet it joined, or that it has not joined
 yet; a few minutes can pass between "I added it" and the node appearing.
 
+**State lives in hq `shared/docs/tailscale/`** (README: both tailnets, members, shares in/out, routes, relayed nodes; `policies.md`: live and draft ACLs). Update it in the turn a share, route, policy or member changes.
+
 `tail4d837.ts.net` is **dead** — an old SmartupSoft identity. Any doc still
 naming it is stale.
 
