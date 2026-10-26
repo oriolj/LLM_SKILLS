@@ -141,6 +141,25 @@ machine cannot be shared with a tag; the recipient must be Owner/Admin/IT
 admin of a tailnet (automatic on a personal plan); revoke via admin console
 → Machines → the machine's Share menu → Revoke invite.
 
+### Limiting a shared-in node to some of the recipient's devices
+
+A share goes to a user, and **every device of that user** on the receiving
+tailnet can reach the node (jluv-apps-1 into the EnaCast tailnet,
+2026-10-26: all 39 of `oriol@enacast.com`'s devices, phones and radio
+streamers included). Tailscale applies both tailnets' policies; the
+sharer's can only name the recipient by email, so **per-device limits
+belong in the recipient tailnet's policy**. Rules only allow, so an
+allow-all `*:*` there must first stop covering shared-in nodes: give it
+`autogroup:member:*` and `autogroup:tagged:*` instead (devices owned by
+the tailnet's own members and tags; a shared-in node's owner is not a
+member), keep every subnet route and `autogroup:internet:*` the old rule
+covered, re-allow any other shared-in node explicitly, then add the
+narrow rule with the shared node's recipient-side IP in `hosts`. Add
+`tests` (an `accept` for the allowed devices, a `deny` for one that must
+not reach it) so the admin console refuses a policy that does not do
+what it says. The `autogroup:member` exclusion is the docs' meaning, not
+yet seen working here: the tests are the proof.
+
 ### A share grants the WHOLE node, every port
 
 There is no per-service share. Anything the box listens on is reachable by
