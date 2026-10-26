@@ -399,6 +399,11 @@ Read it in this order:
    btrfs subvolume as `/dev/dm-1[/@home]`, which no `-b` test matches
    (it now tests the part before `[`). A DEVICE GONE on a mount that
    `ls` reads fine is worth a second look before anything is unmounted.
+   **A big disk whose folders are already decided** (backup stores, rolling
+   archives) can be skipped: `ssh … 'SKIP_DISKS="/mnt/usb" bash -s' < …sizes.sh`
+   prints its df and top level instead of walking it (mlrtx2's 22 TB USB disk
+   took hours, 2026-10-26). Several hosts at once: run them in parallel with
+   `ssh -o BatchMode=yes`, each to its own file in `~/tmp`.
    **Docker's containerd image store** (Docker 29+) mounts each running
    container at `/var/lib/docker/rootfs/overlayfs/<id>` and keeps layers in
    `/var/lib/containerd`: the mounts are a default exclude in hq's registry
