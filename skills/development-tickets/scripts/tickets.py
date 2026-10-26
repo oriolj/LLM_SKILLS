@@ -66,7 +66,7 @@ except ImportError:
     print('tickets: PyYAML is required; please provide it in your Python environment. Nothing was installed.', file=sys.stderr)
     sys.exit(1)
 
-KINDS = ('bug', 'improvement', 'feature', 'docs', 'chore', 'research')
+KINDS = ('bug', 'improvement', 'feature', 'investigation', 'docs', 'chore', 'research')
 CONFIDENCE = ('reported', 'suspected', 'reproduced')
 STATUSES = ('inbox', 'ready', 'in-progress', 'blocked', 'review', 'done', 'cancelled')
 ENUMS = {'kind': KINDS, 'status': STATUSES, 'priority': ('unset', 'p0', 'p1', 'p2', 'p3'),

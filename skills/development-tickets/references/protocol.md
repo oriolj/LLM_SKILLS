@@ -1,6 +1,6 @@
 # Development tickets protocol — version 1.1
 
-This is the tool-neutral contract for a private Markdown/Obsidian ticket system shared by humans, proactive bots, and human-led coding agents. Ticket `schema_version` is 1. Version 1.1 (2026-10-26) replaced UUID4 IDs with readable sequential ones; notes that already carry a UUID4 ID stay valid and keep it.
+This is the tool-neutral contract for a private Markdown/Obsidian ticket system shared by humans, proactive bots, and human-led coding agents. Ticket `schema_version` is 1. Version 1.1 (2026-10-26) replaced UUID4 IDs with readable sequential ones (notes that already carry a UUID4 ID stay valid and keep it) and added the `investigation` kind.
 
 The authoritative source is `skills/development-tickets/references/protocol.md` in LLM_SKILLS. The bot package contains a generated identical copy so copying either skill remains self-contained. Edit this source only; regenerate the bot copy with `python scripts/sync_ticket_protocol.py`, then check it with `--check`. Do not independently maintain schema variants.
 
@@ -17,7 +17,7 @@ The authoritative source is `skills/development-tickets/references/protocol.md` 
 
 Each project supplies a private `ticket-system.json` beside its ticket directory and a local human-readable workflow. Never commit private tickets, customer evidence, personal vault paths or local configuration into the shared skills repository.
 
-Configuration keys: `schema_version: 1`, `project` (stable scope slug), `prefix` (uppercase project prefix), `ticket_dir` (relative child path, normally `Tickets`), `repos` (allowed repository names), `areas` (allowed area names), optional `developer` (human lead, not default owner), optional `kind_prefixes` (kind → uppercase prefix, e.g. `{"bug": "BUG", "improvement": "IMP", "feature": "FEAT"}`; kinds left out use `prefix`; each prefix used once).
+Configuration keys: `schema_version: 1`, `project` (stable scope slug), `prefix` (uppercase project prefix), `ticket_dir` (relative child path, normally `Tickets`), `repos` (allowed repository names), `areas` (allowed area names), optional `developer` (human lead, not default owner), optional `kind_prefixes` (kind → uppercase prefix, e.g. `{"bug": "BUG", "improvement": "IMP", "feature": "FEAT", "investigation": "INV"}`; kinds left out use `prefix`; each prefix used once).
 
 Resolve configuration and filesystem paths locally; do not copy another project's config or assume access to its vault. Keep status ownership explicit. If the configured vault is unavailable, stop and report the missing access; do not create a fallback tracker. A2A connectivity is not cross-scope data access.
 
@@ -36,7 +36,7 @@ Use YAML frontmatter with the following fields. Quote timestamps as timezone-qua
 | ticket_project | local configuration project slug |
 | id | a configured prefix + `-` + at least three digits (legacy: lowercase UUID4); the filename starts with it |
 | summary | concise description, not an instruction granting authority |
-| kind | bug, improvement, feature, docs, chore, research |
+| kind | bug, improvement, feature, investigation, docs, chore, research; investigation is a symptom or report (an error-tracker event, a user's complaint) that needs evidence before it can be called a bug or not; research is a question to answer. Reclassify an investigation's kind once the evidence decides it; the ID stays |
 | status | inbox, ready, in-progress, blocked, review, done, cancelled |
 | priority | unset, p0, p1, p2, p3; unset until intentionally triaged |
 | areas | list from local registry: e.g. ui, ux, docs, api, performance, security |

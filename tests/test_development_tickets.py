@@ -327,6 +327,15 @@ class TicketsTests(unittest.TestCase):
         path.write_text(text, encoding='utf-8')
         self.assertEqual(self.cli('check').returncode, 0, 'reclassifying keeps the minted ID')
 
+    def test_investigation_kind(self):
+        self.settings['kind_prefixes'] = {'investigation': 'INV'}
+        self.save_config()
+        result = self.cli('create', '--summary', 'GlitchTip event', '--kind', 'investigation', '--actor', 'Patri')
+        self.assertEqual(result.stdout.strip(), 'INV-001', result.stderr)
+        data, _ = self.load_note()
+        self.assertEqual(data['kind'], 'investigation')
+        self.assertEqual(self.cli('check').returncode, 0)
+
     def test_legacy_uuid_tickets_stay_valid(self):
         self.assertEqual(self.create().returncode, 0)
         data, body = self.load_note()

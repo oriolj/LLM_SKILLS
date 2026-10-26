@@ -1,7 +1,7 @@
 ---
 name: development-ticket-triage
-description: Capture and triage Obsidian development tickets. Use when a Hermes or similar proactive bot finds a possible bug, UI/UX issue, docs gap, improvement or feature request, or prepares a ticket handoff for a human-led Claude Code or Codex session.
-version: 0.2.0
+description: Capture and triage Obsidian development tickets. Use when a Hermes or similar proactive bot finds a possible bug (captured as an investigation until reproduced or explained), UI/UX issue, docs gap, improvement or feature request, or prepares a ticket handoff for a human-led Claude Code or Codex session.
+version: 0.3.0
 ---
 
 # Proactive capture, reactive development

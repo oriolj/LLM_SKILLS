@@ -1,7 +1,7 @@
 ---
 name: development-tickets
-description: Work human-led development from Obsidian tickets. Use when asked to capture a bug, feature or improvement, triage a development backlog, pick a ticket with Claude Code or Codex, update ticket progress, verify completion, or coordinate tickets with a Hermes bot.
-version: 0.2.0
+description: Work human-led development from Obsidian tickets. Use when asked to capture a bug, feature, improvement or investigation (an error-tracker event or user report not yet confirmed as a bug), triage a development backlog, pick a ticket with Claude Code or Codex, update ticket progress, verify completion, or coordinate tickets with a Hermes bot.
+version: 0.3.0
 ---
 
 # Human-led development tickets
@@ -10,7 +10,7 @@ Read [the shared protocol](references/protocol.md) (version 1.1) and the project
 
 ## When to use
 
-Capture/triage bugs, improvements, features, docs, chores or research; work a ticket selected by the human lead; record truthful implementation, verification and deployment history. Do not use to start autonomous development or replace a project tracker without authority.
+Capture/triage bugs, improvements, features, investigations, docs, chores or research; work a ticket selected by the human lead; record truthful implementation, verification and deployment history. Do not use to start autonomous development or replace a project tracker without authority.
 
 ## Procedure
 
