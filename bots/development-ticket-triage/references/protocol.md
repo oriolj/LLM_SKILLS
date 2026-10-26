@@ -72,6 +72,12 @@ Normally inbox → ready → in-progress → review → done. An authorized boun
 
 `done` is not shorthand for merged or deployed. If the ticket requires production availability, deployment/readback evidence in the intended environment is part of acceptance and the ticket cannot close without it. A docs/research ticket may require only document validation or reviewed findings. Cancellation needs a reason, not passing tests. Preserve closure history when requirements change.
 
+### Handing a deployed change to QA
+
+When a ticket's change is deployed and a human tester should exercise it, add an entry to `QA_PENDING.md` at the root of the repository that owns the feature (next to its `USER_TODO.md`; one entry for a cross-repo feature, linked from the other repos) in the same session as the deploy. The entry carries the ticket ID and says what changed, where (URL or screen, with the exact UI labels from the catalog), the steps, the expected result, the edge cases worth trying, the environment and account to use (never real client data for destructive steps), the deploy it shipped in, and what the agent already verified so QA does not repeat it. Link the entry from the ticket's Deployment evidence.
+
+A QA_PENDING entry is a request for testing, not verification evidence. If human QA is part of the ticket's acceptance, the ticket stays in `review` until QA passes. QA removes the entry when it passes, or turns a failure into a bug ticket (or a reopened ticket) that links back; record either outcome in the ticket's History. The file is a live queue: entries leave when done, and `git log` is its history.
+
 ## Obsidian working view: a Base over canonical notes
 
 When setting up this tracker in Obsidian, deliver a native `.base` working view, not just a folder or a manually maintained Markdown list. Plain Markdown tools can still read the same notes; the Base is a view, never another status store. Do not install community plugins or silently change vault settings.
@@ -131,7 +137,7 @@ Capture: read local config/workflow → search/deduplicate → create inbox note
 
 For an authorized email-to-ticket batch, enumerate the exact source messages and ticket mapping before writing; group coherent requests or split independent ones explicitly. Validate the full batch before claiming conversion, then send only the separately authorized notification in the recipient/thread's agreed language and read back the sent target. Archive only the authorized source messages, preserving other labels/read state, and read them back before reporting success. Tickets and archived mail do not imply a fix has started. Keep a minimal private receipt with source IDs, ticket IDs, sent-message reference and observed results; transient scratch manifests are not durable evidence. Do not publish private source contents/receipts to shared Git or infer authorization for future batches.
 
-Human-led development: read ticket + applicable repository instructions/domain skills → confirm selected ticket and actual scoped authorization → agree owner → record start → reproduce/check requirements → implement and test within scope → record results and remaining uncertainty → review → separately authorized publish/deploy when required → close only against acceptance.
+Human-led development: read ticket + applicable repository instructions/domain skills → confirm selected ticket and actual scoped authorization → agree owner → record start → reproduce/check requirements → implement and test within scope → record results and remaining uncertainty → review → separately authorized publish/deploy when required → QA_PENDING entry when a human tester should exercise it → close only against acceptance.
 
 After an edit: update updated timestamp/history, validate affected records and verify persisted target. No recurring worker, automatic coding loop, notification, status transition or scheduled job is implied by this protocol.
 
