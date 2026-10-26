@@ -2362,6 +2362,38 @@ Other facts from the same window:
   healthcheck found in Dockerfile`) — with the UI check OFF. The earlier "workers cannot
   roll" reading was one day's behaviour.
 
+## 7g. A third-party image as a Dockerfile app with an INLINE Dockerfile (Kutt, go.oriolj.com, 2026-10-26)
+
+For an upstream image that needs a wrapper (real health check, drain, a one-line patch) but has no repo of
+ours: `POST /applications/dockerfile` stores the Dockerfile in Coolify, it builds like any Dockerfile app and
+gets rolling updates. Canonical copy in hq next to the service doc. Verified live, every point:
+
+- **`dockerfile` must be base64** (plain text → 422 "The dockerfile should be base64 encoded").
+- **`ports_exposes` in the create body is ignored**: Coolify derives it from the Dockerfile's `EXPOSE`
+  (`EXPOSE 3000 3001` came back as `80`, so the generated routers pointed at port 80). `PATCH {ports_exposes}`,
+  then `PATCH {domains}` with the same value to regenerate the labels, and read `custom_labels` back.
+- **`PATCH dockerfile` is refused on Coolify Cloud** (422 "This field is not allowed"; Coolify's main branch
+  accepts it, Cloud did not yet). Changing the Dockerfile = the UI (Configuration → Dockerfile) or recreate the
+  app. `rolling_update_drain_seconds` is in the spec too and equally refused on PATCH.
+- **Coolify's injected probe uses `health_check_host`, default `localhost`** — on Alpine that is `::1` first, so
+  a health server bound to `0.0.0.0` answers `Connection refused` and the first deploy rolls back. Set
+  `health_check_host: 127.0.0.1` (or listen dual-stack). It injected its curl||wget probe even though the
+  Dockerfile had a `HEALTHCHECK` (busybox `wget` exists in node:alpine, so it worked once the host was right).
+- **A separate health port is fine**: `health_check_port: "3001"` for Coolify, and Traefik's
+  `loadbalancer.healthcheck.port=3001` (+ `interval=1s`, `timeout=900ms`, `scheme=http`, `path=/`) on each
+  generated service. With a wrapper `start.sh` as PID 1 that, on SIGTERM, touches a flag the health server turns
+  into 503, sleeps 6 s and only then stops node, a forced redeploy under 5 req/s lost **0 of 260** requests
+  (§7f's recipe without touching the app's code).
+- **Make the health check prove the database** when the app's own `/health` is a constant: request a path that
+  forces a DB lookup and expect its normal answer (Kutt: an unknown slug → 302 only after the links query).
+- **Create the DNS record BEFORE the first deploy that carries the domain**, or redeploy after it: Traefik's
+  ACME attempt at router creation failed (no record yet) and it served `TRAEFIK DEFAULT CERT` until the next
+  deploy re-registered the router; the cert came within a minute of that redeploy.
+- **Traefik answers `/ping` itself on the `http` entrypoint** (`200 OK`, Coolify enables Traefik's ping): an app
+  route `/ping` is unreachable over plain http. Don't name a short link, health path or page `ping`.
+- An app whose first run has an open "create the first admin" page: deploy before the DNS record exists and claim
+  it through `curl -k --resolve <host>:443:<ip>`, then publish the record.
+
 ## 8. Failure → cause → fix
 
 | Symptom | Likely cause | Fix |
