@@ -1,23 +1,29 @@
 ---
 name: video-games
-description: Make video games with Claude Code the way we do it — our engine choice (Godot 4 (4.7+, latest stable) with GDScript, Linux-first), real pixel art (native low-res canvas, integer scaling, a Lospec palette, indexed PNGs rendered from palette-indexed text grids by our own script and linted), couch co-op with several gamepads (roles by device id, join screen, hot-plug, SDL mappings for 8BitDo), game design for very young children (no fail states, no text, asymmetric parent+kid roles), the Claude-with-Godot traps (Godot 3 API drift, hand-edited .tscn/.uid breakage, headless renders nothing), the verification loop (GUT tests plus captured frames inspected upscaled), what Opus 5.5 can and cannot do for art and audio, third-party IP in a gitignored local-only private pack (and how to purge it from history before publishing), and an index of the external skills and MCP servers worth reading. Use when the user says "make a game / videojoc / video game", "couch co-op", "pixel art", "sprite", "sprite sheet", "tileset", "palette", "Godot", "GDScript", "gamepad / controller support", "game for my kids", "character select", "game jam", or works in ~/git/oriolj/VideoGames/PixelPals (the public couch co-op monorepo: 16 playable games and a TV launcher).
+description: Make video games with Claude Code the way we do it — our engine choice (Godot 4 (4.7+, latest stable) with GDScript, Linux-first), real pixel art (native low-res canvas, integer scaling, a Lospec palette, indexed PNGs rendered from palette-indexed text grids by our own script and linted), couch co-op with several gamepads (roles by device id, join screen, hot-plug, SDL mappings for 8BitDo), game design for very young children (no fail states, no text, asymmetric parent+kid roles), the Claude-with-Godot traps (Godot 3 API drift, hand-edited .tscn/.uid breakage, headless renders nothing), the verification loop (GUT tests plus captured frames inspected upscaled), what Opus 5.5 can and cannot do for art and audio, third-party IP in a gitignored local-only private pack (and how to purge it from history before publishing), and an index of the external skills and MCP servers worth reading. Use when the user says "make a game / videojoc / video game", "couch co-op", "pixel art", "sprite", "sprite sheet", "tileset", "palette", "Godot", "GDScript", "gamepad / controller support", "game for my kids", "character select", "game jam", or works in ~/git/oriolj/PixelPals (the public couch co-op monorepo: 16 playable games, a TV launcher and an adventures/ folder for point-and-click games).
 ---
 
 # Video games
 
 How we build games with Claude Code: our preferences, what we have verified,
 and where the rest of the knowledge lives. It starts from PixelPals (2026-09,
-a couch co-op game for Oriol and his kids, `~/git/oriolj/VideoGames/PixelPals`)
+a couch co-op game for Oriol and his kids, `~/git/oriolj/PixelPals`)
 and grows with each game; add dated lessons to
 [references/field-notes.md](references/field-notes.md) as they happen.
 
 ## Preferences (Oriol)
 
 - **All the couch co-op games live in one monorepo** (Oriol, 2026-09-26):
-  `~/git/oriolj/VideoGames/PixelPals`, which is
-  [oriolj/PixelPals](https://github.com/oriolj/PixelPals) (private).
+  `~/git/oriolj/PixelPals`, which is
+  [oriolj/PixelPals](https://github.com/oriolj/PixelPals) (public since
+  2026-09-27).
   - Each game has its own `games/<slug>/` folder, and every game has a
     `PLAN.md` there before any code.
+  - **Point-and-click adventures go in `adventures/<slug>/`, not `games/`**
+    (Oriol, 2026-10-26: "those are not couch co-op but more like play all
+    together"). They follow their own formula in `adventures/CLAUDE.md`: one
+    shared pointer that any device moves, no seats, one-step puzzles, still
+    no text and no fail state.
   - The input, sprite and sound autoloads live once in `shared/` and are
     symlinked into each Godot project.
   - One pinned Godot sits in the root `.tools/` and one uv venv at the root.
