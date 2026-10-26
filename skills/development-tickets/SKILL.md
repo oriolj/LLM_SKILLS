@@ -1,12 +1,12 @@
 ---
 name: development-tickets
 description: Work human-led development from Obsidian tickets. Use when asked to capture a bug, feature or improvement, triage a development backlog, pick a ticket with Claude Code or Codex, update ticket progress, verify completion, or coordinate tickets with a Hermes bot.
-version: 0.1.1
+version: 0.2.0
 ---
 
 # Human-led development tickets
 
-Read [the shared protocol](references/protocol.md) (version 1) and the project's private workflow/config before touching tickets. This package is self-contained when copied. Shared protocol source is in this package; the bot package receives a generated exact copy.
+Read [the shared protocol](references/protocol.md) (version 1.1) and the project's private workflow/config before touching tickets. This package is self-contained when copied. Shared protocol source is in this package; the bot package receives a generated exact copy.
 
 ## When to use
 
@@ -28,11 +28,11 @@ Python 3 and PyYAML are required; never install dependencies automatically. Revi
     python scripts/tickets.py --config /path/to/private/ticket-system.json list
     python scripts/tickets.py --config /path/to/private/ticket-system.json create --summary "Describe the issue" --kind bug --actor "your-actor" --area ui --repo app-ui
 
-The first two are read-only. Create writes one inbox note with UUID4 and empty/unknown facts. It does not authorize or start development. Use configured area/repo names; the example names are illustrative. Manual template use also works without dependencies: fill a new UUID4/timestamps, set record_type to development-ticket and all actual fields before saving it in Tickets.
+The first two are read-only. Create writes one inbox note with the next readable ID (`IMP-009 — Summary.md`) and empty/unknown facts. It does not authorize or start development. Use configured area/repo names; the example names are illustrative. Manual template use also works without dependencies: take the next number for the prefix (one above the highest existing, closed tickets included), name the file `<ID> — <summary>.md`, fill timestamps, set record_type to development-ticket and all actual fields before saving it in Tickets.
 
 ## Pitfalls
 
-Do not derive production availability from master, treat ready as approval, duplicate live status into a board, guess dates/owners, reclassify old reports as current bugs, bypass opt-outs/permissions, or hide sync conflicts. Helper duplicate detection is exact-summary only; perform semantic search yourself. No helper lock coordinates multiple hosts.
+Do not derive production availability from master, treat ready as approval, duplicate live status into a board, guess dates/owners, reclassify old reports as current bugs, bypass opt-outs/permissions, or hide sync conflicts. Helper duplicate detection is exact-summary only; perform semantic search yourself. No helper lock coordinates multiple hosts: two hosts can mint the same number before sync converges; `check` flags the duplicate and the protocol says how to renumber.
 
 ## Verification
 

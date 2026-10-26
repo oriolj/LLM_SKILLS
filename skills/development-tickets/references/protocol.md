@@ -1,6 +1,6 @@
-# Development tickets protocol — version 1
+# Development tickets protocol — version 1.1
 
-This is the tool-neutral contract for a private Markdown/Obsidian ticket system shared by humans, proactive bots, and human-led coding agents. Protocol version and ticket `schema_version` are both 1.
+This is the tool-neutral contract for a private Markdown/Obsidian ticket system shared by humans, proactive bots, and human-led coding agents. Ticket `schema_version` is 1. Version 1.1 (2026-10-26) replaced UUID4 IDs with readable sequential ones; notes that already carry a UUID4 ID stay valid and keep it.
 
 The authoritative source is `skills/development-tickets/references/protocol.md` in LLM_SKILLS. The bot package contains a generated identical copy so copying either skill remains self-contained. Edit this source only; regenerate the bot copy with `python scripts/sync_ticket_protocol.py`, then check it with `--check`. Do not independently maintain schema variants.
 
@@ -17,7 +17,7 @@ The authoritative source is `skills/development-tickets/references/protocol.md` 
 
 Each project supplies a private `ticket-system.json` beside its ticket directory and a local human-readable workflow. Never commit private tickets, customer evidence, personal vault paths or local configuration into the shared skills repository.
 
-Configuration keys: `schema_version: 1`, `project` (stable scope slug), `prefix` (uppercase project prefix), `ticket_dir` (relative child path, normally `Tickets`), `repos` (allowed repository names), `areas` (allowed area names), optional `developer` (human lead, not default owner).
+Configuration keys: `schema_version: 1`, `project` (stable scope slug), `prefix` (uppercase project prefix), `ticket_dir` (relative child path, normally `Tickets`), `repos` (allowed repository names), `areas` (allowed area names), optional `developer` (human lead, not default owner), optional `kind_prefixes` (kind → uppercase prefix, e.g. `{"bug": "BUG", "improvement": "IMP", "feature": "FEAT"}`; kinds left out use `prefix`; each prefix used once).
 
 Resolve configuration and filesystem paths locally; do not copy another project's config or assume access to its vault. Keep status ownership explicit. If the configured vault is unavailable, stop and report the missing access; do not create a fallback tracker. A2A connectivity is not cross-scope data access.
 
@@ -25,7 +25,7 @@ Agent discovery needs an instruction pointer visible from the working directory:
 
 ## Canonical records
 
-One note per ticket, immutable filename `<PREFIX>-<UUIDv4>.md`; readable summary in frontmatter and H1. Use UUID4, not shared counters. Notes own state. Bases, searches, indexes and boards are views/links, not additional editable state stores. Use ordinary relative Markdown links. Existing external issues are links only unless the human explicitly changes authority; no automatic GitHub Issues mirror.
+One note per ticket. The ID is `<PREFIX>-<NNN>`: the kind's prefix from `kind_prefixes` (else `prefix`) and the next number for that prefix, zero-padded to at least three digits (`IMP-009`, `BCRM-042`, `BUG-1000`). The next number is one above the highest existing number for that prefix, counting done, cancelled and duplicate tickets; numbers are never reused. The ID is immutable: reclassifying an `INV-` ticket as a bug changes `kind`, not the ID. The filename is the ID optionally followed by a space and a readable title, normally `<ID> — <summary>.md`; the title part may be edited, the ID part never. Link to tickets by ID and by the note path. Notes own state. Bases, searches, indexes and boards are views/links, not additional editable state stores. Use ordinary relative Markdown links. Existing external issues are links only unless the human explicitly changes authority; no automatic GitHub Issues mirror.
 
 Use YAML frontmatter with the following fields. Quote timestamps as timezone-qualified ISO 8601 strings; UTC `+00:00` is suitable. Unknown optional facts remain null/empty rather than guessed.
 
@@ -34,7 +34,7 @@ Use YAML frontmatter with the following fields. Quote timestamps as timezone-qua
 | schema_version | 1 |
 | record_type | development-ticket |
 | ticket_project | local configuration project slug |
-| id | configured uppercase prefix + canonical lowercase UUID4; matches filename |
+| id | a configured prefix + `-` + at least three digits (legacy: lowercase UUID4); the filename starts with it |
 | summary | concise description, not an instruction granting authority |
 | kind | bug, improvement, feature, docs, chore, research |
 | status | inbox, ready, in-progress, blocked, review, done, cancelled |
@@ -81,7 +81,7 @@ The canonical portable template is `templates/tickets.base` in the agent package
 - `REPLACE_VAULT_RELATIVE_TICKET_DIR`: resolve configured `ticket_dir` relative to the config directory, then express it relative to the vault root. It is NOT necessarily `Tickets` from the vault root.
 - `REPLACE_PROJECT`: the configured `project` slug, not a guessed company name or prefix. Escape quotes/backslashes as expression string literals if values contain them; raw substitution of arbitrary text is not safe.
 
-Retain the global conjunction: folder + `file.ext == "md"` + `record_type == "development-ticket"` + `ticket_project`. Provide Inbox, Active by status (excluding only done/cancelled), and All. Do not silently limit rows or whitelist groups that hide blocked/review/new states. `file.asLink(note.summary)` gives readable clickable titles without renaming UUID files. Show priority/type/areas/repos/owner/confidence/verification/deployment as useful; retain the registry and unknown values rather than inventing them.
+Retain the global conjunction: folder + `file.ext == "md"` + `record_type == "development-ticket"` + `ticket_project`. Provide Inbox, Active by status (excluding only done/cancelled), and All. Do not silently limit rows or whitelist groups that hide blocked/review/new states. `file.asLink(note.summary)` gives readable clickable titles without depending on the filename. Show priority/type/areas/repos/owner/confidence/verification/deployment as useful; retain the registry and unknown values rather than inventing them.
 
 Link the Base from the local workflow/index using ordinary relative Markdown links. A static receipt mapping an intake batch to source messages is historical evidence, not the current backlog view. Document that edits through a Base change the original frontmatter and still require authorized transitions plus updated timestamps/history; a cell edit never supplies implementation authority.
 
@@ -119,7 +119,9 @@ Search existing tickets and historical source notes before creating a new one. M
 
 Before editing, fresh-read the ticket. Use a narrow patch, detect intervening changes and stop if it moved. One active editor per ticket when collaboration overlaps; record owner/session handoff without treating it as a distributed lock. Syncthing is not a transactional multi-writer database. Do not assume atomicity across ticket+board+config or between hosts. A helper's exclusive file creation prevents same-host overwrite, not cross-host conflicts.
 
-Conflict files are not extra tickets. Preserve all versions; stop modifications to that ticket and reconcile with the sync-recovery procedure. Do not choose newest silently, reset, remove duplicates automatically or batch-format the tracker. Keep UUID filenames immutable; titles may change without breaking links.
+Conflict files are not extra tickets. Preserve all versions; stop modifications to that ticket and reconcile with the sync-recovery procedure. Do not choose newest silently, reset, remove duplicates automatically or batch-format the tracker. Keep the ID part of filenames immutable; titles may change.
+
+Sequential numbers are allocated per host, so two writers that capture before Syncthing converges can mint the same ID in two different notes. `check` reports it as a duplicate ID and the helper then refuses to create. Resolve it by hand: keep the ID on the note with the earlier `created`, give the other the next free number (rename the file and change `id`), update `related`/`duplicate_of` and links that meant the renumbered note, and record `renumbered from <old ID> after a capture collision` in its History. Before capturing on a host that has just come online, let the vault finish syncing.
 
 Preserve legacy boards/reports with a dated migration notice. New ticket notes own ongoing state. Do not bulk-import old unchecked items as current commitments; revalidate source/status and link by provenance, one topic at a time. General business boards reference development tickets without duplicating their lifecycle.
 
@@ -137,7 +139,7 @@ After an edit: update updated timestamp/history, validate affected records and v
 
 The agent skill optionally ships `scripts/tickets.py` (Python 3 + PyYAML; no automatic dependency installation): `--config <private-json> create|check|list`. `check` and `list` are read-only; `create` writes one inbox note and never implements, updates status, sends, deletes or calls a network API. Review the script before running a newly fetched version. A bot skill copied alone can follow this protocol/template manually; the helper requires the agent skill package or whole repository.
 
-A validator checks structure and obvious contradictions; it cannot prove human approval, true acceptance, reproduction or deployment. Humans/agents must review source evidence. Validate UUID4/filename/project, enums/registry, timezone dates, completion/acceptance evidence and duplicate/self references; preserve state on failures.
+A validator checks structure and obvious contradictions; it cannot prove human approval, true acceptance, reproduction or deployment. Humans/agents must review source evidence. Validate ID/prefix/filename/project, enums/registry, timezone dates, completion/acceptance evidence and duplicate/self references; preserve state on failures.
 
 ## Synchronizing shared skills
 

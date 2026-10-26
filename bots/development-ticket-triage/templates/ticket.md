@@ -2,7 +2,7 @@
 schema_version: 1
 record_type: development-ticket-template
 ticket_project: "REPLACE_PROJECT"
-id: "PREFIX-REPLACE_WITH_UUID4"
+id: "PREFIX-REPLACE_WITH_NEXT_NUMBER"
 summary: "REPLACE_SUMMARY"
 kind: bug
 status: inbox

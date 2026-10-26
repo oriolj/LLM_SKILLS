@@ -5,12 +5,14 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sys
-import uuid
 import re
 
 
 class TicketError(ValueError):
     pass
+
+
+PREFIX = re.compile(r'[A-Z][A-Z0-9]{1,11}')
 
 
 def text(value):
@@ -35,12 +37,18 @@ def load_config(path):
         raise TicketError('config path must be absolute')
     config = json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique_json)
     required = {'schema_version', 'project', 'prefix', 'ticket_dir', 'repos', 'areas'}
-    if not isinstance(config, dict) or not required <= config.keys() or config.keys() - required - {'developer'}:
+    if not isinstance(config, dict) or not required <= config.keys() or config.keys() - required - {'developer', 'kind_prefixes'}:
         raise TicketError('invalid config fields')
     if type(config['schema_version']) is not int or config['schema_version'] != 1:
         raise TicketError('invalid config schema_version')
-    if not text(config['project']) or not isinstance(config['prefix'], str) or not re.fullmatch(r'[A-Z][A-Z0-9]{1,11}', config['prefix']):
+    if not text(config['project']) or not isinstance(config['prefix'], str) or not PREFIX.fullmatch(config['prefix']):
         raise TicketError('invalid config project or prefix')
+    # Optional per-kind prefixes (BUG-001, IMP-009); kinds left out use `prefix`.
+    kind_prefixes = config.get('kind_prefixes', {})
+    if (not isinstance(kind_prefixes, dict) or not set(kind_prefixes) <= set(KINDS)
+            or not all(isinstance(value, str) and PREFIX.fullmatch(value) for value in kind_prefixes.values())
+            or len(set(kind_prefixes.values())) != len(kind_prefixes)):
+        raise TicketError('invalid config kind_prefixes')
     if not strings(config['repos']) or not strings(config['areas']) or ('developer' in config and not text(config['developer'])):
         raise TicketError('invalid config repos, areas or developer')
     directory = config['ticket_dir']
@@ -84,11 +92,38 @@ class UniqueLoader(yaml.SafeLoader):
         return result
 
 
-def valid_id(value, prefix=None):
+SEQUENTIAL = r'[0-9]{3,}'
+# Protocol 1.0 minted UUID4 IDs; notes that already carry one stay valid.
+LEGACY_UUID = r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
+ID = re.compile(rf'([A-Z][A-Z0-9]{{1,11}})-({SEQUENTIAL}|{LEGACY_UUID})')
+
+
+def prefixes(config):
+    return {config['prefix'], *config.get('kind_prefixes', {}).values()}
+
+
+def valid_id(value, allowed=None):
     if not isinstance(value, str):
         return False
-    match = re.fullmatch(r'([A-Z][A-Z0-9]{1,11})-([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})', value)
-    return bool(match and (prefix is None or match[1] == prefix))
+    match = ID.fullmatch(value)
+    return bool(match and (allowed is None or match[1] in allowed))
+
+
+def valid_filename(name, identifier):
+    # `<ID>.md` or `<ID> <readable title>.md`; the ID part is what links rely on.
+    return name == identifier + '.md' or (name.startswith(identifier + ' ') and name.endswith('.md'))
+
+
+def filename_title(summary):
+    title = re.sub(r'[\\/:*?"<>|#^\[\]]', ' ', summary)
+    title = re.sub(r'\s+', ' ', title).strip(' .')[:80].rstrip(' .')
+    return title
+
+
+def next_id(prefix, records):
+    numbers = [int(match[2]) for record in records
+               if (match := ID.fullmatch(record['id'])) and match[1] == prefix and match[2].isdigit()]
+    return f'{prefix}-{max(numbers, default=0) + 1:03d}'
 
 
 def timestamp(value):
@@ -140,7 +175,7 @@ def validate(data, body, path, config):
         raise TicketError('invalid schema_version')
     if data['record_type'] != 'development-ticket' or data['ticket_project'] != config['project']:
         raise TicketError('invalid record type or project')
-    if not valid_id(data['id'], config['prefix']) or path.name != data['id'] + '.md':
+    if not valid_id(data['id'], prefixes(config)) or not valid_filename(path.name, data['id']):
         raise TicketError('invalid ID or filename')
     if any(data[key] not in values for key, values in ENUMS.items()):
         raise TicketError('invalid enum')
@@ -255,7 +290,9 @@ def main():
     if any(record['status'] not in ('done', 'cancelled') and record['summary'].casefold() == args.summary.casefold() for record in records):
         raise TicketError('active ticket with this summary exists; choose the existing note instead (no automatic merge)')
     now = datetime.now(timezone.utc).isoformat()
-    identifier = config['prefix'] + '-' + str(uuid.uuid4())
+    # Next free number for the prefix on THIS host. Another host can mint the same
+    # one before Syncthing catches up; `check` then reports a duplicate ID.
+    identifier = next_id(config.get('kind_prefixes', {}).get(args.kind, config['prefix']), records)
     data = dict(schema_version=1, record_type='development-ticket', ticket_project=config['project'],
                 id=identifier, summary=args.summary, kind=args.kind, status='inbox', priority='unset',
                 areas=list(dict.fromkeys(args.area)), repos=list(dict.fromkeys(args.repo)), confidence=args.confidence, owner=None,
@@ -276,7 +313,9 @@ def main():
         elif section == 'History':
             body += f'- {now} — {args.actor}: captured.\n'
     root.mkdir(parents=True, exist_ok=True)
-    with (root / (identifier + '.md')).open('x', encoding='utf-8') as handle:
+    title = filename_title(args.summary)
+    name = f'{identifier} — {title}.md' if title else identifier + '.md'
+    with (root / name).open('x', encoding='utf-8') as handle:
         handle.write('---\n' + yaml.safe_dump(data, sort_keys=False, allow_unicode=True) + '---\n' + body)
     print(identifier)
     return 0

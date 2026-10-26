@@ -52,7 +52,9 @@ class TicketsTests(unittest.TestCase):
                  ('prefix', '../oops'), ('prefix', 'a'), ('ticket_dir', ''),
                  ('ticket_dir', '../outside'), ('ticket_dir', '/absolute'),
                  ('repos', 'backend'), ('areas', [1]), ('developer', 42),
-                 ('unexpected', 'value')]
+                 ('unexpected', 'value'), ('kind_prefixes', {'bug': 'bad'}),
+                 ('kind_prefixes', {'unknown-kind': 'BUG'}), ('kind_prefixes', ['BUG']),
+                 ('kind_prefixes', {'bug': 'BUG', 'feature': 'BUG'})]
         for key, value in cases:
             with self.subTest(key=key, value=value):
                 self.settings = {**original, key: value}
@@ -109,7 +111,7 @@ class TicketsTests(unittest.TestCase):
         self.assertEqual(self.create().returncode, 0)
         original, body = self.load_note()
         mutations = [('schema_version', 2), ('schema_version', True), ('record_type', 'other'),
-                     ('ticket_project', 'other'), ('id', 'BCRM-not-uuid'), ('kind', 'oops'),
+                     ('ticket_project', 'other'), ('id', 'BCRM-not-a-number'), ('kind', 'oops'),
                      ('status', 'oops'), ('priority', 'oops'), ('confidence', 'oops'),
                      ('implementation_authorization', 'oops'), ('verification', 'oops'),
                      ('deployment', 'oops'), ('summary', ''), ('reported_by', None),
@@ -269,7 +271,7 @@ class TicketsTests(unittest.TestCase):
     def test_related_cross_project_ids_preserved_without_lookup(self):
         self.assertEqual(self.create().returncode, 0)
         data, body = self.load_note()
-        data['related'] = ['DOCS-' + str(uuid.uuid4())]
+        data['related'] = ['DOCS-' + str(uuid.uuid4()), 'OTHER-042']
         self.save_note(data, body)
         before = self.note().read_bytes()
         self.assertEqual(self.cli('check').returncode, 0)
@@ -278,10 +280,11 @@ class TicketsTests(unittest.TestCase):
     def test_canonical_ids_and_unique_filenames_enforced(self):
         self.assertEqual(self.create().returncode, 0)
         original, body = self.load_note()
-        for identifier in ['OTHER-' + str(uuid.uuid4()), 'BCRM-' + str(uuid.uuid1()),
+        for identifier in ['OTHER-001', 'BCRM-01', 'BCRM-1', 'bcrm-001', 'BCRM-' + str(uuid.uuid1()),
                            'BCRM-' + str(uuid.uuid4()).upper(), original['id'] + '/suffix']:
-            self.save_note({**original, 'id': identifier}, body)
-            self.assertEqual(self.cli('check').returncode, 1)
+            with self.subTest(identifier=identifier):
+                self.save_note({**original, 'id': identifier}, body)
+                self.assertEqual(self.cli('check').returncode, 1)
         self.save_note(original, body)
         (self.root / 'Tickets' / 'copy.md').write_bytes(self.note().read_bytes())
         result = self.cli('check')
@@ -289,8 +292,72 @@ class TicketsTests(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout)['total'], 2)
         self.assertEqual(json.loads(result.stdout)['errors'], 1)
 
-    def test_uuid_collision_never_overwrites_file(self):
-        # Only randomness is controlled: filesystem and complete CLI remain real.
+    def test_filename_is_id_optionally_followed_by_a_title(self):
+        self.assertEqual(self.create('Broken upload').returncode, 0)
+        path = self.note()
+        self.assertEqual(path.name, 'BCRM-001 — Broken upload.md')
+        for name in ['BCRM-001.md', 'BCRM-001 Renamed title.md']:
+            path = path.rename(path.with_name(name))
+            self.assertEqual(self.cli('check').returncode, 0, name)
+        for name in ['BCRM-0011.md', 'BCRM-001-x.md', 'Title BCRM-001.md']:
+            path = path.rename(path.with_name(name))
+            self.assertEqual(self.cli('check').returncode, 1, name)
+
+    def test_sequential_ids_continue_after_highest_number_including_closed(self):
+        self.assertEqual(self.create('First').returncode, 0)
+        data, body = self.load_note()
+        self.note().unlink()
+        cancelled = {**data, 'id': 'BCRM-041', 'status': 'cancelled'}
+        (self.root / 'Tickets' / 'BCRM-041.md').write_text(
+            '---\n' + yaml.safe_dump(cancelled, sort_keys=False) + '---\n' + body
+            + '\n- Cancellation reason: duplicate.\n', encoding='utf-8')
+        result = self.create('Second')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), 'BCRM-042')
+        self.assertTrue((self.root / 'Tickets' / 'BCRM-042 — Second.md').exists())
+
+    def test_kind_prefixes_number_each_prefix_and_survive_reclassification(self):
+        self.settings['kind_prefixes'] = {'bug': 'BUG', 'improvement': 'IMP'}
+        self.save_config()
+        outputs = [self.cli('create', '--summary', summary, '--kind', kind, '--actor', 'Oriol').stdout.strip()
+                   for summary, kind in [('One', 'bug'), ('Two', 'improvement'), ('Three', 'bug'), ('Four', 'docs')]]
+        self.assertEqual(outputs, ['BUG-001', 'IMP-001', 'BUG-002', 'BCRM-001'])
+        path = next((self.root / 'Tickets').glob('BUG-002*.md'))
+        text = path.read_text(encoding='utf-8').replace('kind: bug', 'kind: improvement')
+        path.write_text(text, encoding='utf-8')
+        self.assertEqual(self.cli('check').returncode, 0, 'reclassifying keeps the minted ID')
+
+    def test_legacy_uuid_tickets_stay_valid(self):
+        self.assertEqual(self.create().returncode, 0)
+        data, body = self.load_note()
+        legacy = 'BCRM-' + str(uuid.uuid4())
+        self.note().unlink()
+        (self.root / 'Tickets' / (legacy + '.md')).write_text(
+            '---\n' + yaml.safe_dump({**data, 'id': legacy}, sort_keys=False) + '---\n' + body, encoding='utf-8')
+        self.assertEqual(self.cli('check').returncode, 0)
+        result = self.create('Next one')
+        self.assertEqual(result.stdout.strip(), 'BCRM-001', 'UUID IDs do not take part in numbering')
+
+    def test_same_number_from_two_hosts_is_flagged(self):
+        self.assertEqual(self.create('From laptop').returncode, 0)
+        path = self.note()
+        (self.root / 'Tickets' / 'BCRM-001 — From the bot.md').write_bytes(path.read_bytes())
+        result = self.cli('check')
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(json.loads(result.stdout)['errors'], 1)
+        self.assertEqual(self.create('Blocked until renumbered').returncode, 1)
+
+    def test_title_in_filename_is_sanitized(self):
+        result = self.create('a/b: c? "d" [e] #f ' + 'x' * 200)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        name = self.note().name
+        self.assertTrue(name.startswith('BCRM-001 — a b c d e f '))
+        self.assertLessEqual(len(name), len('BCRM-001 — .md') + 80)
+        self.assertFalse(any(char in name[:-3] for char in '/:?"[]#'))
+
+    def test_number_race_never_overwrites_file(self):
+        # Simulates another writer taking the number between scan and write:
+        # only the ID choice is controlled, filesystem and CLI stay real.
         import importlib.util
         from contextlib import redirect_stdout
         import io
@@ -299,12 +366,11 @@ class TicketsTests(unittest.TestCase):
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        fixed = uuid.uuid4()
-        args = ['tickets.py', '--config', str(self.config), 'create', '--summary', 'First', '--kind', 'bug', '--actor', 'Oriol']
-        with patch.object(sys, 'argv', args), patch.object(module.uuid, 'uuid4', return_value=fixed), redirect_stdout(io.StringIO()):
+        args = ['tickets.py', '--config', str(self.config), 'create', '--summary', 'Same', '--kind', 'bug', '--actor', 'Oriol']
+        with patch.object(sys, 'argv', args), patch.object(module, 'next_id', return_value='BCRM-001'), redirect_stdout(io.StringIO()):
             self.assertEqual(module.main(), 0)
             before = self.note().read_bytes()
-            args[args.index('First')] = 'Second'
+            args[args.index('Same')] = 'Same.'  # a new summary whose filename is the same
             with self.assertRaises(FileExistsError):
                 module.main()
             self.assertEqual(self.note().read_bytes(), before)
@@ -313,8 +379,8 @@ class TicketsTests(unittest.TestCase):
         result = self.create('../not a path', '--area', 'sales', '--repo', 'backend')
         self.assertEqual(result.returncode, 0, result.stderr)
         data, body = self.load_note()
-        self.assertEqual(self.note().name, data['id'] + '.md')
-        self.assertEqual(uuid.UUID(data['id'][5:]).version, 4)
+        self.assertEqual(data['id'], 'BCRM-001')
+        self.assertEqual(self.note().name, 'BCRM-001 — not a path.md')
         self.assertEqual(data['status'], 'inbox')
         self.assertEqual(data['areas'], ['sales'])
         self.assertEqual(data['implementation_authorization'], 'none')
