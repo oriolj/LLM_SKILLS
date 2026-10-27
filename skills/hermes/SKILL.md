@@ -778,7 +778,11 @@ running chat does not see edits: `/new`).
 
 Read from the installed docs on enzo (v0.22.2:
 `website/docs/user-guide/{profiles,multi-profile-gateways,profile-distributions}.md`,
-`reference/profile-commands.md`) and the A2A plugin code, 2026-10-22. No
+`reference/profile-commands.md`) and the A2A plugin code, 2026-10-22;
+rechecked against v0.22.5 on pep and the online docs, 2026-10-27. **The online
+`profiles` page still says "each profile runs its own gateway process"**: that
+is stale. `multi-profile-gateways.md` (online and installed) is the authority:
+one host gateway, below. No
 profile has been created on our bots yet: all five run only `default`.
 **When we use them** (the estate rule): hq
 [bots.md § Profiles](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#profiles-several-agents-on-one-bot-box-2026-10-22).
@@ -815,9 +819,12 @@ in `~/.local/bin/`):
 | `--clone-all` | Everything except history, `state.db`, backups, checkpoints and **cron** (never cloned: two gateways would run every job twice) |
 | any clone | Never copies **messaging channels**: bot tokens, allowlists, `platforms:`, pairing. `--clone-channels` overrides, but one token can only be polled by one profile |
 | `hermes profile list` / `show <name>` / `use <name>` | `use` is a sticky default for plain `hermes`, like `kubectl use-context`: avoid it on a bot box, where scripts assume default |
-| `hermes profile rename` | Renames a profile. Renaming `default` only sets a display name |
+| `hermes profile rename` | Renames a profile, its alias, and removes the old gateway service. Renaming `default` only sets `display_name` in `~/.hermes/profile.yaml` (the ID stays `default`) |
 | `hermes profile delete <name>` | Stops it, removes service and alias, **deletes its data**; asks for the name |
-| `hermes profile export <name>` / `import <file>` | A `.tar.gz` with keys stripped |
+| `hermes profile export <name>` / `import <file> [--name]` | A `.tar.gz` with keys stripped (`/export`, `/import` in a chat) |
+| `hermes profile describe` / `create --description "<role>"` | The kanban routing description |
+| `create … --sync-imports` | Carries `import-sync.json` so the clone can `import-agent --sync` external agent trees |
+| `hermes profile migrate-identity` / `purge-identity` | Retry a rename/delete identity step that failed |
 | `hermes profile install <git-url>` / `update` | Profile distributions: SOUL, config, skills, cron (installed paused) and MCP from a git repo. Unsigned; not for us |
 
 **Logins.** Codex / Claude / xAI OAuth tokens are single-use refresh tokens,
@@ -830,10 +837,23 @@ so they are **shared, never copied**:
 
 **Gateways.** Since v0.22 **one gateway process serves every profile**
 (`gateway.multiplex_profiles`).
-- **Default and how it switches on:** an unset flag means on, written as
-  `true` once two or more profiles exist (patri and maia already carry
-  `true`). The old per-profile units are no longer the norm: `gateway install`
-  on a named profile refuses without `--force`.
+- **Default and how it switches on (v0.22.5):** an unset
+  `gateway.multiplex_profiles` is settled by the default gateway at each boot.
+  It multiplexes, and writes `true` into the default's `config.yaml`, only when
+  the fold is safe: two or more profiles, no secondary running its own gateway,
+  no duplicate bot token, no port-binding platform without a `/p/<profile>/`
+  route. Otherwise it serves default only and prints a boxed warning (also in
+  `hermes gateway status`, the `hermes update` summary and the dashboard's
+  `multiplex_standalone_reason`). `true` is the only valid value: `false` is
+  retired and rewritten to `true` with a notice. patri and maia already carry
+  `true`.
+- **No per-profile gateways:** `hermes -p <name> gateway install|start|run`
+  (and the service step of `setup`) refuses with exit 78. The escapes are
+  `--force` (a fleet split across UNIX users or a `HERMES_HOME` outside
+  `profiles/`) and `gateway.standalone: true` in that profile's own config, a
+  temporary shim kept while the WhatsApp bridge, Relay on secondary profiles
+  and dashboard scoping are still unfinished. `hermes gateway migrate
+  --multiplex` folds an existing per-profile fleet.
 - **Same unit:** our `hermes-gateway.service` and the healthcheck keep
   covering everything.
 - **Its own bot tokens per profile:** each profile needs its own Telegram,
@@ -850,11 +870,27 @@ so they are **shared, never copied**:
 - **Cron:** each served profile's own cron runs in the one process.
   `hermes -p <name> cron status` names the host gateway.
 - **Restarts:** restarting the default gateway restarts every profile's
-  bots. `hermes -p <name> gateway stop|start` parks or unparks just one.
+  bots, and `hermes gateway restart` asks first. **Parking** takes one profile
+  offline: `hermes -p <name> gateway stop` writes `<profile>/gateway.parked`
+  (persists across restarts, can be pre-created to install a profile offline;
+  its cron jobs stop too), `start` removes it, `restart` re-reads its config.
+  The host rescans every 30 s, so a marker added or removed by hand also
+  applies. `status` says `parked`; the dashboard's Stop/Start do the same.
 
 **Dashboard.** It works at machine level, with a profile switcher
 (`?profile=<name>` in the URL). Our basic-auth login therefore manages every
-profile on the box.
+profile on the box. Its Profiles page "Set as active" only changes the sticky
+CLI default; edit a profile through the switcher.
+
+**Desktop Bot Mode.** A "Bot" in Hermes Desktop is a profile with roster
+metadata (title, avatar) and a pinned Bot Chat. Every Bot is a profile; a
+profile driven only from the CLI or a gateway stays a plain profile. Not our
+"bots" (the claws), which are boxes.
+
+**A directory counts as a profile** only with an identity file in it
+(`config.yaml`, `.env`, `SOUL.md`, `profile.yaml`, `auth.json` or `state.db`).
+`terminal.cwd` is separate from the profile home: set an absolute one for a
+predictable start folder (SOUL.md enforces no workspace boundary).
 
 **Same-machine collaboration** between profiles is done with delegation or
 the kanban board (`hermes profile create … --description` feeds kanban
