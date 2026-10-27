@@ -65,10 +65,16 @@ printf '%s\n' "From a Claude Code session for Oriol: <the message>" |
   the drafted text and posts nothing. Ask it for the draft, show Oriol, and
   let him approve the post from an interactive `hermes-<bot>` session (or post
   it himself). Do not reach for `--yolo`.
-- **A `--oneshot --source claude-code` turn will not edit its own skills**
+- **A `--oneshot --source claude-code` turn does not change its own skills**
   (pep and bruno, 2026-10-18: "this session's instructions prohibit editing
-  skills"; nothing was saved). Writing a fact into a skill is therefore our
-  install, not a send: back the file up, write it over ssh, run the
+  skills"; nothing was saved). Since `skills.write_approval: true` (hermes
+  skill § Skills) the bot may instead **stage** the edit and reply with a
+  pending id (enzo, 2026-10-27, `e4d47843`): nothing is applied until Oriol runs
+  `/skills pending` → `/skills approve <id>` in an interactive `hermes-<bot>`
+  session, so put that step in hq `USER_TODO.md` and never call the skill
+  updated. A memory write in the same turn does land (enzo's Mnemosyne entry,
+  same day): ask the bot to quote where it saved. Writing a fact into a skill
+  without waiting for that approval is our install, not a send: back the file up, write it over ssh, run the
   `skills_guard` scan (`hermes` skill § Memory), then ask the bot for the
   read-only self-review. Copy the file with `scp` or `cat >> file` over ssh;
   never pipe the content into `ssh … "python3 - <<'PY' … /dev/stdin"`: the
