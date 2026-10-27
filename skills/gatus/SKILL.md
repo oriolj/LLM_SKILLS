@@ -265,6 +265,12 @@ through hq `homelab/tools/coolify-lib.sh`, `coolify-deploy.sh` and
   the next year or so" (2026-08-18). Use `ui.buttons` for the consoles
   (Grafana, Beszel, GlitchTip, Talaia — set 2026-09-15) and a homepage
   for a linked per-surface list. Do not build around a per-endpoint link.
+- **A row probing a client's hostname goes stale when the client changes domain**
+  (Ràdio el Morell, 2026-10-26: red for a day on a hostname the backend had retired, nothing down).
+  For the EnaCast SaaS radios `make check-saas` (`gatus/saas_drift.py`, part of `validate`) compares
+  `enacast-saas-radios.yaml` with the zone's live Cloudflare custom hostnames and fails on a stale row;
+  the backend mails the admins when it retires one. A red row on a client hostname: check that the
+  name is still the client's before treating it as an outage.
 - Kuma → Gatus migration was a no-op: **check the old tool's DB before
   planning a migration** (`sqlite3 kuma.db "select count(*) from
   monitor"`) — the 8-month-old instance had never been set up.
