@@ -903,7 +903,20 @@ predictable start folder (SOUL.md enforces no workspace boundary).
   parent's toolset** (developer guide `delegation-provider-plugin.md`): a narrow profile whose
   boundary is its toolset does not keep that boundary as a delegated child, and the child does not
   get the target's plugin tools unless the parent's lists name them. Listing a profile also hands
-  the parent that profile's credentials.
+  the parent that profile's credentials. Confirmed in the v0.22.5 code: `tools/delegate_tool.py`
+  builds every child with `toolsets=None  # always inherit the parent's toolsets`, and
+  `delegate_tool_toolsets._resolve_child_toolsets` only intersects with the parent's set.
+- **CLI relay (what we use, Pep → `inventari`, 2026-10-27)**: the main agent's skill runs a
+  wrapper that calls `hermes -p <name> chat -Q -c <thread> --create-if-missing --in <dir>
+  --query-file <file> [--image <photo>]`. The profile runs with ITS OWN tools and SOUL,
+  synchronously (8–25 s per call on pep), and the named thread keeps a question and the user's
+  answer together across the main agent's turns. `--image` takes one photo per query and copies it
+  into the profile's `cache/images/` as `upload_*.jpg` (send extra photos as earlier turns).
+  `--source` is only a session-list tag; the platform stays `cli`. stderr carries "↻ Resumed
+  session …" and stdout ends with `session_id: …`: strip both. The profile's SOUL must accept the
+  relay's prefix (`<User> (via <main agent>):`) as the user and ask questions in text, since
+  `clarify` cannot reach the user through the relay. Source: hq
+  `homelab/tools/hermes-skills/pep/inventari/`.
 - **Kanban**: a card assigned to a profile spawns `hermes -p <name> chat -q` with that profile's
   own config and tools; asynchronous (dispatcher tick, result as a card comment).
   `hermes profile create … --description` feeds kanban routing.
@@ -912,6 +925,14 @@ predictable start folder (SOUL.md enforces no workspace boundary).
   the online multi-profile page lists port-binding platforms without `/p/<profile>/` ingress as a
   preflight blocker, which an explicit `multiplex_profiles: true` bypasses. Not tested on a
   secondary profile yet.
+- **`gateway.profile_routes`** (gateway level, not delegation): the default profile's shared bot
+  can send chosen chats to another profile by `user_id` (16) / `thread_id` (8) / `chat_id` (4) /
+  `guild_id` (2), most specific wins (`gateway/profile_routing.py`), so a profile does not need
+  its own bot token to get a Telegram topic or chat.
+- **Herald** (Android app, community, github.com/Giton22/herald) talks to every profile through
+  the authenticated dashboard (sessions with source `desktop`, one "Bot Chat" per profile); its
+  `herald-push` plugin watches only "Bot Chat" sessions in every profile's `state.db`, so a relay
+  thread under another title pushes nothing.
 
 **Building a narrow profile (learned on pep `inventari`, v0.22.5, 2026-10-27):**
 - `hermes profile create <name> --description "…"` on a box with a running gateway is **served
