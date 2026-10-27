@@ -782,8 +782,10 @@ Read from the installed docs on enzo (v0.22.2:
 rechecked against v0.22.5 on pep and the online docs, 2026-10-27. **The online
 `profiles` page still says "each profile runs its own gateway process"**: that
 is stale. `multi-profile-gateways.md` (online and installed) is the authority:
-one host gateway, below. No
-profile has been created on our bots yet: all five run only `default`.
+one host gateway, below. **First profile: `inventari` on pep (2026-10-27)**, the
+home-inventory agent; source and lessons in hq
+`homelab/tools/hermes-profiles/pep-inventari/README.md`, mechanics learned below
+(§ "Building a narrow profile").
 **When we use them** (the estate rule): hq
 [bots.md § Profiles](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#profiles-several-agents-on-one-bot-box-2026-10-22).
 
@@ -892,9 +894,61 @@ profile driven only from the CLI or a gateway stays a plain profile. Not our
 `terminal.cwd` is separate from the profile home: set an absolute one for a
 predictable start folder (SOUL.md enforces no workspace boundary).
 
-**Same-machine collaboration** between profiles is done with delegation or
-the kanban board (`hermes profile create … --description` feeds kanban
-routing). The docs keep A2A for crossing machines.
+**Same-machine collaboration** between profiles (checked against the docs 2026-10-27):
+- **Delegation with `profile_routes`**: the catalog plugin `advanced-delegation` (not bundled;
+  install in the profile that delegates) sets `delegation.backend: profile_routes` with
+  `delegation.backends.profile_routes.profiles: [{name, description}]` (the allowlist) and an
+  optional `default`; a task that picks no profile runs on the parent's own model. The child runs
+  as the target profile (model, credentials, skills, SOUL, terminal policy) but **keeps the
+  parent's toolset** (developer guide `delegation-provider-plugin.md`): a narrow profile whose
+  boundary is its toolset does not keep that boundary as a delegated child, and the child does not
+  get the target's plugin tools unless the parent's lists name them. Listing a profile also hands
+  the parent that profile's credentials.
+- **Kanban**: a card assigned to a profile spawns `hermes -p <name> chat -q` with that profile's
+  own config and tools; asynchronous (dispatcher tick, result as a card comment).
+  `hermes profile create … --description` feeds kanban routing.
+- **A2A**: a served profile's own `A2A_PORT` in its own `.env` is read scoped (v0.22.5 adapter
+  code: "a secondary multiplex profile must not borrow the default profile's bridged A2A_PORT");
+  the online multi-profile page lists port-binding platforms without `/p/<profile>/` ingress as a
+  preflight blocker, which an explicit `multiplex_profiles: true` bypasses. Not tested on a
+  secondary profile yet.
+
+**Building a narrow profile (learned on pep `inventari`, v0.22.5, 2026-10-27):**
+- `hermes profile create <name> --description "…"` on a box with a running gateway is **served
+  at once, no restart** ("served now by the running multiplexed gateway"), and the default's
+  `config.yaml` gains `gateway.multiplex_profiles: true` by itself (expected diff). A blank profile
+  copies the default's `model:` block; `.env` is empty; `~/.local/bin/<name>` wrapper.
+- Harmless warning on every profile load: "Plugin 'basic' tried to register dashboard-auth
+  provider … from profile scope …; ignoring" (dashboard auth belongs to the launch scope).
+- **A CLI one-shot for a served profile runs inside the host gateway** (`tui_gateway.ws`,
+  session `agent:<name>:local:…`, logged in the profile's `logs/agent.log`), so it sees the
+  gateway's view of the profile, not a fresh load.
+- **The host loads a profile's plugins when it first serves it.** A plugin copied in later is
+  invisible ("unknown name(s): <toolset>" warnings) and `hermes -p <name> gateway restart` does
+  NOT rediscover it. `hermes -p <name> plugins disable <p>` then `enable <p>` makes the running
+  gateway reload plugins ("Gateway reloaded plugins — deferred: tools (next session)") without
+  touching the default's bots. `enable` rewrites `platform_toolsets`, so copy `config.yaml`
+  aside first and put it back after.
+- **Explicit `platform_toolsets` + the tool-search bridge = no plugin tools.** With
+  `tools.tool_search.enabled` at its default, plugin tools are deferred behind
+  `tool_search`/`tool_call`; if the explicit lists do not include the bridge, the model gets
+  neither and says the tools are unavailable (`tool_turns=0`). For a handful of tools set
+  `tools: {tool_search: {enabled: "off"}}` in that profile.
+- Verify the resolved set without a model: `HERMES_HOME=<profile> venv/bin/python` →
+  `hermes_cli.plugins.discover_plugins(force=True)`, then
+  `model_tools.get_tool_definitions(enabled_toolsets=[…], quiet_mode=True)` for the real names
+  and `hermes_cli.tools_config._get_platform_tools(load_config(), "<platform>")` per platform.
+- Make `known_plugin_toolsets.<platform>` list the plugin's toolsets on every platform, so a
+  platform you did not list explicitly gets none of them.
+- **Inbound photos**: native vision sends pixels and does NOT tell the model the file path; the
+  gateway moves the file into the routed profile's `cache/images/` (`rehome_inbound_media`), so a
+  plugin tool can list that folder newest first.
+- **`MEDIA:<path>` policy is per profile**: `gateway.strict: true`, `trust_recent_files: false`,
+  `media_delivery_allow_dirs: [<dir>]` in the profile's config limit what a reply can attach
+  (default non-strict sends any readable file outside the credential denylist).
+- A plugin runs in the gateway's managed Python (no PyYAML, no Pillow there): keep the plugin a
+  thin gate and do the work in a subprocess with the system `python3 -I` (stdlib only) or a venv
+  you own; ImageMagick (`magick`) is on the claws.
 
 **Our own things that assume `default`.** Check each one before a profile
 relies on it:
@@ -904,7 +958,9 @@ relies on it:
 - skills we scp into `~/.hermes/skills/` exist only in default;
 - `~/.config/<tool>/agent.env` files are shared through `HOME`, so they are
   visible to every profile;
-- the `hermes-<bot>` wrappers target default (pass `-p <name>`).
+- the `hermes-<bot>` wrappers target default (pass `-p <name>`);
+- a default profile's catalog plugins (Home Assistant, Mnemosyne, claw-name) are not in a new
+  profile: it starts with only the bundled ones.
 
 ## Importing from OpenClaw
 
