@@ -916,7 +916,12 @@ predictable start folder (SOUL.md enforces no workspace boundary).
   session …" and stdout ends with `session_id: …`: strip both. The profile's SOUL must accept the
   relay's prefix (`<User> (via <main agent>):`) as the user and ask questions in text, since
   `clarify` cannot reach the user through the relay. Source: hq
-  `homelab/tools/hermes-skills/pep/inventari/`.
+  `homelab/tools/hermes-skills/pep/inventari/`. Official standing: the bundled `hermes-agent` skill documents this as
+  "Spawning Additional Hermes Instances" (`terminal(command="hermes chat -q …")`, full tool access
+  vs delegate_task's subset of the parent's); for same-machine profiles the docs' headline
+  primitives are delegation and kanban (the A2A page: "prefer delegation or the kanban board",
+  A2A is for crossing machines). Kanban is the right one for durable or long work; a relay
+  is for interactive Q&A that needs an answer in the same turn.
 - **Kanban**: a card assigned to a profile spawns `hermes -p <name> chat -q` with that profile's
   own config and tools; asynchronous (dispatcher tick, result as a card comment).
   `hermes profile create … --description` feeds kanban routing.
