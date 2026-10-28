@@ -348,10 +348,25 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
     `MATTERMOST_REQUIRE_MENTION` (default true in channels, DMs always
     answer), `MATTERMOST_ALLOWED_CHANNELS`, `MATTERMOST_HOME_CHANNEL` (or
     `/sethome`), and `mattermost.channel_prompts` in `config.yaml`.
-  - **Then:** restart `hermes-gateway`.
+  - **Then:** restart `hermes-gateway`, after checking `active_agents` 0.
+    Proof is in `~/.hermes/logs/gateway.log`, not the journal:
+    `authenticated as @<bot>`, `WebSocket connected and authenticated`,
+    `✓ mattermost connected`.
+  - **A profile gets its own bot**: the same lines go into
+    `~/.hermes/profiles/<p>/.env`, then `hermes -p <p> gateway restart`
+    (restarts only that profile; its adapter logs as
+    `platforms__mattermost__home_<hash>`). Bruno's `qa` → `@bruno-qa`,
+    2026-10-28.
+  - **On first contact** Hermes posts two notices ("Please add me to teams
+    and channels…", "📬 No home channel is set…") before the model's
+    answer. Set `MATTERMOST_HOME_CHANNEL` or `/sethome` for cron deliveries.
+  - **Live since 2026-10-28**: Pep, Enzo, Bruno, Bruno QA and Patri. Each
+    joined its scope's team, with Oriol as the only allowed user. All
+    reconnected their other platforms within ~15 s of the restart. A DM
+    round trip ("MATTERMOST OK") passed on Pep and Bruno QA.
   - Through a Cloudflare Tunnel the WebSocket upgrades with no extra config
     (verified: 101, then `hello`). A disabled bot's token answers 401
-    straight away.
+    straight away. The server side has its own skill: `mattermost`.
 - **Discord (researched 2026-10-03, not enabled anywhere)** — outbound
   websocket only, so LAN-only is fine. One Discord application per box in
   that scope's account (a token runs in only one gateway). Oriol, in the
