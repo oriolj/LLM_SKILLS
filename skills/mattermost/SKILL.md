@@ -124,6 +124,12 @@ create a token again.
    `~/.hermes/profiles/<p>/.env`, then `hermes -p <p> gateway restart`
    restarts only that profile inside the multiplexed gateway. Each profile
    needs its own bot token.
+   **If the profile pins its tools** (`platform_toolsets` /
+   `known_plugin_toolsets` in its `config.yaml`, like pep `inventari`), add a
+   `mattermost:` entry first, copied from its telegram/cli one: an unlisted
+   platform gets Hermes's default toolset, terminal included, which breaks a
+   narrow profile's boundary. Then ask the bot over Mattermost to list its
+   tools (pep-inventari, 2026-10-28).
 6. Proof in `~/.hermes/logs/gateway.log` (not the systemd journal):
    `Mattermost: authenticated as @<name>`, `WebSocket connected and
    authenticated`, `gateway.run: ✓ mattermost connected`. A profile's
