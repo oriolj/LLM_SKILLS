@@ -135,7 +135,26 @@ create a token again.
    answer comes after them (≈ 30–60 s). A home channel is
    `MATTERMOST_HOME_CHANNEL=<channel id>` or `/sethome` in a channel.
 
-## 6. Health, backups, upgrade
+## 6. What users see (questions Oriol asked)
+
+- **"Why is Patri in the BikeCRM team?"** It isn't. DM channels have an
+  empty `team_id` and show in the sidebar of every team. Mattermost DMs a
+  bot's owner ("Please add me to teams and channels…") when the bot is
+  created, so the admin who ran `create` gets one DM per bot. Check real
+  membership with `GET /teams/<id>/members`. To hide a DM, close it in the
+  sidebar; it comes back on the next message.
+- **Who can DM whom**: `TeamSettings.RestrictDirectMessage` `any` (the
+  default) lets every user find and DM every user and bot on the server;
+  `team` limits it to people who share a team (env
+  `MM_TEAMSETTINGS_RESTRICTDIRECTMESSAGE`). A bot ignores non-allowlisted
+  users anyway, but with `any` they still see that it exists.
+- **Push on Android/iOS**: server → push relay → APNs/FCM → the official
+  app. The relay is needed because only the app's publisher holds the
+  Apple/Google credentials. The app registers its device id at login and
+  fetches the message itself on tap. A self-hosted relay means building and
+  publishing your own app with your own push credentials: not worth it.
+
+## 7. Health, backups, upgrade
 
 - Health: `GET /api/v4/system/ping?get_server_status=true` (unauthenticated)
   returns `status`, `database_status` and `filestore_status`, all `OK`. That
