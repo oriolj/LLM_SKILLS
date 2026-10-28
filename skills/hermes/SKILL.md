@@ -173,8 +173,11 @@ new ssh session. Rollback on that line was `git checkout <old tag>`, the same
 
 ## Model switch
 
-Default `gpt-6.1-sol` via `openai-codex`, fallback `gpt-5.6-luna` (Oriol,
-2026-10-15):
+Default `gpt-6.1-sol` via `openai-codex` (Oriol, 2026-10-15), fallback
+`gpt-6.1-terra` (Oriol, 2026-10-28; `gpt-5.6-luna` before). Extra profiles
+(`~/.hermes/profiles/<name>/config.yaml`) carry their own `fallback_providers`:
+set it there too, and read them with `hermes -p <name> fallback list`, since
+the CLI's sticky active profile may not be `default`:
 
 ```bash
 H=~/.local/bin/hermes
@@ -183,7 +186,7 @@ $H config set model.default gpt-6.1-sol
 # fallback: top-level list; `hermes fallback add` is interactive only, and
 # `fallback_model:` (still in its docs) is NOT a recognised key
 grep -q '^fallback_providers:' ~/.hermes/config.yaml ||   # appending twice = duplicate top-level key
-  printf '%s\n' 'fallback_providers:' '- provider: openai-codex' '  model: gpt-5.6-luna' >> ~/.hermes/config.yaml
+  printf '%s\n' 'fallback_providers:' '- provider: openai-codex' '  model: gpt-6.1-terra' >> ~/.hermes/config.yaml
 $H fallback list; systemctl --user restart hermes-gateway.service
 ```
 
