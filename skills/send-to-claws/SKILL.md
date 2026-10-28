@@ -17,6 +17,17 @@ Five Hermes bots, one per scope plus Patri for Panotxa and Maia for Laia, each i
 | **Patri** | `patri` | Panotxa only, shared with Anna (nutritionist): **nothing of Oriol's private life**, since Anna has the same access to the bot |
 | **Maia** | `maia` | Laia's own bot (Oriol's wife, its only user): only what Oriol asks to pass to her bot; **nothing of Oriol's private data or keys** |
 
+**Profiles** (a second agent on a bot's box; address it with `hermes -p <profile>` in
+the ssh command below, or `hermes-<bot> -p <profile>` from a dev machine):
+`pep -p inventari` (Oriol's home inventory), `pep -p jg` (Pep JG: the family vault
+`Family-JG/jg-vault`, shared with Laia and Maia), `bruno -p qa` (BikeCRM QA).
+Family material (grocery list, the kids' or Laia's health, plans with the kids) goes
+to Pep JG or, for Laia's side, to Maia: both work on the same family vault.
+
+**After changing a file the bot will read over Syncthing, check it arrived on the box
+first** (`ssh <box> grep … <file>`): on 2026-10-28 Pep read the family vault's
+AGENTS.md seconds before the new version synced and reported it stale.
+
 The bots can also reach each other directly over A2A since 2026-10-18
 (Pep → Bruno, Enzo, Patri; Bruno ↔ Enzo; Maia is outside the mesh; hq `shared/docs/bots.md`).
 That is the bots' own channel: from a Claude Code session, keep using the

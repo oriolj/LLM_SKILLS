@@ -1033,6 +1033,54 @@ predictable start folder (SOUL.md enforces no workspace boundary).
   thin gate and do the work in a subprocess with the system `python3 -I` (stdlib only) or a venv
   you own; ImageMagick (`magick`) is on the claws.
 
+**More, learned on pep `jg` (Pep JG, the family-vault profile, v0.22.5, 2026-10-28):**
+- **Create a narrow profile with `--no-skills`**, never `--clone`. `--clone` copies the default's
+  `.env` (every bot token and API key) into a profile meant to hold nothing. `--no-skills` writes
+  `.no-bundled-skills`, which `hermes update` honours: the 54 bundled skills describe tools a
+  narrow profile does not have and still go into every prompt. An existing profile:
+  `hermes -p <name> skills opt-out --remove --yes` (deletes only unmodified bundled skills;
+  `tar` the `skills/` dir first). Done on `inventari` the same day.
+- **`hermes -p <name> tools list --platform <p>` reads the config, not the live tool set**: it
+  showed the plugin toolsets enabled while the chat said "Unknown toolsets: …" (plugin copied in
+  after `profile create`, fixed by `plugins disable` + `enable`). Proof is a one-shot asking the
+  model to list its exact tool names.
+- **The SOUL must name every toolset the profile may use.** `jg`'s first SOUL said "only the
+  familyvault tools"; once `web` was enabled the model refused to search.
+- **`web` is safe on a LAN box, `browser` is not.** `web_search`/`web_extract` go through
+  `tools/url_safety.py`: private, loopback, link-local and CGNAT/tailnet (100.64.0.0/10) refused,
+  also after DNS, unless `security.allow_private_urls` (keep unset). The **built-in browser
+  skips that check when the browser is local** (`tools/browser_tool.py`: `not local and … and not
+  _is_safe_url(url)`): from pep it opened NetAlertX on nuc8i7 and the box's own dashboard. The
+  `security.website_blocklist` matches host names as typed (fnmatch), so a tailnet short name, a
+  public name resolving home or a redirect passes it. A **cloud** browser provider (Browserbase,
+  Browser Use cloud) is remote and does get the check. So: no local browser for a profile that
+  must not reach the house.
+- **Browser modes (v0.22.5).** Default is Browser Use CLI mode: one tool, `browser_exec`, which
+  runs model-written Python on the host, so `model_tools` withholds it from sessions without the
+  `terminal` toolset; and `check_browser_requirements()` returns False in that mode, so such a
+  session gets no navigation tool at all (only `browser_vault`), contrary to the docs' "keeps the
+  default browser tools". `browser: {backend: "off"}` in the profile's config gives the built-in
+  `browser_navigate`/`snapshot`/`click`… The local stack needs `agent-browser` + its Chromium:
+  `hermes pm install agent-browser` (into `~/.hermes/tools/agent-browser-*`; pep 2026-10-28,
+  0.26.0). That install also gives every profile with `browser` + `terminal` (Pep's default) a
+  working `browser_exec`.
+- **Confined file access = our own plugin.** Hermes's `file` toolset only warns outside the
+  workspace and blocks a short denylist, so it reaches every file the user can. The pattern
+  (hq `homelab/tools/hermes-profiles/pep-jg/`): a thin plugin gate + a stdlib engine with the root
+  as a constant, `Path.resolve()` + `is_relative_to`, hidden paths and the rules files refused,
+  writes only `.md`/`.base`, no delete/rename, and **`edit`/`write` require the sha256 the last
+  `read` returned** (a Syncthing-shared file edited meanwhile is never overwritten), `O_EXCL` for
+  new files, atomic replace.
+- **Plugin discovery check without a model**: in the runtime python with `HERMES_HOME=<profile>`,
+  `hermes_cli.plugins.discover_plugins(force=True)` then `get_plugin_manager()._plugins` /
+  `._plugin_tool_names`. A `capability_check plugin=<p> capability=tools.override decision=deny`
+  log line is normal (inventari has it too): it only means the plugin may not override core tools.
+- **`hermes -p <name> gateway restart` brings a new channel up** (a new Mattermost token in the
+  profile's `.env`) inside the running multiplexed gateway; the default's platforms stay
+  connected. Plugins are the exception (above).
+- **Every new profile gets its own Mattermost bot** (Oriol, 2026-10-28), `<box>-<profile>`, in
+  the scope's team: the `mattermost` skill § 5.
+
 **Our own things that assume `default`.** Check each one before a profile
 relies on it:
 - the catch-up scripts (`runtime.profile_guard`,
@@ -1185,6 +1233,11 @@ installer alone ~15 min). Traps found on maia:
    box it asks nothing and prints "Remote server is ready". Check `herdr
    machine status`. On the dev machines `h` is herdr (a fish function);
    on the boxes it is hermes. The clash is deliberate.
+11. **Mattermost, always** (Oriol, 2026-10-28: "all future profiles or hermes
+   instances should be on mattermost"): its own bot with hq
+   `homelab/tools/mattermost-bot.py create <box> --display-name … --team <scope>`,
+   the three `MATTERMOST_*` lines into `~/.hermes/.env`, gateway restart while
+   idle, then a DM round trip. Mechanics: the `mattermost` skill § 5.
 
 ## Tailscale on the claws (2026-10-17)
 

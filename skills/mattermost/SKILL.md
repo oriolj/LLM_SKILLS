@@ -116,6 +116,11 @@ Hermes reads), `MATTERMOST_BOT_USERNAME`, `MATTERMOST_BOT_USER_ID` and
 (`POST /api/v4/users/tokens/revoke {token_id}`), delete the file, then
 create a token again.
 
+**Every new Hermes bot and every new profile gets its own bot here, as part of
+its setup** (Oriol, 2026-10-28: "all future profiles or hermes instances should be
+on mattermost"). Name: the box for a bot (`pep`), `<box>-<profile>` for a profile
+(`pep-jg`, `bruno-qa`), so the sidebar groups it under its box.
+
 **Wiring a Hermes bot** (mechanics of Hermes in the `hermes` skill):
 
 1. A bot joins **its scope's team only**. `MATTERMOST_ALLOWED_USERS` takes
@@ -128,7 +133,9 @@ create a token again.
 4. `systemctl --user restart hermes-gateway`. That restarts every platform
    of every profile; Telegram, Slack, Discord and A2A came back in ~15 s on
    all four boxes.
-5. **A profile's bot** (bruno `qa` → `bruno-qa`): the same lines go into
+5. **A profile that pins its toolsets** (pep `inventari`, `jg`): add `mattermost` to its
+   `platform_toolsets` and `known_plugin_toolsets` first (see below).
+   **A profile's bot** (bruno `qa` → `bruno-qa`, pep `jg` → `pep-jg`): the same lines go into
    `~/.hermes/profiles/<p>/.env`, then `hermes -p <p> gateway restart`
    restarts only that profile inside the multiplexed gateway. Each profile
    needs its own bot token.
