@@ -327,6 +327,31 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
   `whatsapp_cloud.py` for Meta's official Cloud API (Business account + a
   public webhook). Pairing a number WAHA already holds just adds a second
   linked device.
+- **Mattermost (the estate's own chat for the bots, 2026-10-28)**: Oriol runs
+  a self-hosted Mattermost so bots can be added programmatically, which Slack
+  does not allow. Server facts are in hq `docs/servers/mattermost.md`. Hermes
+  v0.22.5 has a built-in platform (doc `website/docs/user-guide/messaging/mattermost.md`):
+  REST v4 plus a WebSocket over `aiohttp`, no extra dependency, and it works
+  with Team Edition.
+  - **Server side:** `EnableBotAccountCreation` and `EnableUserAccessTokens`
+    must both be on (both are set in the server's compose file).
+  - **The bot account:** `mmctl --local bot create` refuses ("cannot be run
+    in local mode": a bot needs an owner). Use the API as an admin: `POST
+    /api/v4/bots`, then `POST /users/<bot_user_id>/tokens`. hq
+    `homelab/tools/mattermost-bot.py create <name> --display-name … --team …`
+    does both and writes the token to `homelab/secrets/mattermost-bot-<name>.env`
+    without printing it.
+  - **On the box:** in `~/.hermes/.env` set `MATTERMOST_URL` (no trailing
+    slash), `MATTERMOST_TOKEN` and `MATTERMOST_ALLOWED_USERS` (26-char user
+    ids, not usernames; none = everyone denied; an allowed user gets the
+    bot's terminal). Optional: `MATTERMOST_REPLY_MODE=thread`,
+    `MATTERMOST_REQUIRE_MENTION` (default true in channels, DMs always
+    answer), `MATTERMOST_ALLOWED_CHANNELS`, `MATTERMOST_HOME_CHANNEL` (or
+    `/sethome`), and `mattermost.channel_prompts` in `config.yaml`.
+  - **Then:** restart `hermes-gateway`.
+  - Through a Cloudflare Tunnel the WebSocket upgrades with no extra config
+    (verified: 101, then `hello`). A disabled bot's token answers 401
+    straight away.
 - **Discord (researched 2026-10-03, not enabled anywhere)** — outbound
   websocket only, so LAN-only is fine. One Discord application per box in
   that scope's account (a token runs in only one gateway). Oriol, in the
