@@ -833,7 +833,7 @@ in `~/.local/bin/`):
 | `hermes profile create <name> --clone` | Copies `config.yaml`, `.env`, `SOUL.md`, skills, `MEMORY.md`/`USER.md` and `plugins/` (with the memory provider's config). Sessions, `state.db` and cron start empty. `--clone-from <src>` picks the source |
 | `--clone-all` | Everything except history, `state.db`, backups, checkpoints and **cron** (never cloned: two gateways would run every job twice) |
 | any clone | Never copies **messaging channels**: bot tokens, allowlists, `platforms:`, pairing. `--clone-channels` overrides, but one token can only be polled by one profile |
-| `hermes profile list` / `show <name>` / `use <name>` | `use` is a sticky default for plain `hermes`, like `kubectl use-context`: avoid it on a bot box, where scripts assume default |
+| `hermes profile list` / `show <name>` / `use <name>` | `use` is a sticky default for plain `hermes`, like `kubectl use-context` (file `~/.hermes/active_profile`; the dashboard's Profiles page sets it too, `POST /api/profiles/active`): avoid it on a bot box, where scripts and the `hermes-<bot>` wrappers assume default. It happened on bruno 2026-10-28 (`qa` sticky for five hours, `hermes-bruno` opened QA); undo with `hermes profile use default`. `-p <name>` is one-off, not sticky (verified) |
 | `hermes profile rename` | Renames a profile, its alias, and removes the old gateway service. Renaming `default` only sets `display_name` in `~/.hermes/profile.yaml` (the ID stays `default`) |
 | `hermes profile delete <name>` | Stops it, removes service and alias, **deletes its data**; asks for the name |
 | `hermes profile export <name>` / `import <file> [--name]` | A `.tar.gz` with keys stripped (`/export`, `/import` in a chat) |
