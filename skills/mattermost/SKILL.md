@@ -98,7 +98,15 @@ homelab/tools/mattermost-bot.py create <name> --display-name "<Name>" --descript
 homelab/tools/mattermost-bot.py list
 homelab/tools/mattermost-bot.py add-team <name> <team>…
 homelab/tools/mattermost-bot.py disable <name>      # its tokens answer 401 at once
+homelab/tools/mattermost-bot.py sidebar             # Oriol's DMs with the bots, one category per box
 ```
+
+`sidebar` (also run by `create`) groups the admin's DMs with the Hermes bots
+(those with a secrets file) into custom categories by box, the part of the
+username before the first `-`: `POST|PUT /users/<me>/teams/<team>/channels/categories[/<id>]`
+and `PUT …/categories/order`. Categories are per user AND per team, while DM
+channels show in every team, so it does every team. Putting a channel in a
+custom category moves it out of Direct Messages by itself.
 
 `create` does `POST /bots` (owner: the admin) and `POST
 /users/<bot_user_id>/tokens`. It writes `homelab/secrets/mattermost-bot-<name>.env`
