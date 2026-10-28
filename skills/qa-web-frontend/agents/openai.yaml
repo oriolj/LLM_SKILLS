@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Frontend QA"
+  short_description: "Test web features and report reproducible defects"
+  default_prompt: "Use $qa-web-frontend to test this web feature, verify persisted and downstream behaviour, and report reproducible findings and coverage."
