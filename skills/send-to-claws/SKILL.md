@@ -34,8 +34,10 @@ the hand-off to go through it.
   one key it needs over ssh into `~/.config/<tool>/agent.env` (`umask 077`,
   no overwrite), give it a wrapper in `~/.local/bin/` that reads the key as data,
   and tell it only the path and the command. Its skill says what the key may do.
-- LAN only: `ssh pep` works from the dev machines at home. If it fails
-  (away, box down), say so and stop; no workarounds.
+- Reach: `ssh pep` works from the dev machines (minisforum, xps13wc, fw13pro),
+  at home on the LAN and away over the tailnet subnet route (verified from
+  xps13wc, 2026-10-19). If it fails (box down, machine off the tailnet), say so
+  and stop; no workarounds.
 - Quote the bot's reply back to Oriol. The bot may act on what you send
   (it has tools), so phrase requests exactly as Oriol meant them.
 
