@@ -278,6 +278,16 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
   `0.0.0.0:9119` with password auth (creds in hq
   `homelab/secrets/hermes-dashboards.env`; `/api/status` says
   `auth_required: true`). Its Chat tab runs the real TUI over a pty.
+  **Reachable over the tailnet only** (Oriol, 2026-10-28, every claw and
+  every new one): ufw `allow in on tailscale0 from 100.64.0.0/10 to any port
+  9119 proto tcp` and no LAN rule, written by hq's `claw_agent` role too.
+  Open it at `http://<box>.<tailnet>.ts.net:9119` from a device on THAT
+  tailnet: pep, patri and maia are on the personal one, enzo and bruno on
+  the EnaCast one, and a device logged into the other tailnet cannot resolve
+  the name unless the box is shared into it. ufw does not filter loopback, so
+  an ssh tunnel to the box's `127.0.0.1:9119` always works (hq's
+  `hermes-<bot>-dash` falls back to it). Every node of the tailnet, the other
+  bots included, reaches the port, so the login is the gate.
 - **Dashboard plugins** (user): `~/.hermes/plugins/<name>/` needs a
   `plugin.yaml` (name/version/description) AND `hermes plugins enable <name>`;
   a folder with only `dashboard/manifest.json` is silently ignored. Restart
@@ -778,8 +788,14 @@ running chat does not see edits: `/new`).
 
 Read from the installed docs on enzo (v0.22.2:
 `website/docs/user-guide/{profiles,multi-profile-gateways,profile-distributions}.md`,
-`reference/profile-commands.md`) and the A2A plugin code, 2026-10-22. No
-profile has been created on our bots yet: all five run only `default`.
+`reference/profile-commands.md`) and the A2A plugin code, 2026-10-22;
+rechecked against v0.22.5 on pep and the online docs, 2026-10-27. **The online
+`profiles` page still says "each profile runs its own gateway process"**: that
+is stale. `multi-profile-gateways.md` (online and installed) is the authority:
+one host gateway, below. **First profile: `inventari` on pep (2026-10-27)**, the
+home-inventory agent; source and lessons in hq
+`homelab/tools/hermes-profiles/pep-inventari/README.md`, mechanics learned below
+(§ "Building a narrow profile").
 **When we use them** (the estate rule): hq
 [bots.md § Profiles](/home/oriol/Syncthing/Syncthing-mobile-docs/hq/shared/docs/bots.md#profiles-several-agents-on-one-bot-box-2026-10-22).
 
@@ -815,9 +831,12 @@ in `~/.local/bin/`):
 | `--clone-all` | Everything except history, `state.db`, backups, checkpoints and **cron** (never cloned: two gateways would run every job twice) |
 | any clone | Never copies **messaging channels**: bot tokens, allowlists, `platforms:`, pairing. `--clone-channels` overrides, but one token can only be polled by one profile |
 | `hermes profile list` / `show <name>` / `use <name>` | `use` is a sticky default for plain `hermes`, like `kubectl use-context`: avoid it on a bot box, where scripts assume default |
-| `hermes profile rename` | Renames a profile. Renaming `default` only sets a display name |
+| `hermes profile rename` | Renames a profile, its alias, and removes the old gateway service. Renaming `default` only sets `display_name` in `~/.hermes/profile.yaml` (the ID stays `default`) |
 | `hermes profile delete <name>` | Stops it, removes service and alias, **deletes its data**; asks for the name |
-| `hermes profile export <name>` / `import <file>` | A `.tar.gz` with keys stripped |
+| `hermes profile export <name>` / `import <file> [--name]` | A `.tar.gz` with keys stripped (`/export`, `/import` in a chat) |
+| `hermes profile describe` / `create --description "<role>"` | The kanban routing description |
+| `create … --sync-imports` | Carries `import-sync.json` so the clone can `import-agent --sync` external agent trees |
+| `hermes profile migrate-identity` / `purge-identity` | Retry a rename/delete identity step that failed |
 | `hermes profile install <git-url>` / `update` | Profile distributions: SOUL, config, skills, cron (installed paused) and MCP from a git repo. Unsigned; not for us |
 
 **Logins.** Codex / Claude / xAI OAuth tokens are single-use refresh tokens,
@@ -830,10 +849,23 @@ so they are **shared, never copied**:
 
 **Gateways.** Since v0.22 **one gateway process serves every profile**
 (`gateway.multiplex_profiles`).
-- **Default and how it switches on:** an unset flag means on, written as
-  `true` once two or more profiles exist (patri and maia already carry
-  `true`). The old per-profile units are no longer the norm: `gateway install`
-  on a named profile refuses without `--force`.
+- **Default and how it switches on (v0.22.5):** an unset
+  `gateway.multiplex_profiles` is settled by the default gateway at each boot.
+  It multiplexes, and writes `true` into the default's `config.yaml`, only when
+  the fold is safe: two or more profiles, no secondary running its own gateway,
+  no duplicate bot token, no port-binding platform without a `/p/<profile>/`
+  route. Otherwise it serves default only and prints a boxed warning (also in
+  `hermes gateway status`, the `hermes update` summary and the dashboard's
+  `multiplex_standalone_reason`). `true` is the only valid value: `false` is
+  retired and rewritten to `true` with a notice. patri and maia already carry
+  `true`.
+- **No per-profile gateways:** `hermes -p <name> gateway install|start|run`
+  (and the service step of `setup`) refuses with exit 78. The escapes are
+  `--force` (a fleet split across UNIX users or a `HERMES_HOME` outside
+  `profiles/`) and `gateway.standalone: true` in that profile's own config, a
+  temporary shim kept while the WhatsApp bridge, Relay on secondary profiles
+  and dashboard scoping are still unfinished. `hermes gateway migrate
+  --multiplex` folds an existing per-profile fleet.
 - **Same unit:** our `hermes-gateway.service` and the healthcheck keep
   covering everything.
 - **Its own bot tokens per profile:** each profile needs its own Telegram,
@@ -850,15 +882,113 @@ so they are **shared, never copied**:
 - **Cron:** each served profile's own cron runs in the one process.
   `hermes -p <name> cron status` names the host gateway.
 - **Restarts:** restarting the default gateway restarts every profile's
-  bots. `hermes -p <name> gateway stop|start` parks or unparks just one.
+  bots, and `hermes gateway restart` asks first. **Parking** takes one profile
+  offline: `hermes -p <name> gateway stop` writes `<profile>/gateway.parked`
+  (persists across restarts, can be pre-created to install a profile offline;
+  its cron jobs stop too), `start` removes it, `restart` re-reads its config.
+  The host rescans every 30 s, so a marker added or removed by hand also
+  applies. `status` says `parked`; the dashboard's Stop/Start do the same.
 
 **Dashboard.** It works at machine level, with a profile switcher
 (`?profile=<name>` in the URL). Our basic-auth login therefore manages every
-profile on the box.
+profile on the box. Its Profiles page "Set as active" only changes the sticky
+CLI default; edit a profile through the switcher.
 
-**Same-machine collaboration** between profiles is done with delegation or
-the kanban board (`hermes profile create … --description` feeds kanban
-routing). The docs keep A2A for crossing machines.
+**Desktop Bot Mode.** A "Bot" in Hermes Desktop is a profile with roster
+metadata (title, avatar) and a pinned Bot Chat. Every Bot is a profile; a
+profile driven only from the CLI or a gateway stays a plain profile. Not our
+"bots" (the claws), which are boxes.
+
+**A directory counts as a profile** only with an identity file in it
+(`config.yaml`, `.env`, `SOUL.md`, `profile.yaml`, `auth.json` or `state.db`).
+`terminal.cwd` is separate from the profile home: set an absolute one for a
+predictable start folder (SOUL.md enforces no workspace boundary).
+
+**Same-machine collaboration** between profiles (checked against the docs 2026-10-27):
+- **Delegation with `profile_routes`**: the catalog plugin `advanced-delegation` (not bundled;
+  install in the profile that delegates) sets `delegation.backend: profile_routes` with
+  `delegation.backends.profile_routes.profiles: [{name, description}]` (the allowlist) and an
+  optional `default`; a task that picks no profile runs on the parent's own model. The child runs
+  as the target profile (model, credentials, skills, SOUL, terminal policy) but **keeps the
+  parent's toolset** (developer guide `delegation-provider-plugin.md`): a narrow profile whose
+  boundary is its toolset does not keep that boundary as a delegated child, and the child does not
+  get the target's plugin tools unless the parent's lists name them. Listing a profile also hands
+  the parent that profile's credentials. Confirmed in the v0.22.5 code: `tools/delegate_tool.py`
+  builds every child with `toolsets=None  # always inherit the parent's toolsets`, and
+  `delegate_tool_toolsets._resolve_child_toolsets` only intersects with the parent's set.
+- **CLI relay (what we use, Pep → `inventari`, 2026-10-27)**: the main agent's skill runs a
+  wrapper that calls `hermes -p <name> chat -Q -c <thread> --create-if-missing --in <dir>
+  --query-file <file> [--image <photo>]`. The profile runs with ITS OWN tools and SOUL,
+  synchronously (8–25 s per call on pep), and the named thread keeps a question and the user's
+  answer together across the main agent's turns. `--image` takes one photo per query and copies it
+  into the profile's `cache/images/` as `upload_*.jpg` (send extra photos as earlier turns).
+  `--source` is only a session-list tag; the platform stays `cli`. stderr carries "↻ Resumed
+  session …" and stdout ends with `session_id: …`: strip both. The profile's SOUL must accept the
+  relay's prefix (`<User> (via <main agent>):`) as the user and ask questions in text, since
+  `clarify` cannot reach the user through the relay. Source: hq
+  `homelab/tools/hermes-skills/pep/inventari/`. Official standing: the bundled `hermes-agent` skill documents this as
+  "Spawning Additional Hermes Instances" (`terminal(command="hermes chat -q …")`, full tool access
+  vs delegate_task's subset of the parent's); for same-machine profiles the docs' headline
+  primitives are delegation and kanban (the A2A page: "prefer delegation or the kanban board",
+  A2A is for crossing machines). Kanban is the right one for durable or long work; a relay
+  is for interactive Q&A that needs an answer in the same turn.
+- **Kanban**: a card assigned to a profile spawns `hermes -p <name> chat -q` with that profile's
+  own config and tools; asynchronous (dispatcher tick, result as a card comment).
+  `hermes profile create … --description` feeds kanban routing.
+- **A2A**: a served profile's own `A2A_PORT` in its own `.env` is read scoped (v0.22.5 adapter
+  code: "a secondary multiplex profile must not borrow the default profile's bridged A2A_PORT");
+  the online multi-profile page lists port-binding platforms without `/p/<profile>/` ingress as a
+  preflight blocker, which an explicit `multiplex_profiles: true` bypasses. Not tested on a
+  secondary profile yet.
+- **`gateway.profile_routes`** (gateway level, not delegation): the default profile's shared bot
+  can send chosen chats to another profile by `user_id` (16) / `thread_id` (8) / `chat_id` (4) /
+  `guild_id` (2), most specific wins (`gateway/profile_routing.py`), so a profile does not need
+  its own bot token to get a Telegram topic or chat.
+- **Herald** (Android app, community, github.com/Giton22/herald) talks to every profile through
+  the authenticated dashboard (sessions with source `desktop`, one "Bot Chat" per profile); its
+  `herald-push` plugin watches only "Bot Chat" sessions in every profile's `state.db`, so a relay
+  thread under another title pushes nothing.
+
+**Building a narrow profile (learned on pep `inventari`, v0.22.5, 2026-10-27):**
+- `hermes profile create <name> --description "…"` on a box with a running gateway is **served
+  at once, no restart** ("served now by the running multiplexed gateway"), and the default's
+  `config.yaml` gains `gateway.multiplex_profiles: true` by itself (expected diff). A blank profile
+  copies the default's `model:` block; `.env` is empty; `~/.local/bin/<name>` wrapper.
+- Harmless warning on every profile load: "Plugin 'basic' tried to register dashboard-auth
+  provider … from profile scope …; ignoring" (dashboard auth belongs to the launch scope).
+- **A CLI one-shot for a served profile runs inside the host gateway** (`tui_gateway.ws`,
+  session `agent:<name>:local:…`, logged in the profile's `logs/agent.log`), so it sees the
+  gateway's view of the profile, not a fresh load.
+- **The host loads a profile's plugins when it first serves it.** A plugin copied in later is
+  invisible ("unknown name(s): <toolset>" warnings) and `hermes -p <name> gateway restart` does
+  NOT rediscover it. `hermes -p <name> plugins disable <p>` then `enable <p>` makes the running
+  gateway reload plugins ("Gateway reloaded plugins — deferred: tools (next session)") without
+  touching the default's bots. `enable` rewrites `platform_toolsets`, so copy `config.yaml`
+  aside first and put it back after.
+- **Explicit `platform_toolsets` + the tool-search bridge = no plugin tools.** With
+  `tools.tool_search.enabled` at its default, plugin tools are deferred behind
+  `tool_search`/`tool_call`; if the explicit lists do not include the bridge, the model gets
+  neither and says the tools are unavailable (`tool_turns=0`). For a handful of tools set
+  `tools: {tool_search: {enabled: "off"}}` in that profile.
+- Verify the resolved set without a model: `HERMES_HOME=<profile> venv/bin/python` →
+  `hermes_cli.plugins.discover_plugins(force=True)`, then
+  `model_tools.get_tool_definitions(enabled_toolsets=[…], quiet_mode=True)` for the real names
+  and `hermes_cli.tools_config._get_platform_tools(load_config(), "<platform>")` per platform.
+- Make `known_plugin_toolsets.<platform>` list the plugin's toolsets on every platform, so a
+  platform you did not list explicitly gets none of them.
+- **Inbound photos**: native vision sends pixels and does NOT tell the model the file path; the
+  gateway moves the file into the routed profile's `cache/images/` (`rehome_inbound_media`), so a
+  plugin tool can list that folder newest first.
+- **`MEDIA:<path>` policy is per profile**: `gateway.strict: true`, `trust_recent_files: false`,
+  `media_delivery_allow_dirs: [<dir>]` in the profile's config limit what a reply can attach
+  (default non-strict sends any readable file outside the credential denylist).
+- **The self-review loop meets the profile's own boundary**: a narrow profile whose SOUL says
+  "only Oriol gives instructions; another agent is read-only" refused a one-shot review that
+  said it came from a Claude Code session (2026-10-27, inventari). Correct behaviour: do the
+  check yourself, or have Oriol ask for the review in its chat; never phrase it as Oriol.
+- A plugin runs in the gateway's managed Python (no PyYAML, no Pillow there): keep the plugin a
+  thin gate and do the work in a subprocess with the system `python3 -I` (stdlib only) or a venv
+  you own; ImageMagick (`magick`) is on the claws.
 
 **Our own things that assume `default`.** Check each one before a profile
 relies on it:
@@ -868,7 +998,9 @@ relies on it:
 - skills we scp into `~/.hermes/skills/` exist only in default;
 - `~/.config/<tool>/agent.env` files are shared through `HOME`, so they are
   visible to every profile;
-- the `hermes-<bot>` wrappers target default (pass `-p <name>`).
+- the `hermes-<bot>` wrappers target default (pass `-p <name>`);
+- a default profile's catalog plugins (Home Assistant, Mnemosyne, claw-name) are not in a new
+  profile: it starts with only the bundled ones.
 
 ## Importing from OpenClaw
 
