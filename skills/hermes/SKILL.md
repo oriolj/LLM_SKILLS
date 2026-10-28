@@ -278,6 +278,16 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
   `0.0.0.0:9119` with password auth (creds in hq
   `homelab/secrets/hermes-dashboards.env`; `/api/status` says
   `auth_required: true`). Its Chat tab runs the real TUI over a pty.
+  **Reachable over the tailnet only** (Oriol, 2026-10-28, every claw and
+  every new one): ufw `allow in on tailscale0 from 100.64.0.0/10 to any port
+  9119 proto tcp` and no LAN rule, written by hq's `claw_agent` role too.
+  Open it at `http://<box>.<tailnet>.ts.net:9119` from a device on THAT
+  tailnet: pep, patri and maia are on the personal one, enzo and bruno on
+  the EnaCast one, and a device logged into the other tailnet cannot resolve
+  the name unless the box is shared into it. ufw does not filter loopback, so
+  an ssh tunnel to the box's `127.0.0.1:9119` always works (hq's
+  `hermes-<bot>-dash` falls back to it). Every node of the tailnet, the other
+  bots included, reaches the port, so the login is the gate.
 - **Dashboard plugins** (user): `~/.hermes/plugins/<name>/` needs a
   `plugin.yaml` (name/version/description) AND `hermes plugins enable <name>`;
   a folder with only `dashboard/manifest.json` is silently ignored. Restart
