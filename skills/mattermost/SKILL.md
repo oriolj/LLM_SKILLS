@@ -127,8 +127,8 @@ create a token again.
    **If the profile pins its tools** (`platform_toolsets` /
    `known_plugin_toolsets` in its `config.yaml`, like pep `inventari`), add a
    `mattermost:` entry first, copied from its telegram/cli one: an unlisted
-   platform gets Hermes's default toolset, terminal included, which breaks a
-   narrow profile's boundary. Then ask the bot over Mattermost to list its
+   platform is not covered by those lists and may get Hermes's default
+   toolset (not tested which), which would break a narrow profile's boundary. Then ask the bot over Mattermost to list its
    tools (pep-inventari, 2026-10-28).
 6. Proof in `~/.hermes/logs/gateway.log` (not the systemd journal):
    `Mattermost: authenticated as @<name>`, `WebSocket connected and
