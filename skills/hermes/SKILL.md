@@ -1148,6 +1148,15 @@ Mechanics from Oriol's fix of `qa` (v0.22.5, 2026-10-29):
   `dashboard.font: atkinson-hyperlegible`. `hermes config set` calls `dashboard.font` an
   unknown key; use `--force`, because the dashboard does read it. hq
   `homelab/tools/hermes-skins/` holds the theme files.
+- **How far a theme can go without fighting updates** (docs `extending-the-dashboard.md`).
+  From most to least stable:
+  - `palette`, `typography` and `layout`;
+  - `colorOverrides`, with fixed keys such as `primary`, `muted`, `border` and `ring`;
+  - `componentStyles`, any CSS property on fixed buckets: `card`, `header`, `footer`,
+    `sidebar`, `tab`, `progress`, `badge`, `backdrop` and `page`;
+  - raw `customCSS`, which is supported, scoped to the theme and capped at 32 KiB.
+    Its selectors target the dashboard's own markup, which an update can change
+    without notice, so keep it to a few lines and recheck after each `hermes update`.
 - **For readability, offer only the built-in picker**: the `default-large` theme and
   the Font picker. Do not propose a hand-written theme YAML or `customCSS` to fix
   readability. Oriol, 2026-10-29: "again, dont do hacky solutions", after an agent
