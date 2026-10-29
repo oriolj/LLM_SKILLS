@@ -103,6 +103,14 @@ Humans see the same data on Today (`/dashboard`), at `/dashboard/accounts/<id>` 
 Brief & Notes, Conversations card → `/dashboard/accounts/<id>/conversations`),
 `/dashboard/follow-ups` and the topbar bell. Link those when reporting.
 
+## Customer expansion and municipal contacts
+
+- When asked to add a lead for an additional product, first check whether the organization is already a client. Reuse the confirmed account and preserve `customer` status; record the expansion interest separately rather than creating another customer or downgrading it to `prospect`.
+- Keep the requested product opportunity distinct from another product's possible future fit. A positive introduction or willingness to meet is not acceptance, purchasing authority or a closed sale.
+- Resolve the contact's actual employer and role from the user's correction and original correspondence. An Alcaldia contact is a municipal contact, not automatically the radio director; preserve attributed name variants and do not mark decision-maker or email verification flags without evidence.
+- Distinguish an account note about an opportunity from a dedicated opportunity record. Describe exactly what was created and provide the account link; do not claim a product-specific pipeline entry or campaign membership when only a note, contact and next step were saved.
+- Deduplicate the contact by exact email across the project, including archived contacts, before creation. Inspect `OPTIONS /api/contacts/` or the current official schema before building the payload, then read back the exact contact and its account association.
+
 ## Account fields that gate outreach
 
 - `status` (lifecycle, single): `prospect`, `contacted`, `in_negotiation`,
@@ -566,12 +574,7 @@ POST /api/messages/
  "external_id": "<Message-ID or WAHA id>"}
 ```
 
-- **Use `campaign_lead` whenever the account is in a campaign.** The
-  funnel (`initiated` / `responded`) counts per CampaignAccount, and
-  `outreach_status` advances (`sent` → `responded`) only through it.
-  Campaign-less (`account`-only) messages are stored but invisible to the
-  funnel: a project whose sends were all logged without `campaign_lead`
-  shows a funnel of 0 however many messages it holds.
+- **Use `campaign_lead` when the message genuinely belongs to that campaign.** The funnel (`initiated` / `responded`) counts per CampaignAccount, and `outreach_status` advances (`sent` → `responded`) only through it. Inspect campaign goal and membership before attribution: an existing customer's expansion conversation must not be logged against an unrelated or rejected cold-sales membership merely because it exists. If no appropriate campaign applies, log against `account` with the actual purpose, such as `customer_expansion`, and state that it is outside the campaign funnel. Campaign-less messages are stored but do not advance campaign metrics.
 - **Always pass `external_id`** (email `Message-ID`, WAHA message id): a
   retry returns 200 with the existing row instead of a duplicate.
 - Reply: same call with `"direction": "inbound"`,
@@ -657,9 +660,7 @@ POST /api/next-steps/
   prepare_demo; create it only if the user wants it. Editing templates
   is a per-project Settings page (`/dashboard/settings/next-steps`);
   agents don't change templates unless asked.
-- **Assign to Oriol** unless told otherwise; an agent token creating a step
-  without `assignee` assigns it to the agent's user, whom nobody reminds.
-  Find his user id once via `GET /api/projects/<slug>/members/`.
+- **Assign to Oriol** unless told otherwise; an agent token creating a step without `assignee` assigns it to the agent's user, whom nobody reminds. Resolve an explicitly requested owner's membership through `GET /api/projects/<slug>/members/`. If that person is not assignable, keep their operational responsibility explicit in the step text; distinguish any allowed coordination assignee from the person doing the work, and disclose the distinction rather than claiming assignment to a nonexistent user. A CRM due date or another person's digest does not establish that the requester will receive an alert: when an alert was requested, verify an authorized delivery path to that requester, deduplicate existing reminders, and report its exact date, timezone and destination. Do not create a parallel CRM in Obsidian.
 - Dedupe before creating: list the account's open steps first
   (`?account=<id>&status=open`) and update / reschedule a matching one
   instead of adding a twin.
