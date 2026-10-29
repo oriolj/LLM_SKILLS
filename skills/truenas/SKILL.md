@@ -687,6 +687,14 @@ restriction.
   costs about one file-list walk plus what is missing. Its log: rsync's
   code 24 ("some files vanished") for pid files and a WAL segment,
   which TrueNAS records as SUCCESS.
+  **A SUCCESS with code 24 does not mean a live database is usable.**
+  rsync lists the files first and transfers them later, so a long first
+  copy can lose every WAL segment of a running Postgres: storage-1's
+  3-day first copy (2026-10-29) logged 32 vanished `pg_wal` segments
+  and left the NAS copy's `pg_wal` with none, a cluster that would not
+  start. After any first copy longer than an hour, list the copy's
+  `pg_wal` (`filesystem/listdir`) and record the database as "not a
+  usable copy" when it is empty. The consistent backup is still a dump.
   A 22 GB droplet of small files over the tailnet (DigitalOcean → home,
   bikecrm-prod-2, 2026-10-13): 537,000 inodes, about 20 GiB, in 63 min
   (about 5 MiB/s) while v5's copy was still running. Count on the file
