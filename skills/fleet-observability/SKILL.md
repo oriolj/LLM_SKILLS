@@ -458,6 +458,22 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
        the archive** (rename to `.db.folding`), and rename them back if
        anything before the replace fails. Deleting sources AFTER the replace
        double-counts permanently when an unlink fails.
+    4. 🔴 **When `gunicorn.conf.py` itself sets `PROMETHEUS_MULTIPROC_DIR`
+       (in `on_starting`, BikeCRM's shape), import nothing from
+       `prometheus_client` at the config's module level**, the helper
+       included (it imports `mmap_dict`). The package picks its value class
+       (`MultiProcessValue` or not) once, at import, from that variable; an
+       import before `on_starting` leaves every worker single-process with
+       no error, and the scrape looks fast because the request metrics are
+       gone. Load the helper inside `on_starting` after setting the
+       variable (Codex review, BikeCRM 2026-10-29). Panotxa's top-level
+       import is safe only because its start script exports the variable
+       before gunicorn starts.
+
+    Version note (2026-10-29): in gunicorn **25.3** the SIGCHLD handler only
+    queues the signal and `reap_workers()` runs from the main loop, so trap 1's
+    re-entrance does not happen there. Keep `LOCK_NB` anyway: a blocking lock
+    would still park the master behind a slow scrape and delay respawns.
 
     Load the helper in `gunicorn.conf.py` **by file path**
     (`importlib.util.spec_from_file_location`): `import config.x` runs
@@ -466,7 +482,26 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     run (the counts must equal an unfolded baseline's) AND rounds of
     `kill -9` on every worker at once (the master must keep respawning).
     Reference: Panotxa `backend/config/prom_multiproc.py` +
-    `tests/test_prom_multiproc.py`.
+    `tests/test_prom_multiproc.py`; BikeCRM `bikecrm_backend/observability/
+    prom_multiproc.py` (the on_starting-loaded variant, plus a
+    `bikecrm_metrics_multiproc_files` gauge so a broken fold shows as a climb).
+    **What skipping it costs, measured (BikeCRM, 2026-10-29):** 6 workers ×
+    `--max-requests 2000`, 11 days after a deploy = 1,576 dead
+    `histogram_<pid>.db` (439 MB, no counter files: its counters live in
+    Redis); the mmap merge alone took 11 s, the scrape crossed the hub's 15 s
+    timeout and "Scrape target down" paged on and off for hours while the API
+    itself was healthy (p95 0.25 s). A fold of one such file into a full
+    archive takes ~17 ms. **Fleet audit for this class** — rank every target's
+    scrape time against a week ago; a sawtooth that resets on deploys is
+    this bug:
+    `avg_over_time(scrape_duration_seconds[1h])` vs the same `offset 7d` on
+    the hub. On 2026-10-29 that flagged EnaCast AI (0.8 → 5.2 s in a week,
+    still `mark_process_dead`-only). Also on `mark_process_dead` only that
+    day, below the radar for lack of traffic: EnaChat, EnaPost, EnaScribe,
+    24H, EnaStats, BudgetBuddy, Cuentakos, GoalTracker, evpricemap,
+    SpineGuard, H2A-Accountant, LLM Index Watcher, Licita Radar,
+    employee_time_control. Folded: Panotxa, EnaCast backend, EnaArchive,
+    LeadHunter, BikeCRM.
   - **Cache the per-scrape business collector** (Panotxa, same day): its
     families are cached in the shared Redis for 300 s, keyed by the
     release so a deploy recomputes at once, failing open, and 0 in tests
