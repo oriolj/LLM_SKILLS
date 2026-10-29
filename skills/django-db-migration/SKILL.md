@@ -20,9 +20,10 @@ rather than rewriting them.
 
 Plan for all three from the start.
 
-**The next candidate is the EnaCast backend** (`~/git/EnaCast/enacast`, MariaDB with `latin1` columns, a separate
-recorder and a Timescale router). The roadmap item, with its audit list and open decisions, is in that repo's `TODO.md`
-under "Database consolidation roadmap".
+**The next candidate is the EnaCast backend** (`~/git/EnaCast/enacast`). MariaDB, with no `latin1` left since
+2026-04-16 but a ci/ai collation mix that real slugs and codenames rely on, a separate recorder and a Timescale
+router. Its plan is `docs/postgres-migration.md` on branch `postgres-migration` (2026-10-06): a separate database on
+the existing `timescale-enacast` instance, plus a full-stack API snapshot as the 1:1 proof.
 
 ## The staged plan (each step deployable and reversible alone)
 
