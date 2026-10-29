@@ -1095,6 +1095,54 @@ carrying too many skills. Answering a DM proves nothing. Before calling a profil
 
 The estate checklist is hq `shared/docs/bots.md` § Profiles, item 10.
 
+Mechanics from Oriol's fix of `qa` (v0.22.5, 2026-10-29):
+- **Browser vault** (`hermes [-p <p>] vault add|list|rm|sources`). This is the
+  model-blind login store: `vault/vault.json.enc`, Fernet, with `vault.key` beside
+  it in the profile.
+  - `add` is interactive (`getpass`), so Oriol runs it. Each `login` item is bound
+    to one exact origin.
+  - The model gets the `browser_vault` tool, deferred behind `tool_search` and
+    present wherever a browser is. `list` returns handles and user names, never
+    passwords. `fill` injects the password over CDP only when the page origin
+    matches, and redacts it from every later tool result.
+  - In cron or a one-shot, an empty vault answers `prompt_unavailable` ("run
+    `hermes vault add`"): it cannot ask for the login.
+  - The key is next to the ciphertext, so the vault protects the password from the
+    conversation, not from the profile's own `terminal`.
+  - `vault list` is safe to run for checks; it prints metadata only.
+- **Timezone under the multiplexed gateway**:
+  - each profile reads `timezone:` from **its own** `config.yaml`. `HERMES_TIMEZONE`
+    speaks only for default (`hermes_time._env_timezone`), so a profile without the
+    key runs cron on server time (UTC on the claws);
+  - `hermes_time` caches the value per config path, and nothing in the gateway calls
+    `reset_cache()`, so a `timezone` added later applies only after a full
+    `systemctl --user restart hermes-gateway`.
+- **`skills.disabled: [names]`** keeps bundled skills on disk and out of the prompt.
+  The `.skills_prompt_snapshot.json` still lists all of them; the live check is a
+  one-shot asking for the skills it can load.
+- **`mcp_servers.<s>.tools.include`** is an allowlist (it wins over adding to
+  `exclude`). On `qa`: ten Sentry read tools.
+- An MCP server's tools and `browser_vault` sit behind `tool_search`
+  (`hermes_tool_search` / `tool_call`) and still work. Only **plugin** tools needed
+  `tool_search` off (`inventari`, `jg`).
+- One one-shot to `qa` without `-c <thread> --create-if-missing` failed with
+  "couldn't start the model connection: invalid_params". The same message with a
+  named thread worked a minute later. Cause not established; use the
+  `send-to-claws` form.
+
+**Dashboard themes** (the web dashboard, not the CLI skins):
+- The header's palette icon offers eight built-in themes, among them `default-large`
+  (18px text, roomier spacing), plus a separate **Font** picker. The choice is saved
+  as `dashboard.theme` / `dashboard.font` in `config.yaml`.
+- Your own theme is a YAML file in `~/.hermes/dashboard-themes/` (the launch scope,
+  `~/.hermes`) with `palette`, `typography` (`fontSans`, `fontUrl`, `baseSize`),
+  `layout` and up to 32 KiB of `customCSS`. Every key is optional and missing keys
+  fall back to `default`.
+- The docs are in the checkout: `website/docs/user-guide/features/web-dashboard.md`
+  § Themes & plugins and `extending-the-dashboard.md`.
+- There is no community index of themes (checked 2026-10-29). The one example found,
+  `bluebirdback/hermes-dashboard-nightshift-ops`, is a small repo; write our own.
+
 **Our own things that assume `default`.** Check each one before a profile
 relies on it:
 - the catch-up scripts (`runtime.profile_guard`,
