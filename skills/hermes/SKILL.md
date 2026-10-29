@@ -1117,6 +1117,16 @@ Mechanics from Oriol's fix of `qa` (v0.22.5, 2026-10-29):
   - `hermes_time` caches the value per config path, and nothing in the gateway calls
     `reset_cache()`, so a `timezone` added later applies only after a full
     `systemctl --user restart hermes-gateway`.
+- **Git commits by a profile (our convention, Oriol 2026-10-29, first on bruno `qa`)**:
+  - author `<Bot>-<profile> (<model>)` with email `<bot>-<profile>@<scope domain>`, an
+    address with no mailbox (qa: `Bruno-qa (gpt-6.1-sol)` `<bruno-qa@bikecrm.com>`);
+  - the model is read at commit time from the session's `Model:` line (below), so it
+    follows a model switch or a fallback;
+  - the identity is passed per commit (`git -c user.name=… -c user.email=… commit`),
+    so it is the committer too, and never written to a git config;
+  - a profile never borrows its box's bot identity or Oriol's;
+  - it goes in the profile's working rules, and a read-only one-shot confirms it
+    ("which author would you use right now?").
 - **The agent knows its own model**: every system prompt ends with `Model: <id>` (and
   `Provider:` and `Platform:`; `agent/system_prompt.py`). A rule that needs the model,
   such as a git author `Bruno-qa (<model>)`, should tell the agent to read that line.
