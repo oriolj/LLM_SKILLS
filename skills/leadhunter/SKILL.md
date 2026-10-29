@@ -1,6 +1,6 @@
 ---
 name: leadhunter
-description: Operate H2A-LeadHunter — AI that ranks thousands of prospects against a target persona so the best are worked first, and the system of record for every relationship and outreach across every scope (EnaCast, SmartupSoft/BikeCRM, …) — through its REST API: auth with the agent token, importing and scoring account lists, organizations → projects, reading accounts/campaigns/funnel stats, exporting campaign lists, marking clients and do-not-contact, logging an email/WhatsApp send and its reply so the funnel counts it (with the message purpose on opted-out accounts), reading an account's whole conversation, next steps with due dates (create / complete / reschedule, quick-add templates and suggested follow-ons, reminders, the daily digest and calendar feed), account notes, and AI drafts. Use when the user mentions LeadHunter, leads, prospects, "mark our clients", "log that message", "who did we contact", "what's the next step / follow-up with X", "remind me to … on <date>", outreach funnel, cold-email campaign lists, relationship_types, or do-not-contact; and before any cold outreach send.
+description: Operate H2A-LeadHunter — AI that ranks thousands of prospects against a target persona so the best are worked first, and the system of record for every relationship and outreach across every scope (EnaCast, SmartupSoft/BikeCRM, …) — through its REST API: auth with the agent token, importing and scoring account lists, organizations → projects, reading accounts/campaigns/funnel stats, exporting campaign lists, marking clients and do-not-contact, logging an email/WhatsApp send and its reply so the funnel counts it (with the message purpose on opted-out accounts), reading an account's whole conversation, next steps with due dates (create / complete / reschedule, quick-add templates and suggested follow-ons, reminders, the daily digest and calendar feed), account notes, AI drafts, and workflow boards (a campaign's kanban: starting and moving cards with evidence, classifying replies, backed-trial reservations and trial cleanup, the board work queue). Use when the user mentions LeadHunter, leads, prospects, "mark our clients", "log that message", "who did we contact", "what's the next step / follow-up with X", "remind me to … on <date>", outreach funnel, cold-email campaign lists, relationship_types, or do-not-contact, "move the card", "the board", "reserve this radio for a trial", "the trial is created", "classify that reply", "what's in my board queue"; and before any cold outreach send.
 ---
 
 # LeadHunter — leads and outreach log
@@ -594,6 +594,12 @@ POST /api/messages/
   ("does not exist") — check the id, not your access.
 - Edits lock the row: a PATCH can't undo a send that committed meanwhile;
   a sent message's `purpose` is fixed (echoing the stored value is fine).
+- **Classify inbound you log** (workflow boards, see below):
+  `"classification": "reply" | "refusal" | "bounce" | "auto_reply"` on the
+  inbound create, or `POST /api/messages/{id}/classify/` later (`""`
+  clears). An unclassified inbound logged by an agent user is only a
+  suggestion on the board until a person classifies it; when you can tell
+  (an out-of-office is `auto_reply`, "not interested" is `refusal`), say so.
 - Reading a thread: § Reading (messages row). Humans read the same stream
   at `/dashboard/accounts/<id>/conversations`.
 
@@ -660,6 +666,103 @@ POST /api/next-steps/
 - `bikecrm` Sea Otter accounts still carry the stopgap custom fields
   `next_step` / `next_follow_up` until `migrate_stopgap_next_steps` runs
   there (pending Oriol's go, 2026-10-07); after that, next steps only.
+
+## Workflow boards (built 2026-10-29, NOT deployed yet)
+
+**Check before use**: `GET /api/boards/templates/` answers 404 on prod
+until the deploy lands (Oriol's go). Contract:
+[backend/docs/BOARDS.md](../../../humans2agents/agents/leadhunter/backend/docs/BOARDS.md),
+endpoint index [API.md § Workflow boards](../../../humans2agents/agents/leadhunter/backend/docs/API.md).
+
+A campaign can have one **board**: one **card** per campaign account
+(card id = the campaign account id), columns from a versioned template
+(`outreach`: selected → contacted → replied → demo / trial → closed;
+`backed_trial`: reserved → maturing → ready → contacted → conversation →
+removal_review → finished). **When a campaign has a board, record progress
+as board moves with evidence, not as notes, free-text stages or custom
+fields.** Notes stay for what happened in words; the board holds the
+stage and the dated facts its numbers are built from.
+
+- Find a campaign's board: `GET /api/boards/?project=<slug>&campaign=<id>`;
+  read cards with `GET /api/board-cards/?board=<id>` (filters `stage`
+  csv / `none`, `search`, `overdue=true`, `owner=me`, …; paging
+  `{count, next, previous, next_cursor, results}`, send `cursor=` to
+  continue). One card: `GET /api/board-cards/{id}/`; its `allowed_moves`
+  say what can be done now and what evidence each move `needs` (`a|b` =
+  either; `unavailable` = why not yet). Read them; never hard-code rules.
+- **Work queue**: `GET /api/board-cards/?project=<slug>&view=mine`
+  (also `team`, `overdue`, `blocked`, `unassigned`, `decisions_due`,
+  backed trial `ready_uncontacted`, `uncertain_creation`,
+  `removal_decisions`, `cleanup_pending`), ordered by earliest due work.
+
+**Every write is a command** `POST /api/board-cards/{id}/<cmd>/` with the
+envelope:
+
+```jsonc
+{"board_version": 4,                       // the card's, as you read it
+ "command_id": "agent:<card id>:contact:1", // 1-64 [A-Za-z0-9_.:-], deterministic
+ "to": "contacted", "evidence": {"message": "<sent outbound id>"}}
+```
+
+- **Retry with the SAME `command_id`**: you get the stored answer, nothing
+  happens twice. Same id with a different body → 400 `command_id`.
+- **409 `stale`** (`card` in the body): the card changed (a person, or an
+  automatic move after a message was logged). Re-read it, decide again,
+  send with the new `board_version` and a NEW `command_id`. Never resend
+  the old body blindly.
+- 400s and other 409s are stored: retrying the same id gets the same
+  refusal; fix the body and use a new id.
+- Commands: `move` (`to`, `outcome?`, `reason?`, `evidence?`,
+  `occurred_at?`: date the fact when it happened earlier), `correct`
+  (`to`, `reason`: go back / reopen; never deletes facts), `block`
+  (`reason`, `owner?`, `review_on?` | `clear: true`), `evidence`
+  (`milestone`, `occurred_at`, …: record or correct a dated fact),
+  `link-message` (`message`, `as`: `contact` / `reply` / `refusal`, for a
+  message logged without the campaign), `facts`, `adopt-step` (`step`,
+  `obligation`), `reservation`, `cleanup`. Unknown fields → 400.
+- **Evidence shapes**: `contact` `{"message": id}` or `{"contacted_on":
+  "YYYY-MM-DD", "channel": "email", "reference": "…"}`; `reply`
+  `{"message": inbound id}` (or the move's `reason`); `readiness`
+  `{"demo_link": url, "draft_link": url | "draft_message": id}`;
+  `conversion` `{"won_on": "YYYY-MM-DD", "reference": "invoice / order"}`
+  (required for `won`; a customer status is not proof); `demo_on` date.
+  Full form `{"evidence": {"contact": {...}}}`; when the move takes one
+  kind, flat `{"evidence": {"message": id}}` works too. Errors: 400
+  `{"evidence": {field: [msg]}}`.
+- **Prefer logging the message** (`POST /api/messages/` with
+  `campaign_lead` = the card id): the board moves itself (contacted /
+  replied) and dates the fact from `sent_at`. Move by hand only for what
+  no message proves (a call, a meeting, a won deal).
+- **The board's next steps**: entering a column or reaching a deadline
+  creates steps (`source: "board"`) for the role's owner; the board
+  closes only its own. Don't create a twin: if a step of yours already
+  covers the obligation, link it with `adopt-step`.
+- **Backed trials (EnaCast)**: starting a card (`move` to `reserved`)
+  takes an exclusive reservation of the account across every backed-trial
+  board of the project; **409 `reserved_elsewhere`** names the holder:
+  don't start it elsewhere. Card `reservation.operation_id` is the
+  idempotency key to pass to the system that creates the trial. Then
+  `reservation/` with `submission_state`: `uncertain` if the create timed
+  out (check the trial system before anything else, never retry blind),
+  `created` with `radio_pk` (or `batch_ref`) once the trial exists,
+  `failed` → may go back to `not_submitted`. Only `created` allows
+  `maturing`. `ready` needs `readiness` (manual only, a person checked the
+  recordings). Cleanup in `removal_review`: `cleanup/` `approve_removal`
+  (the approver's decision: an agent records it only when Oriol said so),
+  `confirm_removed` once the trial is gone (409 `trial_changed` if the
+  trial changed since approval), `keep` + `reason`; 409 `converted` if the
+  account became a customer. Finish with `outcome` after cleanup (409
+  `cleanup_unresolved` before).
+- **Error codes**: 400 `to` (move not allowed), `evidence`, `command_id`;
+  404 (not your project / no board); 409 `stale`, `reserved_elsewhere`,
+  `converted`, `cleanup_unresolved`, `trial_changed`, `board_exists`,
+  `cards_started`; elsewhere 409 `card_started` (removing a started card
+  from a campaign: close it on the board), `board_in_progress` (deleting
+  the campaign: archive), `reservation_active` (deleting the account);
+  merges of two accounts with started cards on one board are refused
+  (400 `detail`).
+- Don't create boards, change board settings or place legacy cards
+  (`manage.py place_board_cards`) unless Oriol asked.
 
 ## AI drafts
 
