@@ -496,12 +496,13 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     this bug:
     `avg_over_time(scrape_duration_seconds[1h])` vs the same `offset 7d` on
     the hub. On 2026-10-29 that flagged EnaCast AI (0.8 → 5.2 s in a week,
-    still `mark_process_dead`-only). Also on `mark_process_dead` only that
-    day, below the radar for lack of traffic: EnaChat, EnaPost, EnaScribe,
-    24H, EnaStats, BudgetBuddy, Cuentakos, GoalTracker, evpricemap,
-    SpineGuard, H2A-Accountant, LLM Index Watcher, Licita Radar,
-    employee_time_control. Folded: Panotxa, EnaCast backend, EnaArchive,
-    LeadHunter, BikeCRM.
+    still `mark_process_dead`-only). Also multiproc without the fold that
+    day (grep for `MmapedDict|worker_exited`, not "archive": product names
+    match it), below the radar for lack of traffic: EnaChat, EnaPost,
+    EnaArchive, EnaScribe, 24H, EnaStats, BudgetBuddy, Cuentakos,
+    GoalTracker, evpricemap, SpineGuard, H2A-Accountant, H2A-LeadHunter, LLM
+    Index Watcher, Licita Radar, employee_time_control. Folded: Panotxa,
+    EnaCast backend, BikeCRM.
   - **Cache the per-scrape business collector** (Panotxa, same day): its
     families are cached in the shared Redis for 300 s, keyed by the
     release so a deploy recomputes at once, failing open, and 0 in tests
