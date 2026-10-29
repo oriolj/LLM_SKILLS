@@ -1081,6 +1081,20 @@ predictable start folder (SOUL.md enforces no workspace boundary).
 - **Every new profile gets its own Mattermost bot** (Oriol, 2026-10-28), `<box>-<profile>`, in
   the scope's team: the `mattermost` skill § 5.
 
+**Learned on bruno `qa` (2026-10-29): fit the profile to its job.** Oriol found the QA
+profile, which he set up in a chat, short of the credentials and tools its work needs and
+carrying too many skills. Answering a DM proves nothing. Before calling a profile done:
+- List its tasks from the SOUL or its working-rules file, and the needs of each task.
+- **Credentials:** a profile has its own `.env`, so a key in default's `~/.hermes/.env` does
+  not reach it. `~/.config/<tool>/agent.env` is shared through `HOME`, so check the scope of
+  what every profile on the box can read. A missing key goes to Oriol (`USER_TODO.md`).
+- **Tools:** each task's toolsets on each platform, verified live (a one-shot that lists the
+  tool names), no extras.
+- **Skills:** `--no-skills`, then only the skills the tasks name.
+- Run one real task of each kind end to end, and record what passed and what is missing.
+
+The estate checklist is hq `shared/docs/bots.md` § Profiles, item 10.
+
 **Our own things that assume `default`.** Check each one before a profile
 relies on it:
 - the catch-up scripts (`runtime.profile_guard`,
