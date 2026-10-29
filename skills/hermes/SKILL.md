@@ -1141,7 +1141,12 @@ Mechanics from Oriol's fix of `qa` (v0.22.5, 2026-10-29):
 - The docs are in the checkout: `website/docs/user-guide/features/web-dashboard.md`
   § Themes & plugins and `extending-the-dashboard.md`.
 - There is no community index of themes (checked 2026-10-29). The one example found,
-  `bluebirdback/hermes-dashboard-nightshift-ops`, is a small repo; write our own.
+  `bluebirdback/hermes-dashboard-nightshift-ops`, is a small repo below the 1k-star bar.
+- **For readability, offer only the built-in picker**: the `default-large` theme and
+  the Font picker. Do not propose a hand-written theme YAML or `customCSS` to fix
+  readability. Oriol, 2026-10-29: "again, dont do hacky solutions", after an agent
+  offered one; he had already said "dont do anything too hacky" about the
+  dashboard font. His reason: "hermes can be hard to mantain, so i dont want to deviate too much from main". Every local customisation of Hermes is something to carry across each `hermes update`, so prefer stock behaviour and stock config keys.
 
 **Our own things that assume `default`.** Check each one before a profile
 relies on it:
