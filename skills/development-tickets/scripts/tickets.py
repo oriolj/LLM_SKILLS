@@ -73,10 +73,14 @@ ENUMS = {'kind': KINDS, 'status': STATUSES, 'priority': ('unset', 'p0', 'p1', 'p
          'confidence': CONFIDENCE, 'implementation_authorization': ('none', 'approved'),
          'verification': ('not-run', 'partial', 'passed', 'failed'),
          'deployment': ('unknown', 'not-required', 'not-deployed', 'deployed')}
+# Protocol 1.2 triage fields: optional so earlier notes stay valid (absent = untriaged/pending).
+TRIAGE = ('untriaged', 'agent-reviewed', 'human-reviewed')
+DECISIONS = ('pending', 'needs-discussion', 'agreed', 'declined')
+OPTIONAL = {'triage': 'untriaged', 'triaged_by': None, 'triaged': None, 'decision': 'pending'}
 FIELDS = set(('schema_version record_type ticket_project id summary kind status priority areas repos '
               'confidence owner reported_by created updated started completed implementation_authorization '
               'verification deployment related duplicate_of tags').split())
-PUBLIC = ('id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos')
+PUBLIC = ('id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision')
 
 
 class UniqueLoader(yaml.SafeLoader):
@@ -169,8 +173,12 @@ def meaningful(value):
 
 
 def validate(data, body, path, config):
-    if not isinstance(data, dict) or set(data) != FIELDS:
+    if not isinstance(data, dict) or not FIELDS <= set(data) or set(data) - FIELDS - set(OPTIONAL):
         raise TicketError('invalid schema fields')
+    # Notes from before 1.2 carry no decision; the ready-needs-agreed rule starts with the field.
+    legacy = 'decision' not in data
+    for key, default in OPTIONAL.items():
+        data.setdefault(key, default)
     if type(data['schema_version']) is not int or data['schema_version'] != 1:
         raise TicketError('invalid schema_version')
     if data['record_type'] != 'development-ticket' or data['ticket_project'] != config['project']:
@@ -196,6 +204,7 @@ def validate(data, body, path, config):
             continue
         if not timestamp(data[key]):
             raise TicketError('invalid timestamp')
+    validate_triage(data, legacy)
     content = sections(body)
     # This checks recorded evidence only; it cannot grant or authenticate authority.
     if data['status'] in ('in-progress', 'review') and (
@@ -216,6 +225,26 @@ def validate(data, body, path, config):
                 or any(mark.lower() != 'x' or not meaningful(label) or 'define observable completion criteria' in label.casefold() for mark, label in checks)
                 or not meaningful(content.get('Verification evidence', ''))):
             raise TicketError('done requires completion, checked acceptance and verification evidence')
+
+
+def validate_triage(data, legacy=False):
+    # Records who reviewed and the team's stance; it cannot authenticate either.
+    if data['triage'] not in TRIAGE or data['decision'] not in DECISIONS:
+        raise TicketError('invalid enum')
+    if data['triage'] == 'untriaged':
+        if data['triaged_by'] is not None or data['triaged'] is not None:
+            raise TicketError('untriaged ticket has a reviewer or review time')
+    elif not text(data['triaged_by']) or not timestamp(data['triaged']):
+        raise TicketError('reviewed ticket requires triaged_by and triaged')
+    if data['triage'] == 'agent-reviewed' and data['triaged_by'].casefold() == data['reported_by'].casefold():
+        raise TicketError('agent review must come from an actor other than the reporter')
+    if data['decision'] in ('agreed', 'declined') and data['triage'] != 'human-reviewed':
+        raise TicketError('agreed or declined requires human-reviewed')
+    if data['decision'] == 'declined' and data['status'] != 'cancelled':
+        raise TicketError('declined requires status cancelled')
+    if (not legacy and data['kind'] in ('feature', 'improvement') and data['status'] == 'ready'
+            and data['decision'] != 'agreed'):
+        raise TicketError('ready feature or improvement requires decision agreed')
 
 
 def scan(root, config):
@@ -298,7 +327,7 @@ def main():
                 areas=list(dict.fromkeys(args.area)), repos=list(dict.fromkeys(args.repo)), confidence=args.confidence, owner=None,
                 reported_by=args.actor, created=now, updated=now, started=None, completed=None,
                 implementation_authorization='none', verification='not-run', deployment='unknown',
-                related=[], duplicate_of=None, tags=['development'])
+                related=[], duplicate_of=None, tags=['development'], **OPTIONAL)
     sections = ['Problem or request', 'Source and evidence', 'Expected and actual behaviour',
                 'Reproduction', 'Acceptance criteria', 'Exclusions and dependencies',
                 'Authorization and decisions', 'Implementation evidence', 'Verification evidence',

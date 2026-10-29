@@ -1,6 +1,6 @@
-# Development tickets protocol — version 1.1
+# Development tickets protocol — version 1.2
 
-This is the tool-neutral contract for a private Markdown/Obsidian ticket system shared by humans, proactive bots, and human-led coding agents. Ticket `schema_version` is 1. Version 1.1 (2026-10-26) replaced UUID4 IDs with readable sequential ones (notes that already carry a UUID4 ID stay valid and keep it) and added the `investigation` kind.
+This is the tool-neutral contract for a private Markdown/Obsidian ticket system shared by humans, proactive bots, and human-led coding agents. Ticket `schema_version` is 1. Version 1.1 (2026-10-26) replaced UUID4 IDs with readable sequential ones (notes that already carry a UUID4 ID stay valid and keep it) and added the `investigation` kind. Version 1.2 (2026-10-29) added the optional triage fields `triage`, `triaged_by`, `triaged` and `decision` (see Triage below); notes without them stay valid and read as untriaged/pending.
 
 The authoritative source is `skills/development-tickets/references/protocol.md` in LLM_SKILLS. The bot package contains a generated identical copy so copying either skill remains self-contained. Edit this source only; regenerate the bot copy with `python scripts/sync_ticket_protocol.py`, then check it with `--check`. Do not independently maintain schema variants.
 
@@ -53,8 +53,12 @@ Use YAML frontmatter with the following fields. Quote timestamps as timezone-qua
 | related | ticket ID list; cross-project IDs do not grant access to evidence |
 | duplicate_of | null or different ticket ID; never self; retain original note/history |
 | tags | required list field, allowed to be empty; thematic discovery labels are optional, not a second status/priority/area system |
+| triage | optional; untriaged (default), agent-reviewed, human-reviewed — who has evaluated the ticket beyond its capture (see Triage) |
+| triaged_by | optional; null while untriaged, otherwise the actor of the latest review; for agent-reviewed never the same actor as reported_by |
+| triaged | optional; null while untriaged, otherwise the timezone-qualified time of the latest review |
+| decision | optional; pending (default), needs-discussion, agreed, declined — the team's stance on doing it; agreed and declined only by a human |
 
-New tickets start inbox/unset/unowned/not-run/unknown, with no implementation authorization. Do not guess due dates, effort, severity, owners, affected versions or completion times. Add extra fields only through an agreed schema/tooling change: the current helper rejects unknown fields rather than silently accepting unvalidated extensions.
+New tickets start inbox/unset/unowned/not-run/unknown, untriaged/pending, with no implementation authorization. Do not guess due dates, effort, severity, owners, affected versions or completion times. Add extra fields only through an agreed schema/tooling change: the current helper rejects unknown fields rather than silently accepting unvalidated extensions.
 
 ## States and transitions
 
@@ -87,13 +91,26 @@ The canonical portable template is `templates/tickets.base` in the agent package
 - `REPLACE_VAULT_RELATIVE_TICKET_DIR`: resolve configured `ticket_dir` relative to the config directory, then express it relative to the vault root. It is NOT necessarily `Tickets` from the vault root.
 - `REPLACE_PROJECT`: the configured `project` slug, not a guessed company name or prefix. Escape quotes/backslashes as expression string literals if values contain them; raw substitution of arbitrary text is not safe.
 
-Retain the global conjunction: folder + `file.ext == "md"` + `record_type == "development-ticket"` + `ticket_project`. Provide Inbox, Active by status (excluding only done/cancelled), and All. Do not silently limit rows or whitelist groups that hide blocked/review/new states. `file.asLink(note.summary)` gives readable clickable titles without depending on the filename. Show priority/type/areas/repos/owner/confidence/verification/deployment as useful; retain the registry and unknown values rather than inventing them.
+Retain the global conjunction: folder + `file.ext == "md"` + `record_type == "development-ticket"` + `ticket_project`. Provide Inbox, Active by status (excluding only done/cancelled), All, and Needs discussion (open tickets with `decision: needs-discussion`). Do not silently limit rows or whitelist groups that hide blocked/review/new states. `file.asLink(note.summary)` gives readable clickable titles without depending on the filename. Show priority/type/areas/repos/owner/confidence/triage/decision/verification/deployment as useful; retain the registry and unknown values rather than inventing them.
 
 Link the Base from the local workflow/index using ordinary relative Markdown links. A static receipt mapping an intake batch to source messages is historical evidence, not the current backlog view. Document that edits through a Base change the original frontmatter and still require authorized transitions plus updated timestamps/history; a cell edit never supplies implementation authority.
 
 Verification has separate levels: (1) parse Base YAML and check property/filter/view structure, (2) validate canonical notes and reconcile expected source mappings and row counts, (3) open the Base in Obsidian to verify rendering when available. YAML checks or manually checking the filter conditions are not execution of Obsidian's expression engine. Report visual verification as not run if unavailable. Check whether the core Bases plugin is enabled, but do not claim fleet-wide access or successful synchronization from a local file. Reference: [official Bases syntax](https://help.obsidian.md/bases/syntax) and [functions](https://help.obsidian.md/bases/functions); check the installed app's behavior rather than treating the offline tests as UI evidence.
 
 If local config/workflow is missing, first locate it; do not create a fallback tracker. Explicit human authorization to set up the project's tracker permits creating private configuration, workflow, note directory and Base deliberately, with discovery pointers in project instructions. It does not authorize generic installers, recurring workers, autonomous development or cross-project access. Record setup decisions and keep all project-specific configuration/evidence out of shared Git.
+
+## Triage
+
+Triage is the evaluation of a captured ticket by someone other than its reporter: is it already done or handled elsewhere, does it reproduce, what is the hypothesis, is it clear, how big, which priority, does it overlap other tickets. The procedure for agents is [triage.md](triage.md). Two fields record its outcome:
+
+| Field | Values | Who may set it |
+| --- | --- | --- |
+| triage | untriaged → agent-reviewed → human-reviewed | agent-reviewed: a coding agent or bot that did NOT capture the ticket, after an evidence-based review. human-reviewed: only the human lead or a named team member, after reading the ticket. A later agent review never lowers human-reviewed. |
+| decision | pending, needs-discussion, agreed, declined | An agent may set needs-discussion when the ticket needs a product, UX, cost or scope decision, listing the exact questions in Authorization and decisions. Only a human sets agreed (we want this done, as scoped) or declined. |
+
+Rules the helper checks: untriaged has `triaged_by`/`triaged` null; a reviewed ticket has both; agent-reviewed has `triaged_by` different from `reported_by`; agreed and declined require human-reviewed; declined requires status cancelled with its cancellation reason; a feature or improvement in `ready` requires agreed (checked once the note carries `decision`; notes from before 1.2 are exempt until triaged). Bugs, docs and chores can be ready while pending: a confirmed defect does not need a product decision, but the human lead still chooses it.
+
+`agreed` is not implementation authorization and not a priority. It says the team wants the outcome; selection, scope and authorization of the actual work stay with the human lead as in Roles and authority. An agent records its triage findings in the body (a dated triage subsection under Source and evidence plus a History line) and may update `confidence` only from evidence it observed. It proposes priority, closure and decision in the body or its report; it never sets priority, closes, or sets agreed/declined.
 
 ## Priority, areas and tags
 

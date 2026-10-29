@@ -94,7 +94,7 @@ class TicketsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         rows = json.loads(result.stdout)
         self.assertEqual(len(rows), 1)
-        self.assertEqual(set(rows[0]), {'id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos'})
+        self.assertEqual(set(rows[0]), {'id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision'})
         self.assertEqual(self.note().read_bytes(), before)
         result = self.cli('check')
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -383,6 +383,59 @@ class TicketsTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 module.main()
             self.assertEqual(self.note().read_bytes(), before)
+
+    def test_triage_fields_default_and_legacy_notes_without_them(self):
+        self.assertEqual(self.create().returncode, 0)
+        data, body = self.load_note()
+        self.assertEqual((data['triage'], data['triaged_by'], data['triaged'], data['decision']),
+                         ('untriaged', None, None, 'pending'))
+        for key in ('triage', 'triaged_by', 'triaged', 'decision'):
+            del data[key]
+        self.save_note(data, body)
+        self.assertEqual(self.cli('check').returncode, 0)
+        self.assertEqual(json.loads(self.cli('list').stdout)[0]['triage'], 'untriaged')
+
+    def test_triage_rules(self):
+        self.assertEqual(self.create().returncode, 0)
+        original, body = self.load_note()
+        when = '2026-10-29T19:40:00+00:00'
+        valid = [dict(triage='agent-reviewed', triaged_by='claude-code', triaged=when),
+                 dict(triage='agent-reviewed', triaged_by='claude-code', triaged=when, decision='needs-discussion'),
+                 dict(triage='human-reviewed', triaged_by='Oriol', triaged=when, decision='agreed'),
+                 dict(triage='human-reviewed', triaged_by='Oriol', triaged=when, decision='declined',
+                      status='cancelled')]
+        invalid = [dict(triage='oops'), dict(decision='oops'),
+                   dict(triaged_by='claude-code'),  # untriaged with a reviewer
+                   dict(triage='agent-reviewed', triaged=when),  # no reviewer
+                   dict(triage='agent-reviewed', triaged_by='claude-code', triaged='yesterday'),
+                   dict(triage='agent-reviewed', triaged_by='oriol', triaged=when),  # reporter reviewing itself
+                   dict(triage='agent-reviewed', triaged_by='claude-code', triaged=when, decision='agreed'),
+                   dict(triage='human-reviewed', triaged_by='Oriol', triaged=when, decision='declined'),
+                   dict(triage='unexpected-field-check', extra='x')]
+        cancelled_body = body.replace('## History\n', '## History\n\n- Cancellation reason: not wanted.\n')
+        for change in valid:
+            with self.subTest(valid=change):
+                self.save_note({**original, **change}, cancelled_body)
+                result = self.cli('check')
+                self.assertEqual(result.returncode, 0, result.stderr)
+        for change in invalid:
+            with self.subTest(invalid=change):
+                self.save_note({**original, **change}, body)
+                self.assertEqual(self.cli('check').returncode, 1)
+
+    def test_ready_feature_requires_agreed_but_bug_does_not(self):
+        self.assertEqual(self.create().returncode, 0)
+        data, body = self.load_note()
+        self.save_note({**data, 'status': 'ready'}, body)
+        self.assertEqual(self.cli('check').returncode, 0, 'a ready bug may stay pending')
+        self.save_note({**data, 'status': 'ready', 'kind': 'feature'}, body)
+        self.assertEqual(self.cli('check').returncode, 1)
+        self.save_note({**data, 'status': 'ready', 'kind': 'feature', 'triage': 'human-reviewed',
+                        'triaged_by': 'Oriol', 'triaged': '2026-10-29T19:40:00+00:00', 'decision': 'agreed'}, body)
+        self.assertEqual(self.cli('check').returncode, 0)
+        legacy = {key: value for key, value in data.items() if key not in ('triage', 'triaged_by', 'triaged', 'decision')}
+        self.save_note({**legacy, 'status': 'ready', 'kind': 'feature'}, body)
+        self.assertEqual(self.cli('check').returncode, 0, 'pre-1.2 ready notes stay valid')
 
     def test_create_canonical_safe_inbox(self):
         result = self.create('../not a path', '--area', 'sales', '--repo', 'backend')

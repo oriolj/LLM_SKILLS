@@ -45,7 +45,10 @@ class TicketBaseTemplateTests(unittest.TestCase):
     def test_views_separate_intake_active_and_all_without_hiding_review_or_blocked(self):
         data = yaml.safe_load(CANONICAL.read_text())
         views = {view['name']: view for view in data['views']}
-        self.assertEqual(set(views), {'Inbox', 'Active by status', 'All'})
+        self.assertEqual(set(views), {'Inbox', 'Active by status', 'All', 'Needs discussion'})
+        self.assertEqual(views['Needs discussion']['filters']['and'], [
+            'note.decision == "needs-discussion"', 'note.status != "done"', 'note.status != "cancelled"',
+        ])
         self.assertEqual(views['Inbox']['filters']['and'], ['note.status == "inbox"'])
         self.assertEqual(views['Active by status']['filters']['and'], [
             'note.status != "done"', 'note.status != "cancelled"',

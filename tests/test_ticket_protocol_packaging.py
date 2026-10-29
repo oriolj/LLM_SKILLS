@@ -17,7 +17,7 @@ class ProtocolPackagingTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_copied_bot_protocol_and_template_match_canonical(self):
-        for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
+        for rel in ["references/protocol.md", "references/triage.md", "templates/ticket.md", "templates/tickets.base"]:
             self.assertEqual((ROOT / "skills/development-tickets" / rel).read_bytes(),
                              (ROOT / "bots/development-ticket-triage" / rel).read_bytes())
 
@@ -29,7 +29,7 @@ class ProtocolPackagingTests(unittest.TestCase):
         spec.loader.exec_module(module)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
+            for rel in ["references/protocol.md", "references/triage.md", "templates/ticket.md", "templates/tickets.base"]:
                 source = root / "skills/development-tickets" / rel
                 source.parent.mkdir(parents=True, exist_ok=True)
                 source.write_text("canonical")
@@ -54,7 +54,7 @@ class ProtocolPackagingTests(unittest.TestCase):
         for dangling in (False, True):
             with self.subTest(dangling=dangling), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
+                for rel in ["references/protocol.md", "references/triage.md", "templates/ticket.md", "templates/tickets.base"]:
                     source = root / "skills/development-tickets" / rel
                     source.parent.mkdir(parents=True, exist_ok=True)
                     source.write_text("canonical")
@@ -81,7 +81,7 @@ class ProtocolPackagingTests(unittest.TestCase):
         spec.loader.exec_module(module)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
+            for rel in ["references/protocol.md", "references/triage.md", "templates/ticket.md", "templates/tickets.base"]:
                 canonical = root / "skills/development-tickets" / rel
                 copy = root / "bots/development-ticket-triage" / rel
                 canonical.parent.mkdir(parents=True, exist_ok=True)
@@ -101,7 +101,7 @@ class ProtocolPackagingTests(unittest.TestCase):
         spec.loader.exec_module(module)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
+            for rel in ["references/protocol.md", "references/triage.md", "templates/ticket.md", "templates/tickets.base"]:
                 canonical = root / "skills/development-tickets" / rel
                 copy = root / "bots/development-ticket-triage" / rel
                 canonical.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +121,7 @@ class ProtocolPackagingTests(unittest.TestCase):
         spec.loader.exec_module(module)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for rel in ["references/protocol.md", "templates/ticket.md", "templates/tickets.base"]:
+            for rel in ["references/protocol.md", "references/triage.md", "templates/ticket.md", "templates/tickets.base"]:
                 canonical = root / "skills/development-tickets" / rel
                 canonical.parent.mkdir(parents=True, exist_ok=True)
                 canonical.write_text("canonical")

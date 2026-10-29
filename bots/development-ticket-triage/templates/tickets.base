@@ -29,6 +29,10 @@ properties:
     displayName: Owner
   note.confidence:
     displayName: Confidence
+  note.triage:
+    displayName: Triage
+  note.decision:
+    displayName: Decision
   note.verification:
     displayName: Verification
   note.deployment:
@@ -49,6 +53,8 @@ views:
       - note.areas
       - note.priority
       - note.confidence
+      - note.triage
+      - note.decision
       - note.updated
       - note.id
   - type: table
@@ -68,6 +74,7 @@ views:
       - note.areas
       - note.repos
       - note.owner
+      - note.decision
       - note.verification
       - note.deployment
       - note.updated
@@ -82,7 +89,24 @@ views:
       - note.repos
       - note.owner
       - note.confidence
+      - note.triage
+      - note.decision
       - note.verification
       - note.deployment
       - note.updated
       - note.id
+  - type: table
+    name: Needs discussion
+    filters:
+      and:
+        - 'note.decision == "needs-discussion"'
+        - 'note.status != "done"'
+        - 'note.status != "cancelled"'
+    order:
+      - formula.ticket
+      - note.kind
+      - note.status
+      - note.priority
+      - note.triage
+      - note.areas
+      - note.updated

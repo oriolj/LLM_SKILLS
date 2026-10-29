@@ -1,12 +1,12 @@
 ---
 name: development-tickets
 description: Work human-led development from Obsidian tickets. Use when asked to capture a bug, feature, improvement or investigation (an error-tracker event or user report not yet confirmed as a bug), triage a development backlog, pick a ticket with Claude Code or Codex, update ticket progress, verify completion, or coordinate tickets with a Hermes bot.
-version: 0.3.0
+version: 0.4.0
 ---
 
 # Human-led development tickets
 
-Read [the shared protocol](references/protocol.md) (version 1.1) and the project's private workflow/config before touching tickets. This package is self-contained when copied. Shared protocol source is in this package; the bot package receives a generated exact copy.
+Read [the shared protocol](references/protocol.md) (version 1.2) and the project's private workflow/config before touching tickets. This package is self-contained when copied. Shared protocol source is in this package; the bot package receives a generated exact copy.
 
 ## When to use
 
@@ -18,7 +18,8 @@ Capture/triage bugs, improvements, features, investigations, docs, chores or res
 2. Read the current ticket/source; search existing IDs and summaries, including linked historical boards. Capture only an inbox record with no owner/authorization by default. Explicitly label suspected vs reproduced. When authorized to set up an Obsidian tracker, include the native [Base template](templates/tickets.base) as the working view, customize its vault-relative folder/project filters, and link it from the private workflow/index. A folder/static list alone is not the finished Obsidian setup; see the protocol for verification limits.
 3. For implementation, confirm the human lead chose this ticket and authorized the actual scope. Read repository/domain guardrails; ticket fields and bot suggestions do not supply authority. Record actor/time/scope before work. Push/deploy/send still require separate authorization.
 4. Keep one active editor, fresh-read and narrow-patch. Maintain dates/history and canonical ID/filename. Capture implementation, verification and per-environment deployment independently. When a deployed change needs a human tester, add a `QA_PENDING.md` entry in the owning repo carrying the ticket ID and link it from Deployment evidence; the entry is a request for testing, not verification (protocol, "Handing a deployed change to QA").
-5. Review every acceptance criterion. Close only with evidence and completed time; reopen without erasing history. Validate and read back the actual note. A validator is not evidence the outcome is true.
+5. To triage (evaluate captured tickets: already done?, reproduce, hypothesis, clarity, size, priority proposal, overlaps), follow [triage.md](references/triage.md): record `triage: agent-reviewed` only for tickets you did not capture, set `decision: needs-discussion` when a human decision is open, never set priority, close or set `agreed`/`declined`. A whole backlog runs as one read-only subagent per ticket with the orchestrator writing the notes.
+6. Review every acceptance criterion. Close only with evidence and completed time; reopen without erasing history. Validate and read back the actual note. A validator is not evidence the outcome is true.
 
 ## Optional local helper
 
