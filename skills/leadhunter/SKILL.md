@@ -759,15 +759,21 @@ envelope:
   `confirm_removed` once the trial is gone (409 `trial_changed` if the
   trial changed since approval), `keep` + `reason`; 409 `converted` if the
   account became a customer. Finish with `outcome` after cleanup (409
-  `cleanup_unresolved` before).
+  `cleanup_unresolved` before; a removal confirmed for another trial doesn't
+  count). After a confirmed removal the trial can't be changed (409
+  `trial_removed`).
 - **Error codes**: 400 `to` (move not allowed), `evidence`, `command_id`;
   404 (not your project / no board); 409 `stale`, `reserved_elsewhere`,
-  `converted`, `cleanup_unresolved`, `trial_changed`, `board_exists`,
+  `converted`, `cleanup_unresolved`, `trial_changed`, `trial_removed`, `board_exists`,
   `cards_started`; elsewhere 409 `card_started` (removing a started card
   from a campaign: close it on the board), `board_in_progress` (deleting
   the campaign: archive), `reservation_active` (deleting the account);
   merges of two accounts with started cards on one board are refused
-  (400 `detail`).
+  (400 `detail`); after a merge, replaying a pre-merge command answers 409
+  `stale` with the merged card: re-read it.
+- Picking evidence messages: `GET /api/messages/?campaign_lead=<card id>,none&status=sent`
+  (the card's messages plus the account's messages without a campaign),
+  newest first, paged with `before=<next_before>`.
 - Don't create boards, change board settings or place legacy cards
   (`manage.py place_board_cards`) unless Oriol asked.
 
