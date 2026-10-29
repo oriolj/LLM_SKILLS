@@ -683,13 +683,18 @@ as board moves with evidence, not as notes, free-text stages or custom
 fields.** Notes stay for what happened in words; the board holds the
 stage and the dated facts its numbers are built from.
 
-- Find a campaign's board: `GET /api/boards/?project=<slug>&campaign=<id>`;
+- Find a campaign's board: the campaign payload's `board` (`{id,
+  workflow_key}` or null), or `GET /api/boards/?project=<slug>&campaign=<id>&counts=false`;
   read cards with `GET /api/board-cards/?board=<id>` (filters `stage`
   csv / `none`, `search`, `overdue=true`, `owner=me`, …; paging
   `{count, next, previous, next_cursor, results}`, send `cursor=` to
   continue). One card: `GET /api/board-cards/{id}/`; its `allowed_moves`
   say what can be done now and what evidence each move `needs` (`a|b` =
-  either; `unavailable` = why not yet). Read them; never hard-code rules.
+  either; `unavailable` = why not yet), `reservation.next_states` the
+  submission states `reservation/` accepts now, `cleanup_actions` what
+  `cleanup/` accepts now. Read them; never hard-code rules. In `facts/`,
+  `null` removes a fact. Classifying a reply (`POST /api/messages/{id}/classify/`)
+  updates the card at once: re-read it.
 - **Work queue**: `GET /api/board-cards/?project=<slug>&view=mine`
   (also `team`, `overdue`, `blocked`, `unassigned`, `decisions_due`,
   backed trial `ready_uncontacted`, `uncertain_creation`,
