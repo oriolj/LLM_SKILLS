@@ -1117,6 +1117,11 @@ Mechanics from Oriol's fix of `qa` (v0.22.5, 2026-10-29):
   - `hermes_time` caches the value per config path, and nothing in the gateway calls
     `reset_cache()`, so a `timezone` added later applies only after a full
     `systemctl --user restart hermes-gateway`.
+- **The agent knows its own model**: every system prompt ends with `Model: <id>` (and
+  `Provider:` and `Platform:`; `agent/system_prompt.py`). A rule that needs the model,
+  such as a git author `Bruno-qa (<model>)`, should tell the agent to read that line.
+  The terminal env has no reliable `HERMES_MODEL`: Hermes deliberately keeps it out of
+  the process env.
 - **`skills.disabled: [names]`** keeps bundled skills on disk and out of the prompt.
   The `.skills_prompt_snapshot.json` still lists all of them; the live check is a
   one-shot asking for the skills it can load.
