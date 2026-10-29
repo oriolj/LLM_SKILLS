@@ -1142,6 +1142,12 @@ Mechanics from Oriol's fix of `qa` (v0.22.5, 2026-10-29):
   § Themes & plugins and `extending-the-dashboard.md`.
 - There is no community index of themes (checked 2026-10-29). The one example found,
   `bluebirdback/hermes-dashboard-nightshift-ops`, is a small repo below the 1k-star bar.
+- **The estate standard (2026-10-29, all five bots)**: each bot keeps its own palette theme,
+  plus the Large sizes (`typography.baseSize: "18px"`, `lineHeight: "1.65"`,
+  `layout.density: spacious`) and `noiseOpacity: 0`, and
+  `dashboard.font: atkinson-hyperlegible`. `hermes config set` calls `dashboard.font` an
+  unknown key; use `--force`, because the dashboard does read it. hq
+  `homelab/tools/hermes-skins/` holds the theme files.
 - **For readability, offer only the built-in picker**: the `default-large` theme and
   the Font picker. Do not propose a hand-written theme YAML or `customCSS` to fix
   readability. Oriol, 2026-10-29: "again, dont do hacky solutions", after an agent
