@@ -513,6 +513,22 @@ swapping Decos.
   the ISP usually issues a new lease, so check `dig +short <ddns-name>
   @1.1.1.1` against `curl -s ifconfig.me` the same day *(2026-09-12:
   both old DDNS names were stale after the swap)*.
+- **Do not rely on the gateway's DDNS client: it never pushed a change**
+  *(verified 2026-10-29, UCG-Fiber, Network 10.6.101, DuckDNS entry as
+  above, WAN1 on PPPoE)*. The public IPv4 changed three times that day
+  (ONT cutover, a PPPoE restart from an IPv6 change, a gateway restart) and
+  the record stayed on the old address every time, the last time for
+  4 h 40 min, which is how the owner found out (remote access dead). The
+  cause cannot be seen without SSH (`stat/dynamicdns` is always `[]`).
+  What works: a tiny updater on an always-on LAN host, every 5 min, with
+  `ip=` empty so the provider takes the request's source address, the token
+  fed to curl on stdin (`curl -K -`) so it stays out of the process list,
+  logging only `UPDATED` so the journal is the IP history. Test it by
+  setting the record to an old IP on purpose and running it once. Caveat: on
+  a failover WAN it publishes the backup line's address until the primary
+  returns. **After any WAN change or gateway restart, compare `dig +short
+  <ddns-name> @1.1.1.1` with the gateway's `stat/health` `wan_ip`**; the
+  gateway's `stat/device` `uptime` dates an unannounced restart.
 - **Migrating DDNS credentials from OPNsense**: its legacy `<dyndnses>`
   block stores the DuckDNS **token in `username`** and leaves `password`
   empty; No-IP uses real `username`/`password`. Read the fields by name
