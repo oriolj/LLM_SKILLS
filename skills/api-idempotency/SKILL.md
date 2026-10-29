@@ -42,6 +42,33 @@ claim time; on mismatch answer `422`, per the IETF draft
 `draft-ietf-httpapi-idempotency-key-header`). Both must be handled or the
 store silently degrades into the read-then-insert race.
 
+### Third shape for money and stock: durable command receipts
+
+When a write moves money or stock, neither shape above is enough (BikeCRM QA 2026-10-28: every adversarial pass on a
+client-side recovery layer over the header store found new P1s — a retry after a PIN switch ran as the next user under a
+different key scope and charged again; a retry after a laptop suspend outlived the 24 h replay window). Make the write a
+**command with its own receipt table**:
+
+- The token travels in the BODY (`clientToken`), unique per **tenant** (`(business, client_token)`), not per user: a
+  colleague on a shared terminal resolving the same command must reach the same receipt.
+- The receipt is permanent and references the created row by a plain id (not a cascading FK): a replay after the row was
+  edited or deleted answers the stored outcome plus flags (`paymentChanged` / `paymentDeleted`), never runs again.
+- A fingerprint of the immutable command (kind, target, method, amount…) → same token + different command = 422.
+- **Authorize the current caller before reading any receipt** (tenant + target), so a token never leaks across tenants.
+- Prefer a server-computed command over a client amount: "settle what remains" under the document lock, with the
+  client's displayed quote as `expectedAmount` (stale quote → 409 and nothing stored; receipt lookup BEFORE the quote
+  check, so a resend of a command that ran replays instead of 409). Serve the quote from the same function the command
+  uses, so client and server can never round differently.
+- Exclude these endpoints from the generic header store, and make that exclusion unconditional: mark the request in
+  the view once it accepts a body token, and have the middleware never store a marked response (a callable opt-out that
+  sniffs the body misses multipart and oversized bodies).
+- Client: capture a session generation at the click and check it before EVERY attempt, automatic retries included (a
+  login, lock or PIN switch → stop, outcome unknown); a header-keyed write also gets a deadline below the store's TTL.
+
+Reference: BikeCRM `bikecrm-backend/docs/payments_settle.md` (`PaymentOperation`, `/api/payments/settle/`, `settleQuote`),
+`docs/api_idempotency.md` (the header store and its opt-out), and the inventory `count_product` command
+(`InventoryCountOperation`, scoped to the count).
+
 Key generation: **UUIDv4 is enough** (`crypto.randomUUID()` in browsers/
 WebViews, secure contexts only — keep a time+counter fallback). Don't bother
 appending timestamps for "extra collision protection": 122 bits of entropy is
