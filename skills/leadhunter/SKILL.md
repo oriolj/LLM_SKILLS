@@ -747,7 +747,9 @@ envelope:
   `created` with `radio_pk` (or `batch_ref`) once the trial exists,
   `failed` → may go back to `not_submitted`. Only `created` allows
   `maturing`. `ready` needs `readiness` (manual only, a person checked the
-  recordings). Cleanup in `removal_review`: `cleanup/` `approve_removal`
+  recordings): BOTH `demo_link` and a draft of the first message
+  (`draft_link`, or `draft_message` = a draft or sent message of the
+  account); without the draft the move is a 400. Cleanup in `removal_review`: `cleanup/` `approve_removal`
   (the approver's decision: an agent records it only when Oriol said so),
   `confirm_removed` once the trial is gone (409 `trial_changed` if the
   trial changed since approval), `keep` + `reason`; 409 `converted` if the
