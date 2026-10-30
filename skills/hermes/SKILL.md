@@ -209,6 +209,52 @@ Then check `agent.log` for `model=gpt-6.1-sol provider=openai-codex`.
   verdict in hq `shared/docs/bots.md` § Sign in with ChatGPT (not yet;
   the device code stays).
 
+### Token accounting per bot (read-only; checked on pep 2026-10-30, v0.22.5, schema v32)
+
+The shared ChatGPT window cannot say which bot used what. Hermes's own
+SQLite can, per session:
+
+- **Where it is.** `~/.hermes/state.db` for the default profile, and
+  `~/.hermes/profiles/<name>/state.db` for each other profile. Every session
+  carries `profile_name`.
+- **How to read it.** WAL mode, so read it in place, read-only:
+  `ssh pep "sqlite3 -readonly ~/.hermes/state.db" < q.sql`. Query counts,
+  models and numbers only, never message content. Don't dump `state_meta`:
+  some of its values are gateway JSON.
+- **Which table.** Use **`session_model_usage`**: one row per session ×
+  model × provider × base URL × billing mode × task, with calls, input,
+  output, cache-read, cache-write and reasoning tokens, cost (0 and
+  `included` on the subscription), `first_seen` and `last_seen`. The totals
+  in `sessions` **leave out background tasks** (approval, background review,
+  title generation, compression): about 6 % of input on pep.
+- **What the numbers mean.**
+  - Cached tokens are already subtracted from input.
+  - Reasoning is part of output; don't add it again.
+  - A sub-agent's tokens land only on its own session, linked by
+    `parent_session_id`, never on the parent.
+  - Cron, every channel, the CLI and one-shots all get rows. `no_agent`
+    script jobs make no LLM call and leave none.
+- **Traps for anything that imports it.**
+  - Rows are **running totals, upserted in place**
+    (`x = x + excluded.x`), with no per-call id, and `messages.token_count`
+    is empty. Daily history can't be rebuilt afterwards. A collector must
+    snapshot the table, say hourly, and diff on the composite key.
+  - Profile repair can delete and re-insert a row with its full totals, so
+    don't count that twice.
+  - With `sessions.auto_prune` on, ended sessions older than 90 days are
+    deleted. The default is off, yet `state_meta.last_auto_prune` was set
+    on pep on 2026-10-24 by something untraced.
+  - Timestamps are UTC epoch.
+  - A row can't tell a fallback model apart from a model that was chosen.
+- **Starting query:**
+  ```sql
+  select model, billing_provider, billing_mode, task, count(*), sum(api_call_count),
+         sum(input_tokens), sum(output_tokens), sum(cache_read_tokens), sum(reasoning_tokens)
+  from session_model_usage group by 1,2,3,4;
+  ```
+- **Not yet checked:** Enzo, Bruno, Patri and Maia. Check them before
+  relying on them. Plan: hq `plans/ideas/llm-usage-dashboard.md`.
+
 ## Custom model providers (NaN as an option)
 
 `providers.<name>: {api: <OpenAI-compatible base URL>, key_env: VAR (or
