@@ -272,6 +272,11 @@ $W media <chat> <message-id>         # attachment -> ~/.local/share/waha/downloa
   again. **Don't keep restarting.** `POST /api/sessions/<s>/stop` (the login survives:
   `me` still set), wait, then `start`. Take the screenshot first: it tells a
   429 apart from a logout or a WhatsApp Web change.
+- A WEBJS restart loop logging `Cannot read properties of null (reading 'on')` every
+  2 s (after "Session is still in bad state, restarting…") ended, ~3 h later, in
+  `Session has been logged out!` (pep `personal`, 2026-10-29 11:52 → 14:45 UTC). If that
+  loop is seen while `me` is still set, a `stop`, a wait and a `start` may save the login;
+  untested.
 - `FAILED` with `Session has been logged out!` in `docker logs waha` (session
   `personal`, seen 2026-10-10, after `Navigating frame was detached` / `The browser
   has been disconnected` during a restart) = WhatsApp dropped the linked device;
