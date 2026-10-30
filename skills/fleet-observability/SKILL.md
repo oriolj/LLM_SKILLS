@@ -503,7 +503,15 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     `MultiProcessCollector` and `BusinessCollector.collect()` separately
     inside `CaptureQueriesContext` in a `manage.py shell` on the prod web
     container. (EnaCast AI is still `mark_process_dead`-only, so its fold is
-    still owed.) Also multiproc without the fold that
+    still owed.) The fleet audit of 2026-10-30 found one more chronic case,
+    also SQL: **EnCaSaGo** (Go/SQLite) scraped at an average of 6 s, with
+    ~140 timeouts a day for at least a month. `MAX(timestamp) … GROUP BY
+    stream_id` walked the whole `(stream_id, timestamp)` index of an 8 GB
+    database on every scrape, because its 5 s cache always expired between
+    the 60 s scrapes. The fix is one seek per stream (`ORDER BY timestamp
+    DESC LIMIT 1` in a correlated subquery). "Latest row per group" must
+    never be a GROUP BY over the history table in a per-scrape path. Also
+    multiproc without the fold that
     day (grep for `MmapedDict|worker_exited`, not "archive": product names
     match it), below the radar for lack of traffic: EnaChat, EnaPost,
     EnaArchive, EnaScribe, 24H, EnaStats, BudgetBuddy, Cuentakos,
