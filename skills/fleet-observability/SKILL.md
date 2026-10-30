@@ -495,8 +495,15 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
     scrape time against a week ago; a sawtooth that resets on deploys is
     this bug:
     `avg_over_time(scrape_duration_seconds[1h])` vs the same `offset 7d` on
-    the hub. On 2026-10-29 that flagged EnaCast AI (0.8 → 5.2 s in a week,
-    still `mark_process_dead`-only). Also multiproc without the fold that
+    the hub. On 2026-10-29 that flagged EnaCast AI (0.8 → 5.2 s in a week),
+    but there the cause was a different one: the climb did not reset on
+    deploys and the multiproc dir held 3 files (8 ms merge). It was the
+    collector's SQL. See "a count on a TOASTed jsonb predicate" under §5
+    EnaCast AI. **Time the collector before blaming the files:** run
+    `MultiProcessCollector` and `BusinessCollector.collect()` separately
+    inside `CaptureQueriesContext` in a `manage.py shell` on the prod web
+    container. (EnaCast AI is still `mark_process_dead`-only, so its fold is
+    still owed.) Also multiproc without the fold that
     day (grep for `MmapedDict|worker_exited`, not "archive": product names
     match it), below the radar for lack of traffic: EnaChat, EnaPost,
     EnaArchive, EnaScribe, 24H, EnaStats, BudgetBuddy, Cuentakos,
@@ -603,6 +610,22 @@ Per stack (the estate's languages — Django/Python, Go, Next.js, Astro):
   (`…_backlog_by_state{state=eligible|retries_exhausted|channel_disabled}`)
   plus an eligible-only oldest-age series, computed with the SAME
   queryset helper the job selector uses, and alert on `eligible` only.
+  Fourth trap (2026-10-30): **a count on a TOASTed jsonb predicate
+  (`ai_insights ? 'gpt'`) leaves its partial index whenever the
+  planner thinks a seq scan is cheaper.** Postgres has no statistics for
+  `?`, so it estimated 46k matching rows when 116k of 120k matched. It also
+  does not cost detoasting, so a seq scan of a 258 MB heap looks cheap.
+  That seq scan reads the 11 GB TOAST table (678k buffers, 4.7 s). Forced
+  onto `ep_recent_analyzed_idx`, the same count took 234 ms. Which plan
+  wins depends on the visibility map: right after an autovacuum the
+  planner chose the index, and the scrape dropped from 4.5 s to 0.5 s
+  (2026-10-17). As dead tuples built up below the 20 % autovacuum
+  threshold, the scrape crept back to 5 s, and queueing in busy gunicorn
+  workers pushed its tail past the hub's 15 s timeout. The result was
+  `hq-target-down` flapping, 39 failed scrapes a day. Never leave a
+  per-scrape count on a jsonb/TOAST predicate to the planner: pin its
+  plan, precompute it off the scrape path, or keep a plain indexed
+  column.
   Deploy the app before the rule file that references the new series
   (NoData otherwise). Repo doc: `backend/docs/TRANSCRIPTION_BACKLOG.md`.
 - **Second reference implementation** (personal scope, 2026-08-28):
