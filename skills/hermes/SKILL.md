@@ -772,6 +772,13 @@ gateway down = nothing fires):
   `python-dotenv`; `~/.hermes/hermes-agent/venv/bin/python` (the v0.21
   leftover) has the project dependencies. Which interpreter the scheduler
   uses for `no_agent` scripts was not traced.
+- **Running a job now: `hermes [-p <p>] cron run <id>` runs it at once, inside the calling CLI**,
+  not "on the next scheduler tick" as `--help` says (bruno `qa`, v0.22.5, 2026-10-30). `cron runs <id>`
+  lists the execution as `source=direct` and the command returns only when the run ends ("Ran now:
+  succeeded", 14 min for a browser QA session). From a workstation, run it as a background task with no
+  short timeout, because ending the ssh session ends the run. The result still goes to the job's
+  `deliver` target through the live gateway adapter: the profile's `logs/agent.log` showed `delivered to
+  mattermost:… via live adapter … message_id=…`. Next run and schedule are unchanged.
 - Inspect: `hermes cron list|status|runs|doctor`; output in
   `cron/output/<id>/*.md`. Change jobs with the CLI or tool, not by editing
   `jobs.json` (the docs say so; the gateway rewrites it).
