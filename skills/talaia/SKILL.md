@@ -180,7 +180,13 @@ once it is fixed.
   console. Skip only that check for the beta run (monkeypatch it), never in the suite — and
   print the console messages once before dismissing them: that run found a real `w-NaN`
   ImageKit URL in production code. A suite for endpoints that only exist after a release
-  is committed but NOT pushed/deployed until that release is live.
+  is committed but NOT pushed/deployed until that release is live. In `general`, the two
+  SkootERP checks (`test_skooterp_login`, `test_workshop_settings_cold_load[skooterp]`)
+  always time out on such a beta run: they open production SkootERP
+  (`BIKECRM_SKOOTERP_APP_URL` defaults to acceso.skooterp.com, which calls the production
+  API) and wait for a response from the beta `BIKECRM_BASE_URL` — not a regression
+  (2026-10-31, next-beta). Credentials for a local run: `BIKECRM_USERNAME` /
+  `BIKECRM_PASSWORD` / `BIKECRM_EXPECTED_BUSINESS` in hq `homelab/secrets/coolify-envs-oriolj.env`.
 
 ## Reviewing BikeCRM results and test changes
 
