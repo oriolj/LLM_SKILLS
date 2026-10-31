@@ -825,6 +825,16 @@ gateway down = nothing fires):
   short timeout, because ending the ssh session ends the run. The result still goes to the job's
   `deliver` target through the live gateway adapter: the profile's `logs/agent.log` showed `delivered to
   mattermost:… via live adapter … message_id=…`. Next run and schedule are unchanged.
+- **`browser_cdp` without `frame_id` is stateless**: every call opens a fresh CDP connection and its
+  schema says sessions and event subscriptions do not persist between calls. So `Fetch.enable`
+  request interception (and any `*.enable` + event workflow) ends when the call returns: bruno `qa`
+  enabled it on 2026-10-31 and the PATCH it meant to fail went through, `requestPaused` never seen
+  (v0.22.5, `tools/browser_cdp_tool.py`). A `cdp()` helper inside `browser_exec` (the browser-use
+  harness, which is what a cron session may expose instead of `browser_console`/`browser_cdp`) lives at most
+  for that code block. To fail one request, wrap the page's own HTTP primitive (XMLHttpRequest / `fetch`)
+  through page evaluation (`browser_console(expression=…)` or `js()` in `browser_exec`), which lasts until a
+  reload. That eval is unrestricted unless `browser.restrict_evaluate: true` (off by default; it then
+  blocks the names `fetch`/`XMLHttpRequest`).
 - Inspect: `hermes cron list|status|runs|doctor`; output in
   `cron/output/<id>/*.md`. Change jobs with the CLI or tool, not by editing
   `jobs.json` (the docs say so; the gateway rewrites it).
