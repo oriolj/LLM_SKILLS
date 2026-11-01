@@ -31,7 +31,7 @@ Map as of 2026-09-26 (tokens in hq `homelab/secrets/vercel-*.env`):
 
 | Token / login | Team | Projects |
 |---|---|---|
-| `bikecrm` user token | `oriolbikecrmcoms-projects` | bikecrm-docs-astro |
+| `bikecrm` user token | `oriolbikecrmcoms-projects` | bikecrm-docs-astro (CLI-only since 2026-11-01: `make deploy-prod`, first run READY, GitHub link removed) |
 | `smartupsoft` user token | `smartup-soft` | fichachat-landing, fichachat-frontend |
 | personal `oriolj` token | `oriolj-personal-team` | personal projects |
 | CLI login `enacast` (no token) | EnaCast | enacast-comercial-website, enantena-comercial-website |
@@ -109,7 +109,13 @@ alone deploys nothing, whatever the deploy doc says.
 in the project's Root Directory. Done 2026-10-06 for humans2agents' four
 projects (h2a-accountant-frontend, h2a-leadhunter-frontend,
 docs.leadhunter.com, humans2agents): the next push created no build, and
-`make deploy-prod` still deploys READY. Still git-linked that day (each push
+`make deploy-prod` still deploys READY. Same treatment 2026-11-01 for
+**bikecrm-docs-astro** (BikeCRM token, team `oriolbikecrmcoms-projects`): CLI deploy
+first (alias checked via `GET /v4/aliases/<host>?teamId=` → `deploymentId`), then a
+push of the `vercel.json` commit (no deployment, no GitHub status 45 s later), then
+the unlink — prove the CLI lane BEFORE cutting the git one. Its Makefile takes
+`REF=origin/main` so a checkout holding another session's unpushed draft never ships
+it. Still git-linked that day (each push
 = a BLOCKED build + a mail): oriolj-com, nutrilens-capacitor, budget-buddy(+landing),
 time-tracker-(frontend|landing), goal-tracker-(frontend|landing),
 spine-guard-(frontend|landing), shoematch.
