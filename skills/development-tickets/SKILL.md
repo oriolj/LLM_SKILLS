@@ -1,12 +1,12 @@
 ---
 name: development-tickets
 description: Work human-led development from Obsidian tickets. Use when asked to capture a bug, feature, improvement or investigation (an error-tracker event or user report not yet confirmed as a bug), triage a development backlog, pick a ticket with Claude Code or Codex, update ticket progress, verify completion, or coordinate tickets with a Hermes bot.
-version: 0.4.0
+version: 0.5.0
 ---
 
 # Human-led development tickets
 
-Read [the shared protocol](references/protocol.md) (version 1.2) and the project's private workflow/config before touching tickets. This package is self-contained when copied. Shared protocol source is in this package; the bot package receives a generated exact copy.
+Read [the shared protocol](references/protocol.md) (version 1.3) and the project's private workflow/config before touching tickets. This package is self-contained when copied. Shared protocol source is in this package; the bot package receives a generated exact copy.
 
 ## When to use
 
@@ -23,10 +23,13 @@ Capture/triage bugs, improvements, features, investigations, docs, chores or res
 
 ## Optional local helper
 
+For release planning, use optional `target_release` (null unless the human sets a target; `next` until a concrete version is agreed). Record the source/scope in decisions/history, keep status, scientific approvals and implementation/deployment authorization separate, and expose it in the Base's Next release view. Do not silently carry the alias into later releases; freeze it to the agreed identifier. See protocol, Release targeting.
+
 Python 3 and PyYAML are required; never install dependencies automatically. Review fetched code first. From this package directory:
 
     python scripts/tickets.py --config /path/to/private/ticket-system.json check
     python scripts/tickets.py --config /path/to/private/ticket-system.json list
+    python scripts/tickets.py --config /path/to/private/ticket-system.json create --summary "Planned improvement" --kind improvement --actor "your-actor" --target-release next
     python scripts/tickets.py --config /path/to/private/ticket-system.json create --summary "Describe the issue" --kind bug --actor "your-actor" --area ui --repo app-ui
 
 The first two are read-only. Create writes one inbox note with the next readable ID (`IMP-009 — Summary.md`) and empty/unknown facts. It does not authorize or start development. Use configured area/repo names; the example names are illustrative. Manual template use also works without dependencies: take the next number for the prefix (one above the highest existing, closed tickets included), name the file `<ID> — <summary>.md`, fill timestamps, set record_type to development-ticket and all actual fields before saving it in Tickets.

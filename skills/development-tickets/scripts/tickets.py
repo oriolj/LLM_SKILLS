@@ -23,6 +23,10 @@ def strings(value):
     return isinstance(value, list) and all(text(item) for item in value) and len(set(value)) == len(value)
 
 
+def valid_target_release(value):
+    return value is None or (text(value) and value == value.strip() and len(value) <= 80)
+
+
 def unique_json(pairs):
     result = {}
     for key, value in pairs:
@@ -76,11 +80,12 @@ ENUMS = {'kind': KINDS, 'status': STATUSES, 'priority': ('unset', 'p0', 'p1', 'p
 # Protocol 1.2 triage fields: optional so earlier notes stay valid (absent = untriaged/pending).
 TRIAGE = ('untriaged', 'agent-reviewed', 'human-reviewed')
 DECISIONS = ('pending', 'needs-discussion', 'agreed', 'declined')
-OPTIONAL = {'triage': 'untriaged', 'triaged_by': None, 'triaged': None, 'decision': 'pending'}
+OPTIONAL = {'triage': 'untriaged', 'triaged_by': None, 'triaged': None, 'decision': 'pending',
+            'target_release': None}
 FIELDS = set(('schema_version record_type ticket_project id summary kind status priority areas repos '
               'confidence owner reported_by created updated started completed implementation_authorization '
               'verification deployment related duplicate_of tags').split())
-PUBLIC = ('id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision')
+PUBLIC = ('id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision', 'target_release')
 
 
 class UniqueLoader(yaml.SafeLoader):
@@ -179,6 +184,8 @@ def validate(data, body, path, config):
     legacy = 'decision' not in data
     for key, default in OPTIONAL.items():
         data.setdefault(key, default)
+    if not valid_target_release(data['target_release']):
+        raise TicketError('invalid target_release')
     if type(data['schema_version']) is not int or data['schema_version'] != 1:
         raise TicketError('invalid schema_version')
     if data['record_type'] != 'development-ticket' or data['ticket_project'] != config['project']:
@@ -294,6 +301,7 @@ def main():
     create.add_argument('--area', action='append', default=[])
     create.add_argument('--repo', action='append', default=[])
     create.add_argument('--confidence', choices=CONFIDENCE, default='reported')
+    create.add_argument('--target-release', help='Explicit release target, e.g. next or a version; not authorization')
     commands.add_parser('check')
     commands.add_parser('list')
     args = parser.parse_args()
@@ -314,6 +322,8 @@ def main():
         return 0
     if not text(args.summary) or not text(args.actor):
         raise TicketError('summary and actor must be nonempty single-line text')
+    if not valid_target_release(args.target_release):
+        raise TicketError('invalid target_release')
     if not set(args.area) <= set(config['areas']) or not set(args.repo) <= set(config['repos']):
         raise TicketError('unknown area or repo')
     if any(record['status'] not in ('done', 'cancelled') and record['summary'].casefold() == args.summary.casefold() for record in records):
@@ -328,6 +338,7 @@ def main():
                 reported_by=args.actor, created=now, updated=now, started=None, completed=None,
                 implementation_authorization='none', verification='not-run', deployment='unknown',
                 related=[], duplicate_of=None, tags=['development'], **OPTIONAL)
+    data['target_release'] = args.target_release
     sections = ['Problem or request', 'Source and evidence', 'Expected and actual behaviour',
                 'Reproduction', 'Acceptance criteria', 'Exclusions and dependencies',
                 'Authorization and decisions', 'Implementation evidence', 'Verification evidence',

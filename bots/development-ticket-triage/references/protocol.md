@@ -1,6 +1,8 @@
-# Development tickets protocol — version 1.2
+# Development tickets protocol — version 1.3
 
 This is the tool-neutral contract for a private Markdown/Obsidian ticket system shared by humans, proactive bots, and human-led coding agents. Ticket `schema_version` is 1. Version 1.1 (2026-10-26) replaced UUID4 IDs with readable sequential ones (notes that already carry a UUID4 ID stay valid and keep it) and added the `investigation` kind. Version 1.2 (2026-10-29) added the optional triage fields `triage`, `triaged_by`, `triaged` and `decision` (see Triage below); notes without them stay valid and read as untriaged/pending.
+
+Version 1.3 adds optional `target_release` planning metadata. Earlier notes remain valid without migration; absent means null (no agreed target).
 
 The authoritative source is `skills/development-tickets/references/protocol.md` in LLM_SKILLS. The bot package contains a generated identical copy so copying either skill remains self-contained. Edit this source only; regenerate the bot copy with `python scripts/sync_ticket_protocol.py`, then check it with `--check`. Do not independently maintain schema variants.
 
@@ -53,12 +55,20 @@ Use YAML frontmatter with the following fields. Quote timestamps as timezone-qua
 | related | ticket ID list; cross-project IDs do not grant access to evidence |
 | duplicate_of | null or different ticket ID; never self; retain original note/history |
 | tags | required list field, allowed to be empty; thematic discovery labels are optional, not a second status/priority/area system |
+| target_release | optional; null when unplanned, otherwise a trimmed nonempty single-line string up to 80 characters, e.g. `next` or a quoted version; an intended release, never actual deployment or implementation authorization |
 | triage | optional; untriaged (default), agent-reviewed, human-reviewed — who has evaluated the ticket beyond its capture (see Triage) |
 | triaged_by | optional; null while untriaged, otherwise the actor of the latest review; for agent-reviewed never the same actor as reported_by |
 | triaged | optional; null while untriaged, otherwise the timezone-qualified time of the latest review |
 | decision | optional; pending (default), needs-discussion, agreed, declined — the team's stance on doing it; agreed and declined only by a human |
 
 New tickets start inbox/unset/unowned/not-run/unknown, untriaged/pending, with no implementation authorization. Do not guess due dates, effort, severity, owners, affected versions or completion times. Add extra fields only through an agreed schema/tooling change: the current helper rejects unknown fields rather than silently accepting unvalidated extensions.
+
+## Release targeting
+
+- Record `target_release` only from an explicit human planning decision, with actor, source, scope and timestamp in Authorization and decisions and History. The helper accepts `create --target-release next`; without the flag it writes null. Existing notes without the field read as null without being rewritten by check/list.
+- `next` means the next planned release for the named project/component as scoped in the body. Do not invent a version, date, platform, priority or implementer; clarify differences between backend/PWA/store releases in the body when relevant. It does not approve pending nutrition/product decisions, start coding, change workflow/triage fields or authorize deployment.
+- Keep target and actual delivery separate. When the concrete release is agreed, replace the moving alias with that identifier through a dated narrow edit. Preserve it on delivered tickets; use Deployment evidence for actual per-component versions and availability. Never silently roll completed or deferred work into each successive `next`.
+- A Base view named Next release filters open records by `note.target_release == "next"`; all working tables show the target column so named versions remain discoverable too. The Base is only a view over the canonical fields, not a second release backlog. Human release selection may still change scope; record deferral and unresolved validation explicitly.
 
 ## States and transitions
 

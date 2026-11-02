@@ -22,6 +22,7 @@ deployment: unknown
 related: []
 duplicate_of: null
 tags: [development]
+target_release: null
 triage: untriaged
 triaged_by: null
 triaged: null

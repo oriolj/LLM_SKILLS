@@ -1,12 +1,12 @@
 ---
 name: development-ticket-triage
 description: Capture and triage Obsidian development tickets. Use when a Hermes or similar proactive bot finds a possible bug (captured as an investigation until reproduced or explained), UI/UX issue, docs gap, improvement or feature request, or prepares a ticket handoff for a human-led Claude Code or Codex session.
-version: 0.4.0
+version: 0.5.0
 ---
 
 # Proactive capture, reactive development
 
-Read [protocol version 1.2](references/protocol.md) and the project's private workflow/config. The protocol copy is GENERATED from the agent package; do not edit it separately. This bot package and its [ticket template](templates/ticket.md) remain usable if copied alone.
+Read [protocol version 1.3](references/protocol.md) and the project's private workflow/config. The protocol copy is GENERATED from the agent package; do not edit it separately. This bot package and its [ticket template](templates/ticket.md) remain usable if copied alone.
 
 ## Procedure
 
@@ -18,6 +18,8 @@ Read [protocol version 1.2](references/protocol.md) and the project's private wo
 6. Fresh-read and minimally patch; coordinate one editor, preserve conflict copies/history, and verify persisted notes. Hand off links/IDs, facts, unknowns and acceptance proposals—not promises of autonomous fixes.
 
 ## Tooling
+
+Release planning uses optional `target_release`: absent/null means unplanned; set `next` or a named version only from a human planning decision and record its source/scope in decisions/history. It does not approve pending scientific/product choices, change status or authorize implementation/deployment. Show it in the Base, and freeze `next` to the actual agreed release identifier rather than rolling it forward silently. See protocol, Release targeting.
 
 Manual template capture needs no runtime installation. In a reviewed whole LLM_SKILLS checkout, the optional helper lives at `skills/development-tickets/scripts/tickets.py`; it requires Python 3 + PyYAML. Do not assume it exists in a standalone bot copy, install dependencies or change runtime configuration unasked. Use the same private config as humans/agents; do not mirror tickets into this public repository.
 

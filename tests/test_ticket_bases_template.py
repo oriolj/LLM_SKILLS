@@ -45,7 +45,7 @@ class TicketBaseTemplateTests(unittest.TestCase):
     def test_views_separate_intake_active_and_all_without_hiding_review_or_blocked(self):
         data = yaml.safe_load(CANONICAL.read_text())
         views = {view['name']: view for view in data['views']}
-        self.assertEqual(set(views), {'Inbox', 'Active by status', 'All', 'Needs discussion'})
+        self.assertEqual(set(views), {'Inbox', 'Active by status', 'All', 'Needs discussion', 'Next release'})
         self.assertEqual(views['Needs discussion']['filters']['and'], [
             'note.decision == "needs-discussion"', 'note.status != "done"', 'note.status != "cancelled"',
         ])
@@ -59,6 +59,16 @@ class TicketBaseTemplateTests(unittest.TestCase):
         self.assertNotIn('groupOrder', views['Active by status'])
         self.assertNotIn('filters', views['All'])
         self.assertTrue(all('limit' not in view for view in views.values()))
+
+    def test_next_release_view_has_planning_field_and_open_scope(self):
+        data = yaml.safe_load(CANONICAL.read_text())
+        self.assertIn('note.target_release', data['properties'])
+        view = next(v for v in data['views'] if v['name'] == 'Next release')
+        self.assertEqual(view['filters']['and'], [
+            'note.target_release == "next"', 'note.status != "done"', 'note.status != "cancelled"',
+        ])
+        for item in data['views']:
+            self.assertIn('note.target_release', item['order'])
 
     def test_private_copy_can_be_customized_without_changing_shared_template(self):
         original = CANONICAL.read_text()

@@ -94,7 +94,7 @@ class TicketsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         rows = json.loads(result.stdout)
         self.assertEqual(len(rows), 1)
-        self.assertEqual(set(rows[0]), {'id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision'})
+        self.assertEqual(set(rows[0]), {'id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision', 'target_release'})
         self.assertEqual(self.note().read_bytes(), before)
         result = self.cli('check')
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -436,6 +436,45 @@ class TicketsTests(unittest.TestCase):
         legacy = {key: value for key, value in data.items() if key not in ('triage', 'triaged_by', 'triaged', 'decision')}
         self.save_note({**legacy, 'status': 'ready', 'kind': 'feature'}, body)
         self.assertEqual(self.cli('check').returncode, 0, 'pre-1.2 ready notes stay valid')
+
+    def test_create_target_release_and_list_it_without_granting_authority(self):
+        result = self.create('Planned release', '--target-release', 'next')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data, _ = self.load_note()
+        self.assertEqual(data['target_release'], 'next')
+        self.assertEqual(data['status'], 'inbox')
+        self.assertEqual(data['implementation_authorization'], 'none')
+        self.assertIsNone(data['owner'])
+        self.assertEqual(json.loads(self.cli('list').stdout)[0]['target_release'], 'next')
+
+    def test_target_release_validation_and_legacy_read_only_defaults(self):
+        self.assertEqual(self.create().returncode, 0)
+        data, body = self.load_note()
+        self.assertIsNone(data['target_release'])
+        del data['target_release']
+        self.save_note(data, body)
+        before = self.note().read_bytes()
+        result = self.cli('list')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIsNone(json.loads(result.stdout)[0]['target_release'])
+        self.assertEqual(self.note().read_bytes(), before)
+        for value in (None, 'next', 'v2.4.0', 'Release 2026-11', 'x' * 80):
+            with self.subTest(valid=value):
+                self.save_note({**data, 'target_release': value}, body)
+                self.assertEqual(self.cli('check').returncode, 0)
+        for value in ('', ' ', ' next', 'next ', 'a\nb', 'x' * 81, 42, False, [], {}):
+            with self.subTest(invalid=value):
+                self.save_note({**data, 'target_release': value}, body)
+                result = self.cli('check')
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertNotIn('Traceback', result.stderr)
+
+    def test_invalid_release_flag_never_writes(self):
+        for value in ('', ' next', 'a\nb', 'x' * 81):
+            with self.subTest(value=value):
+                result = self.create('Bad release', '--target-release', value)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertFalse((self.root / 'Tickets').exists())
 
     def test_create_canonical_safe_inbox(self):
         result = self.create('../not a path', '--area', 'sales', '--repo', 'backend')
