@@ -94,7 +94,8 @@ class TicketsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         rows = json.loads(result.stdout)
         self.assertEqual(len(rows), 1)
-        self.assertEqual(set(rows[0]), {'id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision', 'target_release'})
+        self.assertEqual(set(rows[0]), {'id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision', 'target_release',
+                                            'verification', 'tested', 'tested_version'})
         self.assertEqual(self.note().read_bytes(), before)
         result = self.cli('check')
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -475,6 +476,50 @@ class TicketsTests(unittest.TestCase):
                 result = self.create('Bad release', '--target-release', value)
                 self.assertEqual(result.returncode, 1, result.stderr)
                 self.assertFalse((self.root / 'Tickets').exists())
+
+    def test_tested_fields_default_null_and_legacy_notes_without_them(self):
+        self.assertEqual(self.create().returncode, 0)
+        data, body = self.load_note()
+        self.assertEqual((data['tested'], data['tested_version']), (None, None))
+        del data['tested'], data['tested_version']
+        self.save_note(data, body)
+        before = self.note().read_bytes()
+        result = self.cli('list')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        row = json.loads(result.stdout)[0]
+        self.assertEqual((row['verification'], row['tested'], row['tested_version']), ('not-run', None, None))
+        self.assertEqual(self.note().read_bytes(), before)
+
+    def test_tested_rules(self):
+        self.assertEqual(self.create().returncode, 0)
+        original, body = self.load_note()
+        when = '2026-11-02T10:15:00+00:00'
+        valid = [dict(verification='failed', tested=when, tested_version='3f2a91c'),
+                 dict(verification='partial', tested=when),  # version could not be read
+                 dict(verification='passed'),  # recorded before 1.4 or unknown
+                 dict(verification='passed', tested=when, tested_version='x' * 120),
+                 dict(verification='passed', tested=when, tested_version='backend 3f2a91c, app 2.4.1 (212)')]
+        invalid = [dict(tested=when),  # not-run cannot have a run time
+                   dict(tested_version='3f2a91c'),
+                   dict(verification='passed', tested_version='3f2a91c'),  # version without a time
+                   dict(verification='passed', tested='yesterday'),
+                   dict(verification='passed', tested='2026-11-02T10:15:00'),  # no timezone
+                   dict(verification='passed', tested=when, tested_version='x' * 121),
+                   dict(verification='passed', tested=when, tested_version=' 3f2a91c'),
+                   dict(verification='passed', tested=when, tested_version='a\nb'),
+                   dict(verification='passed', tested=when, tested_version=''),
+                   dict(verification='passed', tested=when, tested_version=42)]
+        for change in valid:
+            with self.subTest(valid=change):
+                self.save_note({**original, **change}, body)
+                result = self.cli('check')
+                self.assertEqual(result.returncode, 0, result.stderr)
+        for change in invalid:
+            with self.subTest(invalid=change):
+                self.save_note({**original, **change}, body)
+                result = self.cli('check')
+                self.assertEqual(result.returncode, 1)
+                self.assertNotIn('Traceback', result.stderr)
 
     def test_create_canonical_safe_inbox(self):
         result = self.create('../not a path', '--area', 'sales', '--repo', 'backend')

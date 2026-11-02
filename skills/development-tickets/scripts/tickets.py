@@ -23,8 +23,17 @@ def strings(value):
     return isinstance(value, list) and all(text(item) for item in value) and len(set(value)) == len(value)
 
 
+def short_label(value, limit):
+    return value is None or (text(value) and value == value.strip() and len(value) <= limit)
+
+
 def valid_target_release(value):
-    return value is None or (text(value) and value == value.strip() and len(value) <= 80)
+    return short_label(value, 80)
+
+
+def valid_tested_version(value):
+    # Room for several components, e.g. "backend 3f2a91c, app 2.4.1 (build 212)".
+    return short_label(value, 120)
 
 
 def unique_json(pairs):
@@ -81,11 +90,12 @@ ENUMS = {'kind': KINDS, 'status': STATUSES, 'priority': ('unset', 'p0', 'p1', 'p
 TRIAGE = ('untriaged', 'agent-reviewed', 'human-reviewed')
 DECISIONS = ('pending', 'needs-discussion', 'agreed', 'declined')
 OPTIONAL = {'triage': 'untriaged', 'triaged_by': None, 'triaged': None, 'decision': 'pending',
-            'target_release': None}
+            'target_release': None, 'tested': None, 'tested_version': None}
 FIELDS = set(('schema_version record_type ticket_project id summary kind status priority areas repos '
               'confidence owner reported_by created updated started completed implementation_authorization '
               'verification deployment related duplicate_of tags').split())
-PUBLIC = ('id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision', 'target_release')
+PUBLIC = ('id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision', 'target_release',
+          'verification', 'tested', 'tested_version')
 
 
 class UniqueLoader(yaml.SafeLoader):
@@ -212,6 +222,7 @@ def validate(data, body, path, config):
         if not timestamp(data[key]):
             raise TicketError('invalid timestamp')
     validate_triage(data, legacy)
+    validate_tested(data)
     content = sections(body)
     # This checks recorded evidence only; it cannot grant or authenticate authority.
     if data['status'] in ('in-progress', 'review') and (
@@ -252,6 +263,18 @@ def validate_triage(data, legacy=False):
     if (not legacy and data['kind'] in ('feature', 'improvement') and data['status'] == 'ready'
             and data['decision'] != 'agreed'):
         raise TicketError('ready feature or improvement requires decision agreed')
+
+
+def validate_tested(data):
+    # Protocol 1.4: when the latest verification ran and on which version; null when unknown.
+    if data['tested'] is not None and not timestamp(data['tested']):
+        raise TicketError('invalid tested timestamp')
+    if not valid_tested_version(data['tested_version']):
+        raise TicketError('invalid tested_version')
+    if data['verification'] == 'not-run' and (data['tested'] is not None or data['tested_version'] is not None):
+        raise TicketError('tested or tested_version set while verification is not-run')
+    if data['tested_version'] is not None and data['tested'] is None:
+        raise TicketError('tested_version requires the tested timestamp')
 
 
 def scan(root, config):

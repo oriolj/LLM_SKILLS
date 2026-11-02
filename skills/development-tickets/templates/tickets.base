@@ -37,6 +37,10 @@ properties:
     displayName: Decision
   note.verification:
     displayName: Verification
+  note.tested:
+    displayName: Tested
+  note.tested_version:
+    displayName: Tested version
   note.deployment:
     displayName: Deployment
   note.updated:
@@ -80,6 +84,8 @@ views:
       - note.owner
       - note.decision
       - note.verification
+      - note.tested
+      - note.tested_version
       - note.deployment
       - note.updated
   - type: table
@@ -97,6 +103,8 @@ views:
       - note.triage
       - note.decision
       - note.verification
+      - note.tested
+      - note.tested_version
       - note.deployment
       - note.updated
       - note.id
@@ -132,5 +140,7 @@ views:
       - note.owner
       - note.decision
       - note.verification
+      - note.tested
+      - note.tested_version
       - note.deployment
       - note.updated

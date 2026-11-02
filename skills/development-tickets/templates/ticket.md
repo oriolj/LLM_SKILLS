@@ -18,6 +18,8 @@ started: null
 completed: null
 implementation_authorization: none
 verification: not-run
+tested: null
+tested_version: null
 deployment: unknown
 related: []
 duplicate_of: null
@@ -65,7 +67,7 @@ Not started.
 
 ## Verification evidence
 
-Not run.
+Not run. When a check runs, record its date (`tested`) and the exact version exercised (`tested_version`: commit, build or release) in the frontmatter and here, with the environment and result.
 
 ## Deployment evidence
 

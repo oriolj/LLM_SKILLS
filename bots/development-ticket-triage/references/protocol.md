@@ -1,8 +1,10 @@
-# Development tickets protocol — version 1.3
+# Development tickets protocol — version 1.4
 
 This is the tool-neutral contract for a private Markdown/Obsidian ticket system shared by humans, proactive bots, and human-led coding agents. Ticket `schema_version` is 1. Version 1.1 (2026-10-26) replaced UUID4 IDs with readable sequential ones (notes that already carry a UUID4 ID stay valid and keep it) and added the `investigation` kind. Version 1.2 (2026-10-29) added the optional triage fields `triage`, `triaged_by`, `triaged` and `decision` (see Triage below); notes without them stay valid and read as untriaged/pending.
 
 Version 1.3 adds optional `target_release` planning metadata. Earlier notes remain valid without migration; absent means null (no agreed target).
+
+Version 1.4 (2026-11-02) adds the optional test-run fields `tested` and `tested_version` (see Recording a test run). Earlier notes remain valid without migration; absent means null (not recorded).
 
 The authoritative source is `skills/development-tickets/references/protocol.md` in LLM_SKILLS. The bot package contains a generated identical copy so copying either skill remains self-contained. Edit this source only; regenerate the bot copy with `python scripts/sync_ticket_protocol.py`, then check it with `--check`. Do not independently maintain schema variants.
 
@@ -51,6 +53,8 @@ Use YAML frontmatter with the following fields. Quote timestamps as timezone-qua
 | completed | null except successful done; cancellation is recorded in history |
 | implementation_authorization | none or approved; actual source/scope required in body |
 | verification | not-run, partial, passed, failed; checks acceptance, not confidence |
+| tested | optional; null until a verification check has run, otherwise the timezone-qualified time of the latest run behind the current `verification` value; null while verification is not-run |
+| tested_version | optional; null when unknown, otherwise a trimmed nonempty single-line string up to 120 characters naming exactly what was exercised (commit SHA, build, app/release version; several components in one line, e.g. `backend 3f2a91c, app 2.4.1 (212)`); requires `tested`; never a target or a claim of deployment |
 | deployment | unknown, not-required, not-deployed, deployed; unknown by default |
 | related | ticket ID list; cross-project IDs do not grant access to evidence |
 | duplicate_of | null or different ticket ID; never self; retain original note/history |
@@ -61,7 +65,7 @@ Use YAML frontmatter with the following fields. Quote timestamps as timezone-qua
 | triaged | optional; null while untriaged, otherwise the timezone-qualified time of the latest review |
 | decision | optional; pending (default), needs-discussion, agreed, declined — the team's stance on doing it; agreed and declined only by a human |
 
-New tickets start inbox/unset/unowned/not-run/unknown, untriaged/pending, with no implementation authorization. Do not guess due dates, effort, severity, owners, affected versions or completion times. Add extra fields only through an agreed schema/tooling change: the current helper rejects unknown fields rather than silently accepting unvalidated extensions.
+New tickets start inbox/unset/unowned/not-run/unknown, untriaged/pending, untested, with no implementation authorization. Do not guess due dates, effort, severity, owners, affected versions or completion times. Add extra fields only through an agreed schema/tooling change: the current helper rejects unknown fields rather than silently accepting unvalidated extensions.
 
 ## Release targeting
 
@@ -69,6 +73,14 @@ New tickets start inbox/unset/unowned/not-run/unknown, untriaged/pending, with n
 - `next` means the next planned release for the named project/component as scoped in the body. Do not invent a version, date, platform, priority or implementer; clarify differences between backend/PWA/store releases in the body when relevant. It does not approve pending domain or product decisions, start coding, change workflow/triage fields or authorize deployment.
 - Keep target and actual delivery separate. When the concrete release is agreed, replace the moving alias with that identifier through a dated narrow edit. Preserve it on delivered tickets; use Deployment evidence for actual per-component versions and availability. Never silently roll completed or deferred work into each successive `next`.
 - A Base view named Next release filters open records by `note.target_release == "next"`; all working tables show the target column so named versions remain discoverable too. The Base is only a view over the canonical fields, not a second release backlog. Human release selection may still change scope; record deferral and unresolved validation explicitly.
+
+## Recording a test run
+
+- Whenever a verification check runs (an agent's tests or readback, a human or QA pass), set `verification` to its outcome and fill `tested` with the time it ran and `tested_version` with the version it ran against, whenever they are known. Fill them on partial and failed runs too: a failure against a named version is the most useful record a ticket can carry.
+- Take the version from the thing tested, not from the repository: the deployed release readback (`/health`, `/api/version`, the app's About screen, the store build number) for an environment, the commit SHA for a local or CI run. If it cannot be read, leave `tested_version` null and say why in Verification evidence; never fill it from master, a tag you assume is live or `target_release`.
+- Each new run replaces both fields with the latest run's values; earlier runs stay in Verification evidence and History, each with its own date, version, environment and result. On reopen, keep them until the next run (verification is re-evaluated as described under States and transitions).
+- The fields record a fact about a run. They do not satisfy acceptance on their own (done still needs checked criteria and Verification evidence) and `tested_version` does not prove the version is deployed anywhere: Deployment evidence owns that.
+- The helper checks: both null while verification is not-run, `tested` a timezone timestamp, `tested_version` a short single-line label that needs `tested`. It does not require them on done, so tickets closed before 1.4 stay valid.
 
 ## States and transitions
 
@@ -101,7 +113,7 @@ The canonical portable template is `templates/tickets.base` in the agent package
 - `REPLACE_VAULT_RELATIVE_TICKET_DIR`: resolve configured `ticket_dir` relative to the config directory, then express it relative to the vault root. It is NOT necessarily `Tickets` from the vault root.
 - `REPLACE_PROJECT`: the configured `project` slug, not a guessed company name or prefix. Escape quotes/backslashes as expression string literals if values contain them; raw substitution of arbitrary text is not safe.
 
-Retain the global conjunction: folder + `file.ext == "md"` + `record_type == "development-ticket"` + `ticket_project`. Provide Inbox, Active by status (excluding only done/cancelled), All, and Needs discussion (open tickets with `decision: needs-discussion`). Do not silently limit rows or whitelist groups that hide blocked/review/new states. `file.asLink(note.summary)` gives readable clickable titles without depending on the filename. Show priority/type/areas/repos/owner/confidence/triage/decision/verification/deployment as useful; retain the registry and unknown values rather than inventing them.
+Retain the global conjunction: folder + `file.ext == "md"` + `record_type == "development-ticket"` + `ticket_project`. Provide Inbox, Active by status (excluding only done/cancelled), All, and Needs discussion (open tickets with `decision: needs-discussion`). Do not silently limit rows or whitelist groups that hide blocked/review/new states. `file.asLink(note.summary)` gives readable clickable titles without depending on the filename. Show priority/type/areas/repos/owner/confidence/triage/decision/verification/tested/tested version/deployment as useful; retain the registry and unknown values rather than inventing them.
 
 Link the Base from the local workflow/index using ordinary relative Markdown links. A static receipt mapping an intake batch to source messages is historical evidence, not the current backlog view. Document that edits through a Base change the original frontmatter and still require authorized transitions plus updated timestamps/history; a cell edit never supplies implementation authority.
 
@@ -140,7 +152,7 @@ Use these headings so agents and optional checks can find evidence:
 6. Exclusions and dependencies — what is deliberately out of scope and required decisions/linked IDs.
 7. Authorization and decisions — timestamp, actor, verbatim relevant instruction/source, scope and separately gated external actions. For cancellation use an explicit `Cancellation reason: ...` line here or in History; unrelated earlier decisions are not a cancellation reason.
 8. Implementation evidence — files, changes, commit/PR refs; no claim before execution.
-9. Verification evidence — exact checks, environment/version, time, results and limits. Link sanitized artifacts; kind-appropriate document review is valid.
+9. Verification evidence — one dated entry per run: exact checks, environment, version exercised, time, results and limits; the latest run's time and version also go in `tested`/`tested_version`. Link sanitized artifacts; kind-appropriate document review is valid.
 10. Deployment evidence — per repo/component/environment, deployed revision/time and readback, or an explicit reason not required/unknown/not deployed.
 11. History — append timezone timestamp + actor + state/decision/change reason; never erase previous failure/closure.
 
