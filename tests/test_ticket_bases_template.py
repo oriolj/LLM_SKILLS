@@ -70,6 +70,14 @@ class TicketBaseTemplateTests(unittest.TestCase):
         for item in data['views']:
             self.assertIn('note.target_release', item['order'])
 
+    def test_test_observation_columns_are_available_in_every_working_view(self):
+        data = yaml.safe_load(CANONICAL.read_text())
+        for field, label in [('tested_version', 'Tested version'), ('tested_at', 'Tested date')]:
+            self.assertEqual(data['properties'].get('note.' + field), {'displayName': label})
+            for view in data['views']:
+                with self.subTest(field=field, view=view['name']):
+                    self.assertIn('note.' + field, view['order'])
+
     def test_private_copy_can_be_customized_without_changing_shared_template(self):
         original = CANONICAL.read_text()
         customized = original.replace('REPLACE_VAULT_RELATIVE_TICKET_DIR', 'Products/Sample/Tickets')

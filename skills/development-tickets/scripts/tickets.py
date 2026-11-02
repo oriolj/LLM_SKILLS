@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Local-only development ticket creation and read-only inspection."""
 import argparse
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 import sys
@@ -29,6 +29,24 @@ def short_label(value, limit):
 
 def valid_target_release(value):
     return short_label(value, 80)
+
+
+def valid_tested_version(value):
+    # 160 characters leaves room for several components in one label.
+    return short_label(value, 160) and (value is None or not any(c in value for c in '\u0085\u2028\u2029'))
+
+
+def valid_tested_at(value):
+    # A calendar date only: a date-only observation never becomes a midnight timestamp.
+    if value is None:
+        return True
+    if not isinstance(value, str) or not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', value):
+        return False
+    try:
+        date.fromisoformat(value)
+        return True
+    except ValueError:
+        return False
 
 
 def unique_json(pairs):
@@ -85,12 +103,12 @@ ENUMS = {'kind': KINDS, 'status': STATUSES, 'priority': ('unset', 'p0', 'p1', 'p
 TRIAGE = ('untriaged', 'agent-reviewed', 'human-reviewed')
 DECISIONS = ('pending', 'needs-discussion', 'agreed', 'declined')
 OPTIONAL = {'triage': 'untriaged', 'triaged_by': None, 'triaged': None, 'decision': 'pending',
-            'target_release': None, 'tested': None, 'tested_version': None}
+            'target_release': None, 'tested_version': None, 'tested_at': None}
 FIELDS = set(('schema_version record_type ticket_project id summary kind status priority areas repos '
               'confidence owner reported_by created updated started completed implementation_authorization '
               'verification deployment related duplicate_of tags').split())
-PUBLIC = ('id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision', 'target_release',
-          'verification', 'tested', 'tested_version')
+PUBLIC = ('id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision',
+          'target_release', 'tested_version', 'tested_at')
 
 
 class UniqueLoader(yaml.SafeLoader):
@@ -261,15 +279,11 @@ def validate_triage(data, legacy=False):
 
 
 def validate_tested(data):
-    # Protocol 1.4: when the latest verification ran and on which version; null when unknown.
-    # 120 characters leaves room for several components in one label. Either field can be
-    # known without the other ("QA checked build 212, date unknown").
-    if data['tested'] is not None and not timestamp(data['tested']):
-        raise TicketError('invalid timestamp')
-    if not short_label(data['tested_version'], 120):
+    # Protocol 1.4: an observed test's version and date, each independent and null when unknown.
+    if not valid_tested_version(data['tested_version']):
         raise TicketError('invalid tested_version')
-    if data['verification'] == 'not-run' and (data['tested'] is not None or data['tested_version'] is not None):
-        raise TicketError('tested or tested_version set while verification is not-run')
+    if not valid_tested_at(data['tested_at']):
+        raise TicketError('invalid tested_at (expected a quoted YYYY-MM-DD date)')
 
 
 # Fixed reasons for errors whose own message could quote note contents.
@@ -335,6 +349,8 @@ def main():
     create.add_argument('--repo', action='append', default=[])
     create.add_argument('--confidence', choices=CONFIDENCE, default='reported')
     create.add_argument('--target-release', help='Explicit release target, e.g. next or a version; not authorization')
+    create.add_argument('--tested-version', help='Observed tested version/build; not a target or fixed release')
+    create.add_argument('--tested-at', help='Observed test date YYYY-MM-DD; no inferred date or time')
     commands.add_parser('check')
     commands.add_parser('list')
     args = parser.parse_args()
@@ -360,6 +376,10 @@ def main():
         raise TicketError('summary and actor must be nonempty single-line text')
     if not valid_target_release(args.target_release):
         raise TicketError('invalid target_release')
+    if not valid_tested_version(args.tested_version):
+        raise TicketError('invalid tested_version')
+    if not valid_tested_at(args.tested_at):
+        raise TicketError('invalid tested_at (expected YYYY-MM-DD)')
     if not set(args.area) <= set(config['areas']) or not set(args.repo) <= set(config['repos']):
         raise TicketError('unknown area or repo')
     if any(record['status'] not in ('done', 'cancelled') and record['summary'].casefold() == args.summary.casefold() for record in records):
@@ -375,6 +395,8 @@ def main():
                 implementation_authorization='none', verification='not-run', deployment='unknown',
                 related=[], duplicate_of=None, tags=['development'], **OPTIONAL)
     data['target_release'] = args.target_release
+    data['tested_version'] = args.tested_version
+    data['tested_at'] = args.tested_at
     sections = ['Problem or request', 'Source and evidence', 'Expected and actual behaviour',
                 'Reproduction', 'Acceptance criteria', 'Exclusions and dependencies',
                 'Authorization and decisions', 'Implementation evidence', 'Verification evidence',

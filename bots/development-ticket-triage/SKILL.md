@@ -1,6 +1,6 @@
 ---
 name: development-ticket-triage
-description: Capture and triage Obsidian development tickets. Use when a Hermes or similar proactive bot finds a possible bug (captured as an investigation until reproduced or explained), UI/UX issue, docs gap, improvement or feature request, prepares a ticket handoff for a human-led Claude Code or Codex session, or logs a verification run (when and on which version a ticket was tested).
+description: Capture and triage Obsidian development tickets. Use when a Hermes or similar proactive bot finds a possible bug (captured as an investigation until reproduced or explained), UI/UX issue, docs gap, improvement or feature request, prepares a ticket handoff for a human-led Claude Code or Codex session, or logs a test observation (which version or build was tested and on which date, a QA pass or failure).
 version: 0.6.0
 ---
 
@@ -21,7 +21,7 @@ Read [protocol version 1.4](references/protocol.md) and the project's private wo
 
 Release planning uses optional `target_release`: absent/null means unplanned; set `next` or a named version only from a human planning decision and record its source/scope in decisions/history. It does not approve pending domain or product choices, change status or authorize implementation/deployment. Show it in the Base, and freeze `next` to the actual agreed release identifier rather than rolling it forward silently. See protocol, Release targeting.
 
-After a relevant verification run a bot runs or is asked to log, add a dated Verification evidence entry, re-assess `verification`, and update `tested`/`tested_version` only when it is the latest run by execution time (a late report of an older run goes into the body only; an undated run fills the known fields only when no dated run is recorded, and never with the reporting date), following protocol, Recording a test run.
+After a relevant test run a bot runs or is asked to log (a QA pass, a reproduction, a check of a fix), add a dated Verification evidence entry, re-assess `verification`, and set `tested_version` / `tested_at` (quoted, date only) when this is the latest observation by test date, following protocol, Test observations.
 
 Manual template capture needs no runtime installation. In a reviewed whole LLM_SKILLS checkout, the optional helper lives at `skills/development-tickets/scripts/tickets.py`; it requires Python 3 + PyYAML. Do not assume it exists in a standalone bot copy, install dependencies or change runtime configuration unasked. Use the same private config as humans/agents; do not mirror tickets into this public repository.
 

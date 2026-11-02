@@ -11,6 +11,26 @@ SYNC = ROOT / "scripts/sync_ticket_protocol.py"
 
 
 class ProtocolPackagingTests(unittest.TestCase):
+    def test_test_observation_contract_and_template_defaults(self):
+        import yaml
+        package = ROOT / 'skills/development-tickets'
+        template = (package / 'templates/ticket.md').read_text()
+        data = yaml.safe_load(template.split('---', 2)[1])
+        for field in ('tested_version', 'tested_at'):
+            self.assertIn(field, data)
+            self.assertIsNone(data[field])
+        protocol = (package / 'references/protocol.md').read_text()
+        self.assertIn('protocol — version 1.4', protocol)
+        self.assertIn('| tested_version | optional;', protocol)
+        self.assertIn('| tested_at | optional;', protocol)
+        self.assertIn('"2026-11-02"', protocol)
+        self.assertIn('not a target release or fixed release', protocol)
+        self.assertIn('Never invent a test date or time', protocol)
+        self.assertIn('Preserve multiple test histories in the body', protocol)
+        self.assertIn('--tested-version', protocol)
+        self.assertIn('--tested-at', protocol)
+        self.assertIn('tested_version', template.split('## Verification evidence', 1)[1])
+
     def test_sync_check_command_exists_and_passes(self):
         self.assertTrue(SYNC.is_file(), "Missing protocol synchronization helper")
         result = subprocess.run([sys.executable, str(SYNC), "--check"], capture_output=True, text=True)

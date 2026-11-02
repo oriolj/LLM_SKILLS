@@ -19,6 +19,10 @@ properties:
     displayName: Status
   note.target_release:
     displayName: Target release
+  note.tested_version:
+    displayName: Tested version
+  note.tested_at:
+    displayName: Tested date
   note.priority:
     displayName: Priority
   note.kind:
@@ -37,10 +41,6 @@ properties:
     displayName: Decision
   note.verification:
     displayName: Verification
-  note.tested:
-    displayName: Tested
-  note.tested_version:
-    displayName: Tested version
   note.deployment:
     displayName: Deployment
   note.updated:
@@ -56,6 +56,8 @@ views:
     order:
       - formula.ticket
       - note.target_release
+      - note.tested_version
+      - note.tested_at
       - note.kind
       - note.areas
       - note.priority
@@ -76,6 +78,8 @@ views:
     order:
       - formula.ticket
       - note.target_release
+      - note.tested_version
+      - note.tested_at
       - note.status
       - note.priority
       - note.kind
@@ -84,8 +88,6 @@ views:
       - note.owner
       - note.decision
       - note.verification
-      - note.tested
-      - note.tested_version
       - note.deployment
       - note.updated
   - type: table
@@ -93,6 +95,8 @@ views:
     order:
       - formula.ticket
       - note.target_release
+      - note.tested_version
+      - note.tested_at
       - note.status
       - note.priority
       - note.kind
@@ -103,8 +107,6 @@ views:
       - note.triage
       - note.decision
       - note.verification
-      - note.tested
-      - note.tested_version
       - note.deployment
       - note.updated
       - note.id
@@ -118,6 +120,8 @@ views:
     order:
       - formula.ticket
       - note.target_release
+      - note.tested_version
+      - note.tested_at
       - note.kind
       - note.status
       - note.priority
@@ -134,13 +138,13 @@ views:
     order:
       - formula.ticket
       - note.target_release
+      - note.tested_version
+      - note.tested_at
       - note.kind
       - note.status
       - note.priority
       - note.owner
       - note.decision
       - note.verification
-      - note.tested
-      - note.tested_version
       - note.deployment
       - note.updated

@@ -94,8 +94,7 @@ class TicketsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         rows = json.loads(result.stdout)
         self.assertEqual(len(rows), 1)
-        self.assertEqual(set(rows[0]), {'id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision', 'target_release',
-                                            'verification', 'tested', 'tested_version'})
+        self.assertEqual(set(rows[0]), {'id', 'summary', 'status', 'priority', 'kind', 'areas', 'repos', 'triage', 'decision', 'target_release', 'tested_version', 'tested_at'})
         self.assertEqual(self.note().read_bytes(), before)
         result = self.cli('check')
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -483,50 +482,96 @@ class TicketsTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 1, result.stderr)
                 self.assertFalse((self.root / 'Tickets').exists())
 
-    def test_tested_fields_default_null_and_legacy_notes_without_them(self):
-        self.assertEqual(self.create().returncode, 0)
-        data, body = self.load_note()
-        self.assertEqual((data['tested'], data['tested_version']), (None, None))
-        del data['tested'], data['tested_version']
-        self.save_note(data, body)
-        before = self.note().read_bytes()
-        result = self.cli('list')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        row = json.loads(result.stdout)[0]
-        self.assertEqual((row['verification'], row['tested'], row['tested_version']), ('not-run', None, None))
-        self.assertEqual(self.note().read_bytes(), before)
-
-    def test_tested_rules(self):
+    def test_test_observations_are_optional_independent_and_read_only(self):
         self.assertEqual(self.create().returncode, 0)
         original, body = self.load_note()
-        when = '2026-11-02T10:15:00+00:00'
-        valid = [dict(verification='failed', tested=when, tested_version='3f2a91c'),
-                 dict(verification='partial', tested=when),  # version could not be read
-                 dict(verification='passed', tested_version='build 212'),  # date unknown
-                 dict(verification='partial', tested=when, tested_version='3f2a91c+dirty'),
-                 dict(verification='passed'),  # recorded before 1.4 or unknown
-                 dict(verification='passed', tested=when, tested_version='x' * 120),
-                 dict(verification='passed', tested=when, tested_version='backend 3f2a91c, app 2.4.1 (212)')]
-        invalid = [dict(tested=when),  # not-run cannot have a run time
-                   dict(tested_version='3f2a91c'),
-                   dict(verification='passed', tested='yesterday'),
-                   dict(verification='passed', tested='2026-11-02T10:15:00'),  # no timezone
-                   dict(verification='passed', tested=when, tested_version='x' * 121),
-                   dict(verification='passed', tested=when, tested_version=' 3f2a91c'),
-                   dict(verification='passed', tested=when, tested_version='a\nb'),
-                   dict(verification='passed', tested=when, tested_version=''),
-                   dict(verification='passed', tested=when, tested_version=42)]
-        for change in valid:
-            with self.subTest(valid=change):
-                self.save_note({**original, **change}, body)
+        base = {key: value for key, value in original.items()
+                if key not in ('tested_version', 'tested_at')}
+        for observation in ({}, {'tested_version': None, 'tested_at': None},
+                            {'tested_version': 'v2.4.0 backend'},
+                            {'tested_version': 'x' * 160},
+                            {'tested_at': '2024-02-29'},
+                            {'tested_version': 'build 123', 'tested_at': '2026-11-02'}):
+            with self.subTest(observation=observation):
+                self.save_note({**base, **observation}, body)
+                before = self.note().read_bytes()
                 result = self.cli('check')
                 self.assertEqual(result.returncode, 0, result.stderr)
-        for change in invalid:
-            with self.subTest(invalid=change):
-                self.save_note({**original, **change}, body)
-                result = self.cli('check')
-                self.assertEqual(result.returncode, 1)
-                self.assertNotIn('Traceback', result.stderr)
+                result = self.cli('list')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                row = json.loads(result.stdout)[0]
+                for key in ('tested_version', 'tested_at'):
+                    self.assertIn(key, row)
+                    self.assertEqual(row[key], observation.get(key))
+                self.assertEqual(self.note().read_bytes(), before)
+
+    def test_invalid_test_observations_block_check_list_and_create(self):
+        from datetime import date, datetime, timezone
+        self.assertEqual(self.create().returncode, 0)
+        original, body = self.load_note()
+        cases = {
+            'tested_version': ['', ' ', ' v1', 'v1 ', 'a\nb', 'a\rb', 'a\tb',
+                               'a\x7fb', 'a\u0085b', 'a\u2028b', 'a\u2029b',
+                               'x' * 161, 42, False, [], {}],
+            'tested_at': ['', ' ', ' 2026-11-02', '2026-11-02 ', '2026-2-01',
+                          '2026-02-30', '2025-02-29', '0000-01-01', '20261102',
+                          '2026-11-02T00:00:00+00:00', '2026-11-02\n',
+                          date(2026, 11, 2), datetime(2026, 11, 2, tzinfo=timezone.utc),
+                          20261102, False, [], {}],
+        }
+        for key, values in cases.items():
+            for value in values:
+                with self.subTest(key=key, value=value):
+                    self.save_note({**original, key: value}, body)
+                    before = self.note().read_bytes()
+                    for args in [('check',), ('list',),
+                                 ('create', '--summary', 'New', '--kind', 'bug', '--actor', 'Oriol')]:
+                        result = self.cli(*args)
+                        self.assertEqual(result.returncode, 1, result.stderr)
+                        self.assertNotIn('Traceback', result.stderr)
+                    self.assertEqual(self.note().read_bytes(), before)
+                    self.assertEqual(len(list((self.root / 'Tickets').glob('*.md'))), 1)
+
+    def test_create_test_observation_flags_round_trip_without_implying_success(self):
+        for index, flags in enumerate(((), ('--tested-version', 'v2.4.0 backend'),
+                                       ('--tested-at', '2026-11-02'),
+                                       ('--tested-version', 'x' * 160, '--tested-at', '2024-02-29'))):
+            with self.subTest(flags=flags):
+                result = self.create(f'Observation {index}', *flags)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                path = next((self.root / 'Tickets').glob(result.stdout.strip() + '*.md'))
+                metadata = path.read_text().split('---', 2)[1]
+                data = yaml.safe_load(metadata)
+                supplied = dict(zip(flags[::2], flags[1::2]))
+                for field in ('tested_version', 'tested_at'):
+                    self.assertIn(field, data)
+                    self.assertEqual(data[field], supplied.get('--' + field.replace('_', '-')))
+                if data['tested_at'] is not None:
+                    self.assertRegex(metadata, r"tested_at: ['\"]\d{4}-\d{2}-\d{2}['\"]")
+                self.assertEqual(data['verification'], 'not-run')
+                self.assertEqual(data['confidence'], 'reported')
+                self.assertEqual(data['status'], 'inbox')
+                self.assertEqual(data['deployment'], 'unknown')
+                self.assertEqual(data['implementation_authorization'], 'none')
+                self.assertIsNone(data['target_release'])
+                self.assertEqual(self.cli('check').returncode, 0)
+                row = next(row for row in json.loads(self.cli('list').stdout) if row['id'] == data['id'])
+                self.assertEqual(row['tested_at'], data['tested_at'])
+                self.assertEqual(row['tested_version'], data['tested_version'])
+
+    def test_invalid_test_observation_flags_never_write(self):
+        for flag, values in {
+                '--tested-version': ('', ' ', ' v1', 'v1 ', 'a\nb', 'a\tb', 'x' * 161, 'a\u2028b'),
+                '--tested-at': ('', '2026-02-30', '2025-02-29', '2026-2-01',
+                                '20261102', '2026-11-02T00:00:00Z', '2026-11-02 '),
+        }.items():
+            for value in values:
+                with self.subTest(flag=flag, value=value):
+                    result = self.create('Invalid observation', flag, value)
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertIn('invalid tested_', result.stderr)
+                    self.assertNotIn('Traceback', result.stderr)
+                    self.assertFalse((self.root / 'Tickets').exists())
 
     def test_create_canonical_safe_inbox(self):
         result = self.create('../not a path', '--area', 'sales', '--repo', 'backend')

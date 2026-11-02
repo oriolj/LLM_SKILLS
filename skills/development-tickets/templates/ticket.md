@@ -18,13 +18,13 @@ started: null
 completed: null
 implementation_authorization: none
 verification: not-run
-tested: null
-tested_version: null
 deployment: unknown
 related: []
 duplicate_of: null
 tags: [development]
 target_release: null
+tested_version: null
+tested_at: null
 triage: untriaged
 triaged_by: null
 triaged: null
@@ -68,6 +68,8 @@ Not started.
 ## Verification evidence
 
 Not run.
+
+<!-- One dated entry per run: date (time only if known), tester or source, environment and component, version or build, checks, outcome, limits. The latest observation also goes in tested_version / tested_at (quoted, "YYYY-MM-DD"); see protocol, Test observations. -->
 
 ## Deployment evidence
 
