@@ -54,7 +54,7 @@ Use YAML frontmatter with the following fields. Quote timestamps as timezone-qua
 | implementation_authorization | none or approved; actual source/scope required in body |
 | verification | not-run, partial, passed, failed; checks acceptance, not confidence |
 | tested | optional; null, or the timezone-qualified time the latest relevant verification run finished; null while verification is not-run (see Recording a test run) |
-| tested_version | optional; null, or a trimmed nonempty single-line string up to 120 characters naming what that run exercised, e.g. `backend 3f2a91c, app 2.4.1 (212)`; null while verification is not-run; may be known when `tested` is not |
+| tested_version | optional; null, or a trimmed nonempty single-line string up to 120 characters naming what that run exercised, e.g. `backend 3f2a91c, app 2.4.1 (212)`; always quoted in YAML (`"212"`, `"2.10"`), since a bare number parses as an integer or float and fails validation; null while verification is not-run; may be known when `tested` is not |
 | deployment | unknown, not-required, not-deployed, deployed; unknown by default |
 | related | ticket ID list; cross-project IDs do not grant access to evidence |
 | duplicate_of | null or different ticket ID; never self; retain original note/history |

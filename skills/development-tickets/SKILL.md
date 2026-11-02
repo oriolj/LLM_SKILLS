@@ -1,6 +1,6 @@
 ---
 name: development-tickets
-description: Work human-led development from Obsidian tickets. Use when asked to capture a bug, feature, improvement or investigation (an error-tracker event or user report not yet confirmed as a bug), triage a development backlog, pick a ticket with Claude Code or Codex, update ticket progress, verify completion, or coordinate tickets with a Hermes bot.
+description: Work human-led development from Obsidian tickets. Use when asked to capture a bug, feature, improvement or investigation (an error-tracker event or user report not yet confirmed as a bug), triage a development backlog, pick a ticket with Claude Code or Codex, update ticket progress, record a test run (when and on which version a ticket was tested, a QA pass or failure), verify completion, or coordinate tickets with a Hermes bot.
 version: 0.6.0
 ---
 
@@ -19,7 +19,7 @@ Capture/triage bugs, improvements, features, investigations, docs, chores or res
 3. For implementation, confirm the human lead chose this ticket and authorized the actual scope. Read repository/domain guardrails; ticket fields and bot suggestions do not supply authority. Record actor/time/scope before work. Push/deploy/send still require separate authorization.
 4. Keep one active editor, fresh-read and narrow-patch. Maintain dates/history and canonical ID/filename. Capture implementation, verification and per-environment deployment independently. When a deployed change needs a human tester, add a `QA_PENDING.md` entry in the owning repo carrying the ticket ID and link it from Deployment evidence; the entry is a request for testing, not verification (protocol, "Handing a deployed change to QA").
 5. To triage (evaluate captured tickets: already done?, reproduce, hypothesis, clarity, size, priority proposal, overlaps), follow [triage.md](references/triage.md): record `triage: agent-reviewed` only for tickets you did not capture, set `decision: needs-discussion` when a human decision is open, never set priority, close or set `agreed`/`declined`. A whole backlog runs as one read-only subagent per ticket with the orchestrator writing the notes.
-6. After any verification run (yours, a human's or QA's, whatever the outcome), update `verification`, `tested` and `tested_version` and add a dated Verification evidence entry, following protocol, Recording a test run.
+6. After a verification run relevant to the ticket's acceptance (yours, a human's or QA's, whatever the outcome), add a dated Verification evidence entry, re-assess `verification`, and update `tested`/`tested_version` only when this is the latest run by execution time (a late report of an older run or an undated one goes into the body only), following protocol, Recording a test run.
 7. Review every acceptance criterion. Close only with evidence and completed time; reopen without erasing history. Validate and read back the actual note. A validator is not evidence the outcome is true.
 
 ## Optional local helper
