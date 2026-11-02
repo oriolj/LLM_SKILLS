@@ -31,7 +31,9 @@ and grows with each game; add dated lessons to
     covers every game.
 
   Its root `CLAUDE.md` has the cross-game rules and the "start a game from
-  its plan" checklist. A new kids' game goes there, not in a new repo.
+  its plan" checklist. A new kids' game goes there, not in a new repo. A plan
+  for anything that is not a kids' game goes in `docs/plans/`, because the TV
+  launcher shows any `games/<slug>/PLAN.md` as a "coming soon" card.
 
 - **Engine: Godot 4 (4.7+, latest stable) with GDScript.** Not C#, not Godot 3. Linux-first
   (the game runs on a Linux PC hooked to the TV); export other platforms only

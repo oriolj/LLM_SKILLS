@@ -3,6 +3,30 @@
 Dated lessons from real games, newest first. One entry per lesson: what
 happened, the rule it produced, and where the rule now lives.
 
+## 2026-11-02 — Real-world 3D racer: engine call and public geodata (plan only)
+
+- A browser, Android, iOS and Steam Deck game with a map editor at its centre
+  points to a web stack (three.js, MapLibre, our own car physics), not Godot.
+  This is a recommendation awaiting Oriol's decision, and nothing has been run
+  on a device. Godot stays the default for the couch games. Plan:
+  `PixelPals/docs/plans/anywhere-circuit.md`.
+- **A `PLAN.md` under `games/` becomes a "coming soon" card on the kids' TV
+  launcher.** A plan for something else goes in `docs/plans/`.
+- Spain's public geodata answered a browser-style request with
+  `Access-Control-Allow-Origin: *`: Mapterhorn terrain, IGN PNOA and MDT, ICGC
+  ortho, Catastro, OpenFreeMap. So a client-only baker is possible.
+- **Catastro bbox query:** `wfsBU.aspx?service=wfs&version=2.0.0&request=GetFeature&typenames=BuildingPart&srsname=EPSG::25831&bbox=...`.
+  Floor counts are on `BuildingPart` only (nil on `Building`), and a 300 x 300 m
+  block of the Eixample is 3.6 MB of XML, so bake and cache it. The
+  `STOREDQUERIE_ID=...ByBBOX` names we guessed fail with "REFCAT can't be null".
+- **OpenFreeMap z14 merges city buildings** (47 features for a central Barcelona
+  tile), so it can't supply a dense city's buildings.
+- **Overpass returned 502 and 406** during the checks (cause not diagnosed), so
+  don't make it a runtime dependency.
+- Test terrain against a summit with the highest point in a radius, not one
+  coordinate: our rough coordinate read 53 m low on Turó de l'Home, and the
+  radius check came within 0.5 m.
+
 ## 2026-09-27 — Going public: purging the fan art from history
 
 - Oriol made the monorepo public. The fan-character packs (Sonic, Minions,
