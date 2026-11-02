@@ -321,6 +321,15 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
 ## Dashboard, look and messaging
 
 - **Posting to a platform from a script or a `--oneshot` CLI turn: `hermes send`** (`--to slack:<channel or DM id>` / `telegram` / `slack:#name`, `--file`, `--json`; `hermes send --list slack` lists the targets, DMs included). It reuses the gateway's bot credentials, needs no LLM and no running gateway. A `chat --oneshot --source claude-code` turn has NO native send-message tool: Enzo then reached for the Nous Portal Slack connector and stopped at its OAuth link (2026-10-21). Never authorise that connector to get around it; have the bot write the text to a file and run `hermes send` (verified 2026-10-21 on enzo: two Slack DMs, `success: true` + `message_id`).
+- **Telegram document albums are refused (v0.22.5, still on `main` 2026-11-02)**: several files sent
+  together as one album get "Hermes refused this message (invalid_params: media_text_inlined_length), so
+  it was not saved or answered", and `gateway.log` shows `Native admission refused: invalid_params
+  (media_text_inlined_length)`. Cause: the Telegram adapter's `_merge_into_pending` extends `media_urls` and
+  `media_types` but not `media_text_inlined`, so two documents leave 2 URLs and 1 flag, which
+  `gateway/session_envelope.py` rejects. Photo-only albums pass (no flags). The caption is lost, the files
+  stay in `~/.hermes/cache/documents/`, and the session is unaffected. Workaround: send the files one by
+  one. Do not patch it locally; upstream issues #143001 and #143605, open PRs #146887, #147646 and #143647.
+  After a `hermes update`, check that function, then delete this entry (patri, 2026-11-02).
 - **Web dashboard**: `hermes dashboard` (default `127.0.0.1:9119`; `--host`,
   `--port`, `--no-open`); a non-loopback bind always requires an auth
   provider (password or OAuth). Our `hermes-dashboard.service` binds
