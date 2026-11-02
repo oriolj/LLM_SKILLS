@@ -1203,10 +1203,13 @@ failure. No webhook had failed. The rules:
   `grafana_alerting_rule_evaluation_failures_total` and `…_evaluations_total`
   carry only an `org` label (13.1.3, no per-rule label), so they give
   `hq-grafana-eval-blind` (`sum(rate(…failures_total[5m])) /
-  clamp_min(sum(rate(…evaluations_total[5m])), 1e-9) > 0.5` for 5 m; a
+  clamp_min(sum(rate(…evaluations_total[5m])), 1e-9) > 0.5` for 15 m; a
   ratio of the raw `_total` counters is a lifetime average that a long
   healthy uptime keeps below 0.5; `execErrState: Alerting` so it fires
-  when it cannot run either,
+  when it cannot run either, which is why its `for:` is 15 m, not 5 m
+  (hq-monitoring `5aced6c`): it cannot run during the lock it watches and
+  the `rate[5m]` ratio stays high ~half a window after it, so a 5-minute
+  lock would sit pending ~7.5 min and page under this rule's name,
   `important`) and `hq-grafana-eval-failing` (failures in every 10-min
   window for 30 m, `warning`). Find the broken rule in the UI: Alerting →
   Alert rules, filter `health: error`.
