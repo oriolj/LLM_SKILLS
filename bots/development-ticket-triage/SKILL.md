@@ -21,7 +21,7 @@ Read [protocol version 1.4](references/protocol.md) and the project's private wo
 
 Release planning uses optional `target_release`: absent/null means unplanned; set `next` or a named version only from a human planning decision and record its source/scope in decisions/history. It does not approve pending domain or product choices, change status or authorize implementation/deployment. Show it in the Base, and freeze `next` to the actual agreed release identifier rather than rolling it forward silently. See protocol, Release targeting.
 
-When a bot runs or records a verification check (a readback, a QA pass it was asked to log), it sets `verification` and fills `tested` (when it ran) and `tested_version` (the commit, build or release read from the thing tested) whenever known, with a dated entry in Verification evidence; null rather than a guess, and never from master or `target_release`. See protocol, Recording a test run.
+After a verification run a bot runs or is asked to log, update `verification`, `tested` and `tested_version` and add a dated Verification evidence entry, following protocol, Recording a test run.
 
 Manual template capture needs no runtime installation. In a reviewed whole LLM_SKILLS checkout, the optional helper lives at `skills/development-tickets/scripts/tickets.py`; it requires Python 3 + PyYAML. Do not assume it exists in a standalone bot copy, install dependencies or change runtime configuration unasked. Use the same private config as humans/agents; do not mirror tickets into this public repository.
 

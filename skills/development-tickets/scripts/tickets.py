@@ -31,11 +31,6 @@ def valid_target_release(value):
     return short_label(value, 80)
 
 
-def valid_tested_version(value):
-    # Room for several components, e.g. "backend 3f2a91c, app 2.4.1 (build 212)".
-    return short_label(value, 120)
-
-
 def unique_json(pairs):
     result = {}
     for key, value in pairs:
@@ -216,8 +211,8 @@ def validate(data, body, path, config):
     duplicate = data['duplicate_of']
     if duplicate is not None and (not valid_id(duplicate) or duplicate == data['id']):
         raise TicketError('invalid duplicate reference')
-    for key in ('created', 'updated', 'started', 'completed'):
-        if key in ('started', 'completed') and data[key] is None:
+    for key in ('created', 'updated', 'started', 'completed', 'tested'):
+        if key in ('started', 'completed', 'tested') and data[key] is None:
             continue
         if not timestamp(data[key]):
             raise TicketError('invalid timestamp')
@@ -267,14 +262,12 @@ def validate_triage(data, legacy=False):
 
 def validate_tested(data):
     # Protocol 1.4: when the latest verification ran and on which version; null when unknown.
-    if data['tested'] is not None and not timestamp(data['tested']):
-        raise TicketError('invalid tested timestamp')
-    if not valid_tested_version(data['tested_version']):
+    # 120 characters leaves room for several components in one label. Either field can be
+    # known without the other ("QA checked build 212, date unknown").
+    if not short_label(data['tested_version'], 120):
         raise TicketError('invalid tested_version')
     if data['verification'] == 'not-run' and (data['tested'] is not None or data['tested_version'] is not None):
         raise TicketError('tested or tested_version set while verification is not-run')
-    if data['tested_version'] is not None and data['tested'] is None:
-        raise TicketError('tested_version requires the tested timestamp')
 
 
 def scan(root, config):

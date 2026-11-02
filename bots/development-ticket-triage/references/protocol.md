@@ -53,8 +53,8 @@ Use YAML frontmatter with the following fields. Quote timestamps as timezone-qua
 | completed | null except successful done; cancellation is recorded in history |
 | implementation_authorization | none or approved; actual source/scope required in body |
 | verification | not-run, partial, passed, failed; checks acceptance, not confidence |
-| tested | optional; null until a verification check has run, otherwise the timezone-qualified time of the latest run behind the current `verification` value; null while verification is not-run |
-| tested_version | optional; null when unknown, otherwise a trimmed nonempty single-line string up to 120 characters naming exactly what was exercised (commit SHA, build, app/release version; several components in one line, e.g. `backend 3f2a91c, app 2.4.1 (212)`); requires `tested`; never a target or a claim of deployment |
+| tested | optional; null, or the timezone-qualified time the latest relevant verification run finished; null while verification is not-run (see Recording a test run) |
+| tested_version | optional; null, or a trimmed nonempty single-line string up to 120 characters naming what that run exercised, e.g. `backend 3f2a91c, app 2.4.1 (212)`; null while verification is not-run; may be known when `tested` is not |
 | deployment | unknown, not-required, not-deployed, deployed; unknown by default |
 | related | ticket ID list; cross-project IDs do not grant access to evidence |
 | duplicate_of | null or different ticket ID; never self; retain original note/history |
@@ -76,11 +76,13 @@ New tickets start inbox/unset/unowned/not-run/unknown, untriaged/pending, untest
 
 ## Recording a test run
 
-- Whenever a verification check runs (an agent's tests or readback, a human or QA pass), set `verification` to its outcome and fill `tested` with the time it ran and `tested_version` with the version it ran against, whenever they are known. Fill them on partial and failed runs too: a failure against a named version is the most useful record a ticket can carry.
-- Take the version from the thing tested, not from the repository: the deployed release readback (`/health`, `/api/version`, the app's About screen, the store build number) for an environment, the commit SHA for a local or CI run. If it cannot be read, leave `tested_version` null and say why in Verification evidence; never fill it from master, a tag you assume is live or `target_release`.
-- Each new run replaces both fields with the latest run's values; earlier runs stay in Verification evidence and History, each with its own date, version, environment and result. On reopen, keep them until the next run (verification is re-evaluated as described under States and transitions).
+- Every verification run relevant to the ticket's acceptance (an agent's tests or readback, a human or QA pass) gets a dated entry in Verification evidence: time; tester or source (the actual tester when the writer only relays it); environment; component and version; criteria exercised; outcome; evidence link; limitations. Partial and failed runs too: a failure against a named version is among the most useful records a ticket can carry.
+- `verification` stays the assessment of the ticket's acceptance as a whole, not the outcome of the last run: `passed` only when every required criterion has applicable evidence, `partial` while coverage is incomplete (backend tests pass, mobile QA outstanding), `failed` while a relevant failure is unresolved.
+- `tested` and `tested_version` summarise the latest relevant run, the one with the latest execution time (for a multi-step run, when it finished), not the latest report to arrive: a late report of an older run goes into the body only. Fill each one whenever it is known, independently: "QA checked build 212, date unknown" sets `tested_version` and leaves `tested` null, with the gap explained in the entry. A run of unknown date never replaces a dated one in the summary. Unrelated checks do not touch the fields. They do not list every run behind the assessment; the body does.
+- Take the version from the thing tested, not from the repository: the deployed release readback (`/health`, `/api/version`, the app's About screen) for an environment, the build actually installed on the test device (not the latest store listing), the commit SHA for a local or CI run, `<sha>+dirty` for a run on uncommitted changes (link the diff when reproducibility matters). A release endpoint identifies the service that answered, not cached frontend assets or every replica; note such limits in the entry. If the version cannot be read, leave `tested_version` null and say why; never fill it from master, a tag you assume is live or `target_release`.
+- On reopen or a scope or implementation change, re-evaluate verification. When the earlier runs no longer apply, set `not-run` and clear both fields; their entries stay in the body. When they still apply (the reopen came from that failing run), keep them.
 - The fields record a fact about a run. They do not satisfy acceptance on their own (done still needs checked criteria and Verification evidence) and `tested_version` does not prove the version is deployed anywhere: Deployment evidence owns that.
-- The helper checks: both null while verification is not-run, `tested` a timezone timestamp, `tested_version` a short single-line label that needs `tested`. It does not require them on done, so tickets closed before 1.4 stay valid.
+- Neither field is required on done, so tickets closed before 1.4 stay valid.
 
 ## States and transitions
 
@@ -152,7 +154,7 @@ Use these headings so agents and optional checks can find evidence:
 6. Exclusions and dependencies — what is deliberately out of scope and required decisions/linked IDs.
 7. Authorization and decisions — timestamp, actor, verbatim relevant instruction/source, scope and separately gated external actions. For cancellation use an explicit `Cancellation reason: ...` line here or in History; unrelated earlier decisions are not a cancellation reason.
 8. Implementation evidence — files, changes, commit/PR refs; no claim before execution.
-9. Verification evidence — one dated entry per run: exact checks, environment, version exercised, time, results and limits; the latest run's time and version also go in `tested`/`tested_version`. Link sanitized artifacts; kind-appropriate document review is valid.
+9. Verification evidence — one dated entry per relevant run (time, tester or source, environment, component and version, criteria exercised, outcome, evidence link, limitations; see Recording a test run); the latest run's time and version also go in `tested`/`tested_version`. Link sanitized artifacts; kind-appropriate document review is valid.
 10. Deployment evidence — per repo/component/environment, deployed revision/time and readback, or an explicit reason not required/unknown/not deployed.
 11. History — append timezone timestamp + actor + state/decision/change reason; never erase previous failure/closure.
 

@@ -496,12 +496,13 @@ class TicketsTests(unittest.TestCase):
         when = '2026-11-02T10:15:00+00:00'
         valid = [dict(verification='failed', tested=when, tested_version='3f2a91c'),
                  dict(verification='partial', tested=when),  # version could not be read
+                 dict(verification='passed', tested_version='build 212'),  # date unknown
+                 dict(verification='partial', tested=when, tested_version='3f2a91c+dirty'),
                  dict(verification='passed'),  # recorded before 1.4 or unknown
                  dict(verification='passed', tested=when, tested_version='x' * 120),
                  dict(verification='passed', tested=when, tested_version='backend 3f2a91c, app 2.4.1 (212)')]
         invalid = [dict(tested=when),  # not-run cannot have a run time
                    dict(tested_version='3f2a91c'),
-                   dict(verification='passed', tested_version='3f2a91c'),  # version without a time
                    dict(verification='passed', tested='yesterday'),
                    dict(verification='passed', tested='2026-11-02T10:15:00'),  # no timezone
                    dict(verification='passed', tested=when, tested_version='x' * 121),

@@ -67,7 +67,7 @@ Not started.
 
 ## Verification evidence
 
-Not run. When a check runs, record its date (`tested`) and the exact version exercised (`tested_version`: commit, build or release) in the frontmatter and here, with the environment and result.
+Not run.
 
 ## Deployment evidence
 
