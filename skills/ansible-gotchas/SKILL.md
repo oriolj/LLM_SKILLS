@@ -90,6 +90,20 @@ packages, default shell, no prior run's leftovers. For every task ask:
   refresh predates the repo you just enabled). For lists of nice-to-haves,
   loop one-at-a-time with `ignore_errors: yes` so one absentee doesn't
   poison the rest.
+- **One dead third-party repo fails every `pacman -Sy`, whatever the run is
+  for.** The other databases still refresh, but the module fails and a play
+  stops at its first cache task, even for a tag that installs nothing, and
+  `update_cache` + `upgrade` in one task loses the upgrade too. Split the
+  refresh from the upgrade, tolerate the failure only when every `error:` line
+  names an allow-listed repo (a filter over `stderr_lines`, so a lock, a bad
+  signature or `core` still fail), and hold that repo's packages back with
+  `upgrade_extra_args: --ignore …`, since its stale database can list a version
+  that no longer downloads. `failed_when` can read `<register>.failed` from the
+  module. To test against the REAL module without root, point its `executable`
+  at a fake pacman; a fake with no pending upgrades never reaches the upgrade
+  call, so have it answer `--query --upgrades`, and do not put `failed_when:
+  false` on the check, which hid an undefined variable in the first attempt
+  (hq `test-pacman-optional-repos.yml`, 2026-11-02).
 - **Validate names before committing them to a list** (`pacman -Si NAME ||
   pacman -Sg NAME`, `dnf repoquery NAME`). Names differ per distro — keep a
   package_map keyed by a NORMALIZED distro key; `ansible_distribution |
