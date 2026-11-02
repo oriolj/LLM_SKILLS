@@ -262,6 +262,12 @@ API notes learned on the way:
   next to a new worker. Poll EVERY app for a terminal row on the
   pushed SHA, read `GET /deployments/{deployment_uuid}` `logs` on a
   failure, and for this one just `POST /deploy?uuid=<app>` again.
+  It can persist for a while (hq-monitoring hub, 2026-11-02 20:08–20:11
+  UTC: two deploys in a row failed, one on `…/app/installations/<id>/
+  access_tokens`, one on `/zen`, while `api.github.com` answered in 70 ms
+  from a workstation), so the fault is Coolify Cloud's egress, not GitHub
+  or the repo. Retry on a backoff (every 5–10 min) instead of in a tight
+  loop, and keep checking that the old stack is still serving.
 - **Dockerfile-app container names are not uniform** (EnaCast 24H,
   2026-09-03): the stop→start apps (worker, beat) run as the app name
   (`enacast24h-worker`), while the rolling web AND a port-less recorder
