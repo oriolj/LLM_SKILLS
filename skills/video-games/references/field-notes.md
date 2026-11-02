@@ -19,8 +19,11 @@ happened, the rule it produced, and where the rule now lives.
   Floor counts are on `BuildingPart` only (nil on `Building`), and a 300 x 300 m
   block of the Eixample is 3.6 MB of XML, so bake and cache it. The
   `STOREDQUERIE_ID=...ByBBOX` names we guessed fail with "REFCAT can't be null".
-- **OpenFreeMap z14 merges city buildings** (47 features for a central Barcelona
-  tile), so it can't supply a dense city's buildings.
+- **OpenFreeMap z14 groups city buildings by height into MultiPolygons:** a
+  central Barcelona tile has 47 features but 21,204 polygons. Count polygons, not
+  features (we first misread this as buildings missing; Codex's review caught it).
+- **Rapier's JavaScript bindings moved into `dimforge/rapier` (6.0k stars).** The
+  698-star `rapier.js` repo is archived, so don't judge the rule by its count.
 - **Overpass returned 502 and 406** during the checks (cause not diagnosed), so
   don't make it a runtime dependency.
 - Test terrain against a summit with the highest point in a radius, not one
