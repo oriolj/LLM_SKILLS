@@ -148,6 +148,12 @@ class TicketsTests(unittest.TestCase):
                 self.assertEqual(json.loads(result.stdout)['errors'], 1)
                 self.assertNotIn('secret value', result.stderr)
                 self.assertNotIn('Traceback', result.stderr)
+        path.write_text(original.replace('verification: not-run', 'verification: oops'))
+        result = self.cli('check')
+        self.assertIn('tickets: BCRM-001: invalid enum', result.stderr)
+        self.assertNotIn('A request', result.stderr)  # the title part of the filename stays out
+        path.write_text('---\nprivate: [secret value\n---\n')
+        self.assertIn('tickets: BCRM-001: invalid YAML', self.cli('check').stderr)
         path.write_text(original)
         conflict = path.with_name(path.stem + '.sync-conflict-20260101.md')
         path.rename(conflict)

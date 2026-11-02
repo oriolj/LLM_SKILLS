@@ -4,7 +4,7 @@ This is the tool-neutral contract for a private Markdown/Obsidian ticket system 
 
 Version 1.3 adds optional `target_release` planning metadata. Earlier notes remain valid without migration; absent means null (no agreed target).
 
-Version 1.4 (2026-11-02) adds the optional test-run fields `tested` and `tested_version` (see Recording a test run). Earlier notes remain valid without migration; absent means null (not recorded).
+Version 1.4 (2026-11-02) adds the optional test-run fields `tested` and `tested_version` (see Recording a test run). Earlier notes remain valid without migration; absent means null (not recorded). It also clarifies re-review and reviewer independence under Triage, and deployment evidence in triage.md; no other field changes.
 
 The authoritative source is `skills/development-tickets/references/protocol.md` in LLM_SKILLS. The bot package contains a generated identical copy so copying either skill remains self-contained. Edit this source only; regenerate the bot copy with `python scripts/sync_ticket_protocol.py`, then check it with `--check`. Do not independently maintain schema variants.
 
@@ -134,6 +134,10 @@ Triage is the evaluation of a captured ticket by someone other than its reporter
 
 Rules the helper checks: untriaged has `triaged_by`/`triaged` null; a reviewed ticket has both; agent-reviewed has `triaged_by` different from `reported_by`; agreed and declined require human-reviewed; declined requires status cancelled with its cancellation reason; a feature or improvement in `ready` requires agreed (checked once the note carries `decision`; notes from before 1.2 are exempt until triaged). Bugs, docs and chores can be ready while pending: a confirmed defect does not need a product decision, but the human lead still chooses it.
 
+Independence is a property of the review, not of the actor string. The helper can only compare `triaged_by` with `reported_by`; an `agent-reviewed` ticket also needs a review by a session that did not capture it, on fresh evidence, with that session's agent and date recorded in the triage subsection. The reporter may still investigate and improve its own ticket; it just does not award itself `agent-reviewed`.
+
+Re-review: the frontmatter holds the review that supports the current level. An agent that revisits a `human-reviewed` ticket adds its dated triage subsection and a History line but leaves `triage`, `triaged_by`, `triaged` and an `agreed`/`declined` decision untouched; new open questions go in the body and in its report to the human lead, not into `decision` (setting `needs-discussion` on an agreed feature in `ready` would also fail the ready rule). An agent revisiting an `agent-reviewed` ticket may record its own review in `triaged_by`/`triaged`.
+
 `agreed` is not implementation authorization and not a priority. It says the team wants the outcome; selection, scope and authorization of the actual work stay with the human lead as in Roles and authority. An agent records its triage findings in the body (a dated triage subsection under Source and evidence plus a History line) and may update `confidence` only from evidence it observed. It proposes priority, closure and decision in the body or its report; it never sets priority, closes, or sets agreed/declined.
 
 ## Priority, areas and tags
@@ -186,7 +190,7 @@ After an edit: update updated timestamp/history, validate affected records and v
 
 The agent skill optionally ships `scripts/tickets.py` (Python 3 + PyYAML; no automatic dependency installation): `--config <private-json> create|check|list`. `check` and `list` are read-only; `create` writes one inbox note and never implements, updates status, sends, deletes or calls a network API. Review the script before running a newly fetched version. A bot skill copied alone can follow this protocol/template manually; the helper requires the agent skill package or whole repository.
 
-A validator checks structure and obvious contradictions; it cannot prove human approval, true acceptance, reproduction or deployment. Humans/agents must review source evidence. Validate ID/prefix/filename/project, enums/registry, timezone dates, completion/acceptance evidence and duplicate/self references; preserve state on failures.
+`check` names each invalid record by the ID part of its filename (or its position when the name has none) with a fixed reason, never the title, field values or note body. A validator checks structure and obvious contradictions; it cannot prove human approval, true acceptance, reproduction or deployment. Humans/agents must review source evidence. Validate ID/prefix/filename/project, enums/registry, timezone dates, completion/acceptance evidence and duplicate/self references; preserve state on failures.
 
 ## Synchronizing shared skills
 

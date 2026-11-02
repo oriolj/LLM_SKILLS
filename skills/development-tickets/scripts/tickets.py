@@ -272,10 +272,22 @@ def validate_tested(data):
         raise TicketError('tested or tested_version set while verification is not-run')
 
 
+# Fixed reasons for errors whose own message could quote note contents.
+REASONS = {yaml.YAMLError: 'invalid YAML', OSError: 'unreadable file', UnicodeError: 'not UTF-8',
+           RecursionError: 'YAML nested too deeply'}
+FILE_ID = re.compile(rf'({ID.pattern})(?=[ .])')
+
+
+def record_label(path, number):
+    # The ID part of the filename only: the title part is note content.
+    match = FILE_ID.match(path.name)
+    return match[1] if match else f'file #{number}'
+
+
 def scan(root, config):
-    records, errors, seen = [], 0, set()
+    records, problems, seen = [], [], set()
     if not root.exists():
-        return records, errors, 0
+        return records, problems, 0
     if not root.is_dir():
         raise TicketError('ticket_dir is not a directory')
     # One flat canonical directory; never follow directory symlinks.
@@ -302,9 +314,12 @@ def scan(root, config):
                 raise TicketError('duplicate ID')
             seen.add(data['id'])
             records.append(data)
-        except (TicketError, yaml.YAMLError, OSError, UnicodeError, RecursionError):
-            errors += 1
-    return records, errors, total
+        except (TicketError, yaml.YAMLError, OSError, UnicodeError, RecursionError) as exc:
+            # TicketError messages are fixed strings; the others map to a fixed reason.
+            reason = str(exc) if isinstance(exc, TicketError) else next(
+                text for kind, text in REASONS.items() if isinstance(exc, kind))
+            problems.append((record_label(path, total), reason))
+    return records, problems, total
 
 
 
@@ -324,12 +339,15 @@ def main():
     commands.add_parser('list')
     args = parser.parse_args()
     config, root = load_config(Path(args.config))
-    records, errors, total = scan(root, config)
+    records, problems, total = scan(root, config)
+    errors = len(problems)
     if args.command == 'check':
         counts = {}
         for record in records:
             counts[record['status']] = counts.get(record['status'], 0) + 1
         print(json.dumps(dict(total=total, errors=errors, statuses=counts), sort_keys=True))
+        for label, reason in problems:
+            print(f'tickets: {label}: {reason}', file=sys.stderr)
         if errors:
             print(f'tickets: {errors} invalid record(s); no note contents displayed', file=sys.stderr)
         return int(bool(errors))
