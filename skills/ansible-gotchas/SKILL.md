@@ -387,6 +387,14 @@ Jinja gotchas for step 4: `| first` on an empty list raises (append a
 sentinel: `(list + ['']) | first`); `default()` catches undefined, not
 errors; filters bind tighter than `+`.
 
+**A test that fabricates a variable with task `vars:` can pass for the wrong reason.**
+A registered variable or `set_fact` outranks task vars, so `vars: {hw_build: "{{ item }}"}`
+beside a looped `register: hw_build` reads the registered `.results` instead. Every "not ok"
+case then passes whatever the code does; only a positive case exposes it. Fabricate with
+`set_fact` or a real `register` in an included per-case file, and keep at least one case on
+each side. Then break the code on purpose and watch the test fail (hq
+`test-hyprwhspr-setup.yml`, 2026-11-02: both checks found this way).
+
 ## Review checklist (before calling a task file done)
 
 - [ ] Every `copy`/`template`/`lineinfile` dest: parent dir guaranteed by
