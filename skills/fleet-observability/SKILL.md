@@ -1,6 +1,6 @@
 ---
 name: fleet-observability
-description: Integrate any app or server with the estate's monitoring (Prometheus + Loki + Tempo + Grafana on monitor-1-nc) — per-host Alloy agents, the oj.* docker-label contract, authenticated log shipping, OpenTelemetry traces (tail-sampled at the host agent), app /metrics endpoints, and per-project `make logs`. Use when onboarding a server to monitoring, adding logs/metrics/traces to a project, asked "how do I see prod logs from my machine", "why is this request slow", "which query is slow", "add tracing / OTel / Tempo", "add this app to grafana", "tag services for loki", "ship logs to loki", "expose django/go metrics", deploying the Alloy agent, or reviewing a compose file's oj.* labels. Works on Coolify AND non-Coolify hosts, docker and dockerless (native mode). Covers the label cardinality rules, the socket-proxy requirement, the loki-gateway auth split (write vs read creds), the trace resource-attribute contract (service.namespace = project), django-prometheus multiprocess traps, and the rollout checklist with the first-hour timestamp-reject expectation.
+description: Integrate any app or server with the estate's monitoring (Prometheus + Loki + Tempo + Grafana on monitor-1-nc) — per-host Alloy agents, the oj.* docker-label contract, authenticated log shipping, OpenTelemetry traces (tail-sampled at the host agent), app /metrics endpoints, and per-project `make logs`. Use when onboarding a server to monitoring, adding logs/metrics/traces to a project, asked "how do I see prod logs from my machine", "why is this request slow", "which query is slow", "add tracing / OTel / Tempo", "add this app to grafana", "tag services for loki", "ship logs to loki", "expose django/go metrics", deploying the Alloy agent, or reviewing a compose file's oj.* labels. Works on Coolify AND non-Coolify hosts, docker and dockerless (native mode). Covers the label cardinality rules, the socket-proxy requirement, the loki-gateway auth split (write vs read creds), the trace resource-attribute contract (service.namespace = project), django-prometheus multiprocess traps, Grafana alerting on the hub (severity tiers, provisioning tombstones, execErrState/KeepLast and a «DatasourceError» page, rule-evaluation meta-monitoring, Grafana's SQLite locks), and the rollout checklist with the first-hour timestamp-reject expectation.
 ---
 
 # Fleet observability — integrating apps and servers with the monitoring stack
@@ -1186,8 +1186,13 @@ failure. No webhook had failed. The rules:
   rule's labels (severity, `nudge`) plus `datasource_uid`/`rulename`, so it
   routes like the rule. A `for:` window absorbs a short blip; `for: 0s` has
   nothing to absorb it. Rules about application symptoms use **`KeepLast`**
-  (holds the previous state, so a firing alert stays firing). Never use
-  `OK`: it resolves a real alert during a blind spot. Watchdog rules
+  (holds the previous state, so a firing alert stays firing). On the hub
+  (2026-11-02) only the `for: 0s` ones were switched; most rules still
+  carry `Error` behind a `for:` window, which the DatasourceError route
+  below keeps off the phone. Never set `execErrState: OK`: it resolves a
+  real alert during a blind spot (`noDataState: OK` is a different field
+  and stays right for queries that can legitimately return no series).
+  Watchdog rules
   ("cannot see it = it is down") keep `Alerting`, and they are the ones
   whose `for:` must outlast a lock. Grafana documents this split:
   [error states](https://grafana.com/docs/grafana/latest/alerting/fundamentals/alert-rule-evaluation/nodata-and-error-states/),
@@ -1197,8 +1202,11 @@ failure. No webhook had failed. The rules:
   (job `grafana`, target `grafana:3000`).
   `grafana_alerting_rule_evaluation_failures_total` and `…_evaluations_total`
   carry only an `org` label (13.1.3, no per-rule label), so they give
-  `hq-grafana-eval-blind` (failures / evaluations > 0.5 for 5 m,
-  `execErrState: Alerting` so it fires when it cannot run either,
+  `hq-grafana-eval-blind` (`sum(rate(…failures_total[5m])) /
+  clamp_min(sum(rate(…evaluations_total[5m])), 1e-9) > 0.5` for 5 m; a
+  ratio of the raw `_total` counters is a lifetime average that a long
+  healthy uptime keeps below 0.5; `execErrState: Alerting` so it fires
+  when it cannot run either,
   `important`) and `hq-grafana-eval-failing` (failures in every 10-min
   window for 30 m, `warning`). Find the broken rule in the UI: Alerting →
   Alert rules, filter `health: error`.
@@ -1218,7 +1226,11 @@ failure. No webhook had failed. The rules:
     query fails at once. Transactions already retry (`transaction_retries`,
     default 5, logged as "Database locked, sleeping then retrying").
   - the `alertingSaveStatePeriodic` toggle with
-    `GF_UNIFIED_ALERTING_STATE_PERIODIC_SAVE_INTERVAL=1m`. Without it,
+    `GF_UNIFIED_ALERTING_STATE_PERIODIC_SAVE_INTERVAL=1m`. Enable it in
+    `GF_FEATURE_TOGGLES_ENABLE`, which is ONE comma-separated list: append
+    to the toggles already there (the hub's is
+    `alertingNotificationHistory,alertingSaveStatePeriodic`), never replace
+    it. Without it,
     Grafana does one SQL update per rule after EVERY evaluation, and the
     alerting performance doc says that «can cause issues when using SQLite»
     ([performance limitations](https://grafana.com/docs/grafana/latest/alerting/set-up/performance-limitations/)).
@@ -1230,14 +1242,17 @@ failure. No webhook had failed. The rules:
     2026-11-02). `alertingSaveStateCompressed` is already on in 13.1 and
     removed as a toggle in 13.2.
 - **Lock signature in Loki**: `{host="monitor-1-nc", service="grafana"}
-  |= "SQLITE_BUSY"`, together with "Failed getting data source" and
+  |~ "SQLITE_BUSY|(?i)database (is )?locked"` (the second alternative also
+  catches the transaction-retry line and a driver that prints only
+  "database is locked"), together with "Failed getting data source" and
   "failed to walk provisioned dashboards … max-retries-reached".
   `make logs-states` then shows every rule going `Pending (Error)` within
   the same minute. A Prometheus process start time that did not change
   rules out a Prometheus restart.
 - **Annotations never expire by default**
   (`[unified_alerting.state_history.annotations] max_age = 0`). With
-  `STATE_HISTORY_PRIMARY: annotations`, every transition is also a write
+  `GF_UNIFIED_ALERTING_STATE_HISTORY_PRIMARY: annotations` (backend
+  `multiple`, Loki as secondary), every transition is also a write
   to `grafana.db`. The hub's open item: hq `TODO.md`, «Hub Grafana
   database».
 
