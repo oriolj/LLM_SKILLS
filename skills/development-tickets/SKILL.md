@@ -23,7 +23,7 @@ Capture/triage bugs, improvements, features, investigations, docs, chores or res
 
 ## Optional local helper
 
-For release planning, use optional `target_release` (null unless the human sets a target; `next` until a concrete version is agreed). Record the source/scope in decisions/history, keep status, scientific approvals and implementation/deployment authorization separate, and expose it in the Base's Next release view. Do not silently carry the alias into later releases; freeze it to the agreed identifier. See protocol, Release targeting.
+For release planning, use optional `target_release` (null unless the human sets a target; `next` until a concrete version is agreed). Record the source/scope in decisions/history, keep status, pending domain or product approvals and implementation/deployment authorization separate, and expose it in the Base's Next release view. Do not silently carry the alias into later releases; freeze it to the agreed identifier. See protocol, Release targeting.
 
 Python 3 and PyYAML are required; never install dependencies automatically. Review fetched code first. From this package directory:
 

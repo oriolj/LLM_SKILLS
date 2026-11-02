@@ -1,4 +1,4 @@
-# Triage procedure — protocol 1.2
+# Triage procedure — protocol 1.3
 
 How an agent evaluates captured tickets and records the result in the `triage`/`decision` fields of [the protocol](protocol.md#triage). Triage is read-only investigation: it never implements, pushes, deploys, sends or writes production data.
 

@@ -19,7 +19,7 @@ Read [protocol version 1.3](references/protocol.md) and the project's private wo
 
 ## Tooling
 
-Release planning uses optional `target_release`: absent/null means unplanned; set `next` or a named version only from a human planning decision and record its source/scope in decisions/history. It does not approve pending scientific/product choices, change status or authorize implementation/deployment. Show it in the Base, and freeze `next` to the actual agreed release identifier rather than rolling it forward silently. See protocol, Release targeting.
+Release planning uses optional `target_release`: absent/null means unplanned; set `next` or a named version only from a human planning decision and record its source/scope in decisions/history. It does not approve pending domain or product choices, change status or authorize implementation/deployment. Show it in the Base, and freeze `next` to the actual agreed release identifier rather than rolling it forward silently. See protocol, Release targeting.
 
 Manual template capture needs no runtime installation. In a reviewed whole LLM_SKILLS checkout, the optional helper lives at `skills/development-tickets/scripts/tickets.py`; it requires Python 3 + PyYAML. Do not assume it exists in a standalone bot copy, install dependencies or change runtime configuration unasked. Use the same private config as humans/agents; do not mirror tickets into this public repository.
 
