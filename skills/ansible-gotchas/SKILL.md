@@ -196,6 +196,15 @@ packages, default shell, no prior run's leftovers. For every task ask:
   insertbefore + firstmatch, mark lines with a trailing comment for
   idempotent removal, and only ever add 'sufficient' methods so password
   auth survives a broken module.
+- **`creates: X if not <this run upgraded it>` misses every upgrade made
+  outside the play.** A registered "version changed" only sees what THIS run
+  did: after `yay -Syu` the task finds the package current and the artifact
+  present, and skips the rebuild it exists for. Stamp what the step last built
+  (package version + its inputs) and run on a difference; a host with no stamp
+  runs once. Then check the artifact too, because the tool can exit 0 having
+  built something else. Real case: hq hyprwhspr, 2026-11-02, a stale venv, plus
+  a dummy `DISPLAY=:0` set for sudo's askpass that made `vulkaninfo` segfault
+  and the tool silently build for CPU.
 - **One-shot tasks (run once per machine, ever):** `command:` + `args:
   creates: <artifact the script produces>` makes every later run free. Have
   the script print a machine-readable outcome on stdout ("applied: …" /
