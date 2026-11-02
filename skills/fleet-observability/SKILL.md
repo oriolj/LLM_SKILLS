@@ -1172,6 +1172,75 @@ always-firing rule (`vector(1)`, `for: 10s`, own ruleGroup so it forms a
 fresh alert group) via the provisioning API with `X-Disable-Provenance`,
 watch the counters, then DELETE it. A fresh group notifies immediately.
 
+### 5a-ter. Evaluation errors and Grafana's own database (2026-11-02)
+
+**What happened.** For 5 min Grafana's SQLite (`grafana.db`) stayed locked
+(`SQLITE_BUSY`), and every rule failed with "Failed getting data source".
+Rules with a `for:` window only went Pending. One `for: 0s` rule
+(`ptx-billing-webhook-errors`, `execErrState: Error`, `important`) paged
+Pushover as **«DatasourceError»**, which looked like a Panotxa billing
+failure. No webhook had failed. The rules:
+
+- **`execErrState` decides what an evaluation error becomes.** `Error`
+  raises a separate `alertname=DatasourceError` alert that carries the
+  rule's labels (severity, `nudge`) plus `datasource_uid`/`rulename`, so it
+  routes like the rule. A `for:` window absorbs a short blip; `for: 0s` has
+  nothing to absorb it. Rules about application symptoms use **`KeepLast`**
+  (holds the previous state, so a firing alert stays firing). Never use
+  `OK`: it resolves a real alert during a blind spot. Watchdog rules
+  ("cannot see it = it is down") keep `Alerting`, and they are the ones
+  whose `for:` must outlast a lock. Grafana documents this split:
+  [error states](https://grafana.com/docs/grafana/latest/alerting/fundamentals/alert-rule-evaluation/nodata-and-error-states/),
+  [dedicated datasource-health alerts](https://grafana.com/docs/grafana/latest/alerting/guides/connectivity-errors/).
+- **`KeepLast` alone hides a permanently broken query**, so it needs
+  meta-monitoring. The hub scrapes Grafana's unauthenticated `/metrics`
+  (job `grafana`, target `grafana:3000`).
+  `grafana_alerting_rule_evaluation_failures_total` and `…_evaluations_total`
+  carry only an `org` label (13.1.3, no per-rule label), so they give
+  `hq-grafana-eval-blind` (failures / evaluations > 0.5 for 5 m,
+  `execErrState: Alerting` so it fires when it cannot run either,
+  `important`) and `hq-grafana-eval-failing` (failures in every 10-min
+  window for 30 m, `warning`). Find the broken rule in the UI: Alerting →
+  Alert rules, filter `health: error`.
+  `grafana_alerting_alerts{state="error"}` counts instances, not KeepLast
+  rules.
+- **Route `alertname=DatasourceError` first**, ahead of the nudge and
+  severity routes, to an email-only receiver grouped by `datasource_uid`.
+  One blip is then one email, never a page under an app's name.
+- **SQLite is not Grafana's production database**: «SQLite isn't
+  recommended for production environments; use MySQL or PostgreSQL»
+  ([config reference](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#database)).
+  While a hub stays on SQLite, run it with:
+  - `GF_DATABASE_WAL=true`: WAL, so readers stop waiting behind a writer.
+    Confirm with the startup log line
+    `Config overridden from Environment variable var="GF_DATABASE_WAL=true"`.
+  - `GF_DATABASE_QUERY_RETRIES=5`: SQLite only, default **0**, so a locked
+    query fails at once. Transactions already retry (`transaction_retries`,
+    default 5, logged as "Database locked, sleeping then retrying").
+  - the `alertingSaveStatePeriodic` toggle with
+    `GF_UNIFIED_ALERTING_STATE_PERIODIC_SAVE_INTERVAL=1m`. Without it,
+    Grafana does one SQL update per rule after EVERY evaluation, and the
+    alerting performance doc says that «can cause issues when using SQLite»
+    ([performance limitations](https://grafana.com/docs/grafana/latest/alerting/set-up/performance-limitations/)).
+    Check the live toggles on `/metrics`:
+    `grafana_feature_toggles_info{name="alertingSaveStatePeriodic"}`, plus
+    the startup log line `Using async rule state persister (compressed +
+    periodic)`. Do not use `grafana_alerting_state_full_sync_duration_seconds`
+    as the check: in compressed mode it stays 0 (verified on 13.1.3,
+    2026-11-02). `alertingSaveStateCompressed` is already on in 13.1 and
+    removed as a toggle in 13.2.
+- **Lock signature in Loki**: `{host="monitor-1-nc", service="grafana"}
+  |= "SQLITE_BUSY"`, together with "Failed getting data source" and
+  "failed to walk provisioned dashboards … max-retries-reached".
+  `make logs-states` then shows every rule going `Pending (Error)` within
+  the same minute. A Prometheus process start time that did not change
+  rules out a Prometheus restart.
+- **Annotations never expire by default**
+  (`[unified_alerting.state_history.annotations] max_age = 0`). With
+  `STATE_HISTORY_PRIMARY: annotations`, every transition is also a write
+  to `grafana.db`. The hub's open item: hq `TODO.md`, «Hub Grafana
+  database».
+
 ## 5b. Error tracking — GlitchTip (the estate's Sentry alternative)
 
 Errors/exceptions go to **GlitchTip**, not Sentry — it is Sentry-API
