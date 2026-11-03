@@ -307,6 +307,17 @@ fast-cut defaults are what made v1 unreadable.
   release note or site copy; figures only if the site's verified-claims table
   has them (a baked-in number needs a re-render to fix).
 
+**Instagram carousels on the same kit** (Panotxa SOC-001, 2026-11-03): one `slides.html` at 1080×1350
+whose `window.render(n)` shows slide n, rendered by the kit's `render.mjs stills <page> <out> 1080 1350 1 2 3 4 5`
+(font and page-error checks for free), then JPEG q2 + a contact sheet you actually look at (a CSS selector bug
+left one slide's photo blank, visible only on the sheet). What made the redesign: Anna judged the first version
+"reads like an ad": a generic need on the cover, the brand first, then a benefits list. The fix was **the dish
+photo full-bleed with a question as the hook** («¿Qué nota le pondrías a este plato?»), the brand small, the
+findings drawn on the photo from the dish's stored analysis, and the product only from slide 3. **Show no score
+you cannot stand behind**: the test dish's stored app score (56) and the nutritionist's (90) disagreed, so the
+"nota" stays the reader's. Review copies go where the reviewing bot can read them (Panotxa: the vault's
+`attachments/`, synced to Patri's box; check it arrived before messaging the bot), not only to a local path.
+
 **Evidence before announcing** (2026-09-28): a feature list built from
 release notes is not yet announceable. Check each item against production and
 the plans: new or a fix of an older feature, GA or beta (show the beta badge;
