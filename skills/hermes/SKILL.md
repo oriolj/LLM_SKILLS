@@ -330,6 +330,14 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
   stay in `~/.hermes/cache/documents/`, and the session is unaffected. Workaround: send the files one by
   one. Do not patch it locally; upstream issues #143001 and #143605, open PRs #146887, #147646 and #143647.
   After a `hermes update`, check that function, then delete this entry (patri, 2026-11-02).
+- **Third-party WebUI (`nesquena/hermes-webui`, trial on pep since 2026-11-03)**: `python3 server.py` under a user
+  unit re-executes itself on Hermes's managed Python and runs the agent in its own process, with the real
+  `~/.hermes`, so its password equals the bot's terminal; the gateway is not involved. Set
+  `HERMES_WEBUI_SKIP_ONBOARDING=1` (the wizard can write `config.yaml`), `HERMES_WEBUI_SERVER_CWD` (the default is
+  the agent checkout) and, in `settings.json`, `check_for_updates: false` + `ignore_agent_updates: true` (its banner
+  can update the Hermes checkout). Mutating API calls need the `X-Hermes-CSRF-Token` from the page's
+  `csrfToken`. Upgrade it with Hermes and restart it after `hermes update`. Setup: hq
+  `homelab/tools/hermes-webui/README.md`.
 - **Web dashboard**: `hermes dashboard` (default `127.0.0.1:9119`; `--host`,
   `--port`, `--no-open`); a non-loopback bind always requires an auth
   provider (password or OAuth). Our `hermes-dashboard.service` binds
