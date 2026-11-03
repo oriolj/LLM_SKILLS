@@ -624,6 +624,18 @@ and say "run as one plain bash command". Check each block before installing:
 → `(False, None, None)`. Blocked attempts show in `~/.hermes/logs/agent.log` as
 `BLOCKED: Command flagged as dangerous (<reason>)`.
 
+## Reviewing a bot's health
+
+Read the files; each `hermes` CLI launch costs a few hundred MB on a small box. hq `homelab/tools/hermes-review/` has the scripts.
+
+- `cron/jobs.json`: `last_status` is the latest run only. Also read `last_failure`, `failure_streak`, `last_delivery_error`, `paused_reason`. A paused job is not a failed one.
+- `logs/errors.log` for 7 days, grouped; `logs/gateway.log` for `Starting Hermes Gateway`, `Fatal .* adapter`, `liveness probes`, `admission refused`.
+- `journalctl --user -u hermes-gateway`: `Watchdog timeout (limit 2min)` is systemd killing a gateway whose loop stalled. `logs/gateway-exit-diag.log` has `previous_unclean_exit` with the last heartbeat.
+- A cron worker that dies logs `without writing a durable terminal state; whether side effects ran is unknown`, and the job ends `interrupted`.
+- On the Proxmox host, `/sys/fs/cgroup/lxc/<ct>/memory.events`: `high` shows reclaim pressure, and `oom_kill` can stay 0 while a box suffers. Check `pct config <ct>`: the swap limit differs per container.
+- `pending/skills`, `pending/memory`: proposals waiting for a person; only `/skills pending` etc. in a chat clears them.
+- Printing `config.yaml` exposes keys (`tts.openai.api_key`): grep named keys, never `tail` it.
+
 ## Liveness and boot
 
 - User timer `assistant-healthcheck@hermes.timer` runs
