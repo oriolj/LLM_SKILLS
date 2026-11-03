@@ -290,6 +290,19 @@ fast-cut defaults are what made v1 unreadable.
   - The thumbnail headline must auto-fit ("7 novedades" wrapped at the
     Catalan size): EnaCast's `shared/brand/thumbnail-16x9.html` shrinks it
     until each authored line stays one line.
+- **Lessons from the October sets** (2026-11-01/02: BikeCRM 34 single videos + a
+  summary, EnaCast six + a compilation):
+  - **One maker agent and one independent reviewer per video**, the reviewer
+    working from the final MP4s (not the scene file): of BikeCRM's 35, 22 came
+    back "fixed" (a wrong label, a hold too short, a claim past what shipped).
+  - **List Oriol's decisions before scheduling** (pace, a feature behind a gate
+    such as BikeCRM's Labs, wording) in a backlog table with a review column, and
+    label a gated feature on screen and in the copy rather than drop it.
+  - **Keep the renders local until those decisions settle**: a decision means a
+    re-render, and a re-render must not happen on the NAS share (next section's
+    third trap) nor churn its snapshots. Move to the NAS once the set is final.
+  - A feature that is pilot-only or untested in production is made but held
+    (EnaCast's Broadcaster); "made" is not "announceable".
 - **One claim, the site's claim**: the promise line comes from the feature's
   release note or site copy; figures only if the site's verified-claims table
   has them (a baked-in number needs a re-render to fix).
@@ -502,6 +515,17 @@ this section keeps the rules and the lessons.
    **deny every media file by default** (case-insensitive patterns), allow back only the small source assets
    (`!shared/assets/**/*.jpg`…), and run a `make check-bulk` before committing that fails on media tracked or
    staged outside the assets folder and on anything over 1 MB (Panotxa's `content-creation/Makefile`).
+   **And never render straight onto the NAS share** (BikeCRM, 2026-10-08, `5304fd3`): two of ten English shorts
+   written by ffmpeg through the `renders/` → NAS link came out with broken H.264 15–25 s in (their sha256 matched
+   the render's own record, so only a decode check shows it; the same shorts rendered locally were clean), most
+   likely the `-movflags +faststart` rewrite over the network mount. Render into a local staging twin under
+   `~/not-important/…/staged/`, decode-check (`ffmpeg -v error -i x.mp4 -f null -` prints nothing), then copy
+   to the NAS with the verified copy and link back. Kits: BikeCRM `scripts/bulky.py` (`staged()` / `publish()`,
+   interviews and episodes) and EnaCast `interview_common.staged_output` (interviews); Panotxa's feature-video kit
+   since 2026-11-03 (`build-video.sh` and `compile_videos.py` write to `staged/<video>/renders`, `renders/` links
+   there, `make nas-move` copies and re-points it at the NAS, a re-render of a moved video waits in staging).
+   **EnaCast's and BikeCRM's feature-video kits (`shared/build-video.sh`, `OUT="$DIR/renders"`) still write
+   through the NAS link**: port Panotxa's change before their next feature render.
    **Footage and renders live on the company NAS, truenas-enantena, for every work-related
    project, personal ones included** (Oriol, 2026-10-11: "the correct and final place", then
    "we will share that for all work related projects, even personal ones"):
@@ -815,6 +839,9 @@ this section keeps the rules and the lessons.
      for the CLI; a stored `postiz auth:login` in `~/.postiz/` **overrides
      the env key**, so check `postiz auth:status` (it prints the
      organization) before acting when several companies exist.
+     An **expired** stored login answers 401 "Invalid OAuth token" although the
+     key is fine (BikeCRM, 2026-11-02): `postiz auth:logout`, or run the CLI
+     with a scratch `HOME` (Panotxa's and EnaCast's `schedule_postiz.py` do).
    - `npx -y postiz@<version>` needs no global install; in zsh never keep
      the command in a variable (`$P args` does not split → nothing runs).
    - Channel settings seen: Instagram requires `post_type` (`post`; a
@@ -824,6 +851,20 @@ this section keeps the rules and the lessons.
      (≤ 100) and `type` (`public`/`private`/`unlisted`), plus
      `selfDeclaredMadeForKids`, `tags`, description ≤ 5,000. Instagram
      videos ≤ 100 MB (our shorts are 44–70 MB).
+     **Instagram's API caps a Reel at 15 minutes**: a long compilation goes out on
+     both Instagram and YouTube only if it fits (BikeCRM October: 22 of 34 videos,
+     14:50; the rest went out as singles).
+   - **Copy can differ per channel**: BikeCRM's plan item takes `description` and,
+     when YouTube's differs (chapters, links), `youtube_description`
+     (`schedule_postiz.py`, 2026-11-02).
+   - **When a bot shares the Postiz account** (Bruno on BikeCRM's, 2026-10-17), it
+     can move or delete posts the repo's records do not know about, and a
+     `--replace` that deletes only the recorded IDs then posts twice. BikeCRM's
+     scheduler compares Postiz with the records first and stops on any difference
+     (`IGNORE_UNRECORDED=1` when it is known); `make publications` refreshes the
+     register from Postiz. Port it to a project the day its bot gets Postiz access.
+   - `postiz posts:list` prints a header line before its JSON; skip it before
+     parsing (BikeCRM `schedule_postiz.postiz()`), or use the public API.
    - JSON mode (`posts:create --json`) with one `posts[]` entry per
      channel, the uploaded media `{id, path}`, and `settings.__type`;
      answers `[{postId, integration}]`, and `posts:list` then shows each
