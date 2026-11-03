@@ -20,6 +20,8 @@ echo "== update rc=$rc $(date -u +%T)"
 echo "after: $($H --version 2>&1 | head -1)"   # foreground first run of the new revision
 systemctl --user start hermes-gateway.service
 systemctl --user restart hermes-dashboard.service
+# The third-party WebUI keeps the old Hermes code in memory; its tag still has to match (hq homelab/tools/hermes-webui).
+systemctl --user try-restart hermes-webui.service
 sleep 40
 echo "gateway=$(systemctl --user is-active hermes-gateway) dashboard=$(systemctl --user is-active hermes-dashboard)"
 echo "wrap_response=$($H config get cron.wrap_response 2>&1) interface=$($H config get display.interface 2>&1)"

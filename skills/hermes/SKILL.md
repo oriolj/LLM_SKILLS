@@ -333,7 +333,7 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
 - **`gateway.shutdown_watchdog` exit (code 75)**: under heavy host memory pressure the event loop misses 3 liveness
   probes and the gateway exits so systemd restarts it (pep, 2026-11-03, back in 26 s); turns in flight are lost.
   Look at `~/.hermes/logs/gateway-exit-diag.log` and the container's `memory.events` `high` count on the Proxmox host.
-- **Third-party WebUI (`nesquena/hermes-webui`, trial on pep since 2026-11-03)**: `python3 server.py` under a user
+- **Third-party WebUI (`nesquena/hermes-webui`, trial on all five since 2026-11-03)**: `python3 server.py` under a user
   unit re-executes itself on Hermes's managed Python and runs the agent in its own process, with the real
   `~/.hermes`, so its password equals the bot's terminal; the gateway is not involved. Set
   `HERMES_WEBUI_SKIP_ONBOARDING=1` (the wizard can write `config.yaml`), `HERMES_WEBUI_SERVER_CWD` (the default is
