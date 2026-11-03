@@ -1136,6 +1136,8 @@ predictable start folder (SOUL.md enforces no workspace boundary).
   thin gate and do the work in a subprocess with the system `python3 -I` (stdlib only) or a venv
   you own; ImageMagick (`magick`) is on the claws.
 
+**Headed browser on a claw (read 2026-11-03, not enabled):** `browser.headed: true` needs a display, and our containers have none. Hermes's route is the Bot Screen (`hermes computer-use screen install`: TigerVNC + Xfce, root, ~930 MB of disk; `bot_desktop.auto_start: true`). Its docs plan ~1.1-1.5 GB per open screen with a browser, need 1,536 MB free before starting, and call 8 GB comfortable. Headed also keeps the browser between turns (`inactivity_timeout`, 120 s). Before reading a Chromium's age as a leak, check `--user-data-dir`: `/app/.sessions/webjs/…` is WAHA, and killing it can drop the WhatsApp session.
+
 **More, learned on pep `jg` (Pep JG, the family-vault profile, v0.22.5, 2026-10-28):**
 - **Create a narrow profile with `--no-skills`**, never `--clone`. `--clone` copies the default's
   `.env` (every bot token and API key) into a profile meant to hold nothing. `--no-skills` writes
