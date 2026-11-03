@@ -2235,6 +2235,19 @@ Postgres/Valkey** with exporters as compose services on the tailnet bind). Repo 
    *sustained* (>30 entries in every trailing 10-min window for 30m, per
    host). Reading that reason: cross-check `loki_discarded_samples_total`
    by reason — `greater_than_max_sample_age` is replay, not loss.
+   **A replay that a restart of Alloy does not stop is a corrupt log, not
+   a reconnect** (mlrtx2 transcriber, 2026-10-27 → 11-03): an unclean
+   shutdown left NUL bytes in the container's json log, Docker's reader fails
+   there (`invalid character '\x00' looking for beginning of value`, Alloy
+   "could not transfer logs" every 5 s) and the tailer re-sends the lines
+   before the hole forever, while the container's newer lines never ship.
+   Check with `tr -cd '\000' < <LogPath> | wc -c`. 🔴 **Do not fix it with
+   `truncate -s 0` on the live file**: dockerd keeps the file's size in
+   memory, so the follow stream then waits at the old offset and new lines
+   stop reaching Alloy (verified 2026-11-03; only what was already in the
+   file when Alloy reopened it shipped). Copy the file aside, then restart
+   or recreate the container (a new logger starts from the real file), when
+   the worker is idle; set json-file `max-size` on hosts without it.
 7. One host at a time; watch ingest rate, stream count
    (`loki_ingester_memory_streams`), and hub disk before the next.
 
