@@ -330,6 +330,9 @@ hq `shared/docs/bots.md` § Voice notes and audio. Mechanics:
   stay in `~/.hermes/cache/documents/`, and the session is unaffected. Workaround: send the files one by
   one. Do not patch it locally; upstream issues #143001 and #143605, open PRs #146887, #147646 and #143647.
   After a `hermes update`, check that function, then delete this entry (patri, 2026-11-02).
+- **`gateway.shutdown_watchdog` exit (code 75)**: under heavy host memory pressure the event loop misses 3 liveness
+  probes and the gateway exits so systemd restarts it (pep, 2026-11-03, back in 26 s); turns in flight are lost.
+  Look at `~/.hermes/logs/gateway-exit-diag.log` and the container's `memory.events` `high` count on the Proxmox host.
 - **Third-party WebUI (`nesquena/hermes-webui`, trial on pep since 2026-11-03)**: `python3 server.py` under a user
   unit re-executes itself on Hermes's managed Python and runs the agent in its own process, with the real
   `~/.hermes`, so its password equals the bot's terminal; the gateway is not involved. Set
@@ -1368,6 +1371,8 @@ installer alone ~15 min). Traps found on maia:
    `cua-driver` failed to install there and nothing needs it.
 5. `hermes config set` model / provider / base_url, `memory.write_approval
    false`, the `fallback_providers` block, then as text edits
+   top-level `timezone: Europe/Madrid` (every bot and profile, 2026-11-03; a recurring job
+   written before it needs its hour moved to keep firing at the same time), then
    `display.interface: tui` and `cron.wrap_response: false` (both house
    defaults since 2026-10-25), `hermes pm install --extra
    messaging`, `hermes gateway install --start-on-login --no-start-now`
