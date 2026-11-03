@@ -55,12 +55,16 @@ inventory. The one place an IP is still required is a **compose port bind**
 > (2026-10-06, §3a). Its purpose is to detect CPU or memory steal by noisy
 > neighbours on shared hypervisors, which Beszel cannot show (no steal, no
 > PSI, no alerting on either). It ships only cpu/pressure/loadavg/meminfo/
-> textfile. It is not a general node_exporter rollout. **A non-vps host
-> can opt in** with the host var `observability_host_health: true` when Oriol
-> asks for its memory in Grafana (v5, bare metal, 2026-11-03, after a Beszel
-> memory alert Grafana could not see). Give its `host-health` target the
-> label `canary: none`, because it has no `host_canary` role and
-> `hh-canary-stale` would otherwise page "never ran". The memory rules on
+> textfile. It is not a general node_exporter rollout. **Since 2026-11-03
+> the exporter is ON for every agent host** (`observability_host_health`
+> defaults to `true`; Oriol, after a Beszel memory alert on v5 that Grafana
+> could not see), bare metal and desktops included, for memory/PSI/load.
+> The nightly `host_canary` stays vps-only, so a non-vps target in the hub's
+> `host-health` job carries `canary: none`, or `hh-canary-stale` pages
+> "never ran". A new agent host therefore needs its `host-health` target as
+> well as its `alloy` one. 🔴 When editing that file, anchor on the job:
+> each host appears once in `alloy` and once in `host-health` (an insert
+> after the first `nori:12345` put v5 in `alloy`, 2026-11-03). The memory rules on
 > that job are `hh-memory-psi` (stalls) and `hh-memory-available-low` (< 10 %
 > available for 15 m, email).
 
