@@ -55,7 +55,14 @@ inventory. The one place an IP is still required is a **compose port bind**
 > (2026-10-06, §3a). Its purpose is to detect CPU or memory steal by noisy
 > neighbours on shared hypervisors, which Beszel cannot show (no steal, no
 > PSI, no alerting on either). It ships only cpu/pressure/loadavg/meminfo/
-> textfile. It is not a general node_exporter rollout.
+> textfile. It is not a general node_exporter rollout. **A non-vps host
+> can opt in** with the host var `observability_host_health: true` when Oriol
+> asks for its memory in Grafana (v5, bare metal, 2026-11-03, after a Beszel
+> memory alert Grafana could not see). Give its `host-health` target the
+> label `canary: none`, because it has no `host_canary` role and
+> `hh-canary-stale` would otherwise page "never ran". The memory rules on
+> that job are `hh-memory-psi` (stalls) and `hh-memory-available-low` (< 10 %
+> available for 15 m, email).
 
 ## Loki 429s that are NOT rate limits — the active-stream ceiling
 
