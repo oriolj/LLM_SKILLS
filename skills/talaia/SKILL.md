@@ -170,7 +170,11 @@ once it is fixed.
 - **Frontend build drift is checkable without a frontend change** when the
   bundle carries a build stamp: `bikecrm/bundles` reads `{commit, branch,
   release, builtAt}` out of the live `main-*.js` and compares brands, skipping a
-  mismatch younger than a deploy.
+  mismatch younger than a deploy. A `+dirty` commit fails it outright; until
+  frontend `9a552d77` (2026-11-03) untracked files in the deploying checkout
+  (a session's uncommitted `*.spec.ts`) also set `+dirty` on a clean build and
+  paged for 14 h. Triage: `git status --untracked-files=no` in the checkout that
+  deployed; clear it with a redeploy from a clean master (`make deploy-prod`).
 
 - **Validating a BikeCRM suite against beta before production** (2026-09-27): point
   `BIKECRM_BASE_URL` / `BIKECRM_APP_URL` at `beta.api` / `beta.bikecrm.app` and run
